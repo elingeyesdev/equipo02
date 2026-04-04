@@ -1,0 +1,201 @@
+1.2 Modelo de datos Asset y Token
+
+Objetivo del entregable
+Dejar definido de forma clara cómo serán los datos principales que manejará el proyecto en el middleware y en la blockchain, separando los datos de Cliente como Asset y las operaciones de valor como Token, junto con sus campos mínimos y validaciones básicas.
+
+Contrato técnico asociado
+El mismo modelo está reflejado en: api-middleware/openapi.yaml (contrato OpenAPI 3.0.3 para implementación y validación).
+
+Resumen
+En este proyecto, el Asset representa la información del cliente que se va a registrar y consultar en la red. El Token representa operaciones de valor asociadas a un cliente o cuenta. La idea de este punto es acordar qué datos se van a usar, cómo llegarán al middleware y qué reglas mínimas deben cumplir, alineado con el archivo OpenAPI del repositorio.
+
+A. Datos Cliente como Asset
+
+Nombre lógico del activo
+Cliente
+
+Clave única del registro
+clienteId
+
+Descripción
+El Asset Cliente será el registro principal del sistema. Cada cliente tendrá una clave única para poder identificarlo, registrarlo y consultarlo sin repetir información.
+
+Campos obligatorios
+clienteId
+nombre
+tipoDocumento
+numeroDocumento
+fechaAlta
+estado
+
+Campos opcionales
+telefono
+email
+notas
+
+Reglas básicas para Cliente
+clienteId no puede repetirse
+nombre no puede estar vacío
+tipoDocumento debe pertenecer a una lista permitida
+numeroDocumento no puede estar vacío
+fechaAlta debe tener formato de fecha ISO 8601 (solo fecha), ejemplo: 2026-04-01
+estado solo puede tomar valores permitidos
+si email se envía, debe tener formato válido de correo
+si telefono se envía, debe cumplir el formato acordado por el equipo (longitud / dígitos)
+
+Estados permitidos
+ACTIVO
+INACTIVO
+
+Tipos de documento permitidos
+CI
+NIT
+PASAPORTE
+
+Ejemplo JSON de solicitud válida para Cliente
+{
+  "clienteId": "CLI001",
+  "nombre": "Juan Perez",
+  "tipoDocumento": "CI",
+  "numeroDocumento": "1234567",
+  "fechaAlta": "2026-04-01",
+  "estado": "ACTIVO",
+  "telefono": "70000000",
+  "email": "juan@gmail.com",
+  "notas": "Cliente de prueba"
+}
+
+B. Operaciones de Valor como Token
+
+Nombre lógico
+Token de valor
+
+Descripción
+El Token se usará para representar operaciones de valor dentro del sistema. No reemplaza al cliente, sino que sirve para registrar movimientos como emisión, transferencia, saldo e historial.
+
+Operaciones principales
+emitirToken
+transferirToken
+consultarSaldo
+consultarHistorial
+
+Campos obligatorios por operación
+
+Emitir Token
+destinatario
+monto
+codigoToken
+
+Transferir Token
+origen
+destino
+monto
+codigoToken
+
+Consultar saldo
+clienteId (identificador del cliente en la ruta de la API)
+codigoToken (obligatorio; en la API va como parámetro de consulta query junto al GET)
+
+Consultar historial
+clienteId (identificador del cliente en la ruta de la API)
+codigoToken (obligatorio; en la API va como parámetro de consulta query junto al GET)
+
+Ejemplos de llamada de consulta (API)
+Consultar saldo:   GET .../tokens/saldo/CLI001?codigoToken=TOK001
+Consultar historial: GET .../tokens/historial/CLI001?codigoToken=TOK001
+
+Reglas básicas para Token
+monto debe ser mayor que cero (entero; unidades mínimas las define el equipo)
+codigoToken no puede venir vacío
+destinatario no puede venir vacío
+origen y destino son obligatorios en transferencia
+si falta un campo obligatorio, la solicitud se rechaza
+si un identificador viene vacío o con formato incorrecto, la solicitud se rechaza
+en consultas de saldo e historial, si falta codigoToken en query, la solicitud se rechaza
+
+Ejemplo JSON de solicitud válida para emitir Token
+{
+  "destinatario": "CLI001",
+  "monto": 1000,
+  "codigoToken": "TOK001"
+}
+
+Ejemplo JSON de solicitud válida para transferir Token
+{
+  "origen": "CLI001",
+  "destino": "CLI002",
+  "monto": 250,
+  "codigoToken": "TOK001"
+}
+
+C. Estructura de solicitud al middleware
+
+Operación
+registrarCliente
+
+Campos
+clienteId
+nombre
+tipoDocumento
+numeroDocumento
+fechaAlta
+estado
+telefono
+email
+notas
+
+Nota API: registro exitoso devuelve 201 Created según openapi.yaml (además de cuerpo con ok, txId, mensaje).
+
+Operación
+emitirToken
+
+Campos
+destinatario
+monto
+codigoToken
+
+Operación
+transferirToken
+
+Campos
+origen
+destino
+monto
+codigoToken
+
+Operación
+consultarSaldo
+
+Parámetros
+clienteId (path)
+codigoToken (query, obligatorio)
+
+Operación
+consultarHistorial
+
+Parámetros
+clienteId (path)
+codigoToken (query, obligatorio)
+
+D. Validaciones mínimas
+
+Para Cliente
+rechazo si falta un campo obligatorio
+rechazo si clienteId viene vacío
+rechazo si nombre viene vacío
+rechazo si estado no pertenece a los valores permitidos
+rechazo si tipoDocumento no está en la lista permitida
+rechazo si email no tiene formato válido (cuando se envía email)
+
+Para Token
+rechazo si falta un campo obligatorio
+rechazo si monto es menor o igual a cero
+rechazo si origen o destino vienen vacíos (transferencia)
+rechazo si codigoToken viene vacío
+rechazo en consultas de saldo o historial si falta codigoToken en query
+
+Convención general
+Todos los nombres de campos se manejarán en camelCase para mantener la misma forma en todo el proyecto.
+
+Cierre
+Para esta etapa queda definido que el sistema manejará un Asset principal llamado Cliente y un Token de valor para operaciones de emisión, transferencia, consulta de saldo e historial. Las consultas de saldo e historial requieren siempre clienteId y codigoToken (este último como query en la API REST). El equipo usa como fuente de verdad el archivo api-middleware/openapi.yaml junto a este texto.

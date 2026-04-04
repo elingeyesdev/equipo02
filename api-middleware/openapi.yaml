@@ -1,0 +1,426 @@
+openapi: 3.0.3
+info:
+  title: API Middleware Blockchain
+  version: 1.0.0
+  description: >-
+    Contrato base para registrar clientes (Asset) y operaciones de valor (Token)
+    sobre la red Hyperledger Fabric del proyecto.
+
+servers:
+  - url: http://localhost:3000
+    description: Servidor local de desarrollo
+
+tags:
+  - name: clientes
+    description: Registro y consulta de clientes (Asset)
+  - name: tokens
+    description: Emisión, transferencia, saldo e historial (Token)
+
+paths:
+  /clientes:
+    post:
+      tags: [clientes]
+      summary: Registrar cliente
+      description: Registra un nuevo cliente como Asset dentro del sistema.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cliente'
+            example:
+              clienteId: CLI001
+              nombre: Juan Perez
+              tipoDocumento: CI
+              numeroDocumento: "1234567"
+              fechaAlta: "2026-04-01"
+              estado: ACTIVO
+              telefono: "70000000"
+              email: juan@gmail.com
+              notas: Cliente de prueba
+      responses:
+        '201':
+          description: Cliente registrado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExitoTx'
+              example:
+                ok: true
+                txId: TX001
+                mensaje: Cliente registrado correctamente
+        '400':
+          description: Error de validación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                ok: false
+                codigo: VALIDACION
+                mensaje: Faltan campos obligatorios
+
+  /clientes/{clienteId}:
+    get:
+      tags: [clientes]
+      summary: Consultar cliente
+      description: Consulta un cliente registrado en el sistema.
+      parameters:
+        - name: clienteId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: CLI001
+      responses:
+        '200':
+          description: Cliente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cliente'
+        '404':
+          description: Cliente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                ok: false
+                codigo: NO_ENCONTRADO
+                mensaje: Cliente no registrado
+
+  /tokens/emitir:
+    post:
+      tags: [tokens]
+      summary: Emitir token
+      description: Registra una operación de emisión de valor a un cliente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmitirToken'
+            example:
+              destinatario: CLI001
+              monto: 1000
+              codigoToken: TOK001
+      responses:
+        '200':
+          description: Token emitido correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExitoTx'
+        '400':
+          description: Error de validación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                ok: false
+                codigo: VALIDACION
+                mensaje: El monto debe ser mayor que cero
+
+  /tokens/transferir:
+    post:
+      tags: [tokens]
+      summary: Transferir token
+      description: Registra una transferencia de valor entre clientes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferirToken'
+            example:
+              origen: CLI001
+              destino: CLI002
+              monto: 250
+              codigoToken: TOK001
+      responses:
+        '200':
+          description: Transferencia realizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExitoTx'
+        '400':
+          description: Error de validación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                ok: false
+                codigo: SALDO_INVALIDO
+                mensaje: El monto debe ser mayor que cero
+
+  /tokens/saldo/{clienteId}:
+    get:
+      tags: [tokens]
+      summary: Consultar saldo
+      description: >-
+        Consulta el saldo de un token para un cliente. Requiere el código de token
+        como parámetro de consulta (alineado al modelo de datos 1.2).
+      parameters:
+        - name: clienteId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: CLI001
+        - name: codigoToken
+          in: query
+          required: true
+          description: Código del token cuyo saldo se consulta
+          schema:
+            type: string
+          example: TOK001
+      responses:
+        '200':
+          description: Saldo obtenido correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaldoToken'
+              example:
+                clienteId: CLI001
+                codigoToken: TOK001
+                saldo: 750
+        '404':
+          description: Cliente o saldo no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                ok: false
+                codigo: NO_ENCONTRADO
+                mensaje: Cliente no registrado o sin saldo para ese token
+
+  /tokens/historial/{clienteId}:
+    get:
+      tags: [tokens]
+      summary: Consultar historial
+      description: >-
+        Consulta el historial de operaciones de valor de un cliente para un token
+        concreto (codigoToken obligatorio en query).
+      parameters:
+        - name: clienteId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: CLI001
+        - name: codigoToken
+          in: query
+          required: true
+          description: Filtra operaciones solo para este código de token
+          schema:
+            type: string
+          example: TOK001
+      responses:
+        '200':
+          description: Historial obtenido correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistorialToken'
+              example:
+                clienteId: CLI001
+                codigoToken: TOK001
+                operaciones:
+                  - txId: TX100
+                    tipo: EMISION
+                    monto: 1000
+                    codigoToken: TOK001
+                  - txId: TX101
+                    tipo: TRANSFERENCIA
+                    monto: 250
+                    codigoToken: TOK001
+        '404':
+          description: Sin historial para ese cliente y token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                ok: false
+                codigo: NO_ENCONTRADO
+                mensaje: No existe historial para el cliente y token indicados
+
+components:
+  schemas:
+    Cliente:
+      type: object
+      required:
+        - clienteId
+        - nombre
+        - tipoDocumento
+        - numeroDocumento
+        - fechaAlta
+        - estado
+      properties:
+        clienteId:
+          type: string
+          description: Identificador único del cliente
+          minLength: 1
+        nombre:
+          type: string
+          description: Nombre completo del cliente
+          minLength: 1
+        tipoDocumento:
+          type: string
+          description: Tipo de documento del cliente
+          enum: [CI, NIT, PASAPORTE]
+        numeroDocumento:
+          type: string
+          description: Número de documento del cliente
+          minLength: 1
+        fechaAlta:
+          type: string
+          format: date
+          description: Fecha de registro del cliente (ISO 8601 fecha)
+        estado:
+          type: string
+          description: Estado actual del cliente
+          enum: [ACTIVO, INACTIVO]
+        telefono:
+          type: string
+          description: Teléfono del cliente
+        email:
+          type: string
+          format: email
+          description: Correo electrónico del cliente
+        notas:
+          type: string
+          description: Información adicional del cliente
+
+    EmitirToken:
+      type: object
+      required:
+        - destinatario
+        - monto
+        - codigoToken
+      properties:
+        destinatario:
+          type: string
+          description: Cliente que recibe el valor (clienteId)
+          minLength: 1
+        monto:
+          type: integer
+          format: int64
+          description: Cantidad de valor a emitir (unidades mínimas acordadas por el equipo)
+          minimum: 1
+        codigoToken:
+          type: string
+          description: Código del token
+          minLength: 1
+
+    TransferirToken:
+      type: object
+      required:
+        - origen
+        - destino
+        - monto
+        - codigoToken
+      properties:
+        origen:
+          type: string
+          description: Cliente que envía el valor (clienteId)
+          minLength: 1
+        destino:
+          type: string
+          description: Cliente que recibe el valor (clienteId)
+          minLength: 1
+        monto:
+          type: integer
+          format: int64
+          description: Cantidad de valor a transferir
+          minimum: 1
+        codigoToken:
+          type: string
+          description: Código del token
+          minLength: 1
+
+    SaldoToken:
+      type: object
+      required:
+        - clienteId
+        - codigoToken
+        - saldo
+      properties:
+        clienteId:
+          type: string
+        codigoToken:
+          type: string
+        saldo:
+          type: integer
+          format: int64
+
+    OperacionHistorial:
+      type: object
+      required:
+        - txId
+        - tipo
+        - monto
+        - codigoToken
+      properties:
+        txId:
+          type: string
+        tipo:
+          type: string
+          enum: [EMISION, TRANSFERENCIA]
+        monto:
+          type: integer
+          format: int64
+        codigoToken:
+          type: string
+
+    HistorialToken:
+      type: object
+      required:
+        - clienteId
+        - codigoToken
+        - operaciones
+      properties:
+        clienteId:
+          type: string
+        codigoToken:
+          type: string
+        operaciones:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperacionHistorial'
+
+    RespuestaExitoTx:
+      type: object
+      required:
+        - ok
+        - txId
+        - mensaje
+      properties:
+        ok:
+          type: boolean
+          example: true
+        txId:
+          type: string
+        mensaje:
+          type: string
+
+    RespuestaError:
+      type: object
+      required:
+        - ok
+        - codigo
+        - mensaje
+      properties:
+        ok:
+          type: boolean
+          example: false
+        codigo:
+          type: string
+        mensaje:
+          type: string
