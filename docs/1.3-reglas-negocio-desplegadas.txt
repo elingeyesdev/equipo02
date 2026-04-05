@@ -43,17 +43,29 @@ Despliegue de Asset:
 Despliegue de Token:
 ./network.sh deployCC -ccn token_erc20 -ccp ../token-erc-20/chaincode-go/ -ccl go -c clientes
 
-Invocación de Activación (Token):
-peer chaincode invoke ... -n token_erc20 -c '{"function":"Initialize","Args":["TokenProyecto","TOK","2"]}'
+Invocación de Activación (Token) — comando completo (ejecutar desde red-hyperledger/test-network, con identidad Org1 cargada en CORE_PEER_*; solo una vez por despliegue):
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C clientes -n token_erc20 \
+--peerAddresses localhost:7051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" \
+--peerAddresses localhost:9051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt" \
+-c '{"function":"Initialize","Args":["TokenProyecto","TOK","2"]}'
+
+Evidencia de paquetes instalados en peer (adjuntos / capturas de laboratorio):
+- peer0-org1-cliente_cc-1.0
+- peer0-org1-token_erc20-1.0
 
 5. PLAN DE VERIFICACIÓN Y EVIDENCIAS
 Para asegurar que todo funciona como se diseñó en el entregable 1.2, se realizaron las siguientes pruebas:
 
-A. Prueba de Escritura (Invoke):
-Se creó el cliente "CLI001" (Juan) enviando la propuesta a ambos Peers para cumplir con la política de endoso.
+A. Prueba de Escritura (Invoke) — Asset cliente_cc:
+peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C clientes -n cliente_cc \
+--peerAddresses localhost:7051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" \
+--peerAddresses localhost:9051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt" \
+-c '{"function":"CreateAsset","Args":["CLI001","Azul","10","Juan","1000"]}'
 
-B. Prueba de Lectura (Query):
-Se consultó el estado del activo "CLI001" mediante el comando ReadAsset.
+B. Prueba de Lectura (Query) — ReadAsset CLI001:
+peer chaincode query -C clientes -n cliente_cc -c '{"function":"ReadAsset","Args":["CLI001"]}'
+Salida obtenida (ejemplo real):
+{"AppraisedValue":1000,"Color":"Azul","ID":"CLI001","Owner":"Juan","Size":10}
 
 C. Visualización en CouchDB:
 Evidencia visual disponible en: http://localhost:5984/_utils/ (Fauxton Interface).
