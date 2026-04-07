@@ -1,0 +1,135 @@
+ENTREGABLE 1.5 — LÍNEA BASE SIN MIDDLEWARE
+
+Objetivo
+Demostrar que la red Hyperledger Fabric acepta operaciones directamente desde la CLI (peer / fabric-ca-client), sin pasar por el middleware ni por la API del proyecto. Esto establece la línea base: si algo falla después, se sabe que la causa no es la red básica sino la capa intermedia.
+
+Alcance
+1) Registro y consulta Asset (chaincode cliente_cc) vía peer CLI.
+2) Inicialización, emisión, transferencia y consulta de saldo Token (chaincode token_erc20) vía peer CLI, siguiendo el flujo del sample ERC-20 con identidades minter/recipient (Fabric CA).
+3) Evidencia de que las transacciones quedaron registradas (estado consultable y/o altura de cadena).
+
+Requisitos previos
+- Red levantada con CA y CouchDB, canal del equipo (ejemplo: clientes):
+  ./network.sh up createChannel -ca -s couchdb -c clientes
+- Chaincodes desplegados como en 1.3:
+  ./network.sh deployCC -ccn cliente_cc -ccp ../asset-transfer-basic/chaincode-go/ -ccl go -c clientes
+  ./network.sh deployCC -ccn token_erc20 -ccp ../token-erc-20/chaincode-go/ -ccl go -c clientes
+- Trabajar siempre desde: red-hyperledger/test-network
+- PATH con binarios Fabric: export PATH=${PWD}/../bin:${PWD}:$PATH
+- FABRIC_CFG_PATH: export FABRIC_CFG_PATH=${PWD}/../config/
+
+Nombre del canal usado en los ejemplos
+-C clientes
+(Si el equipo usa otro nombre, reemplazar en todos los comandos.)
+
+================================================================================
+A) ASSET — Registro y consulta directa (sin middleware)
+================================================================================
+
+Variables comunes para invocaciones con endoso en Org1 y Org2 (mayoría de miembros):
+export TARGET_TLS_OPTIONS=(-o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" --peerAddresses localhost:7051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" --peerAddresses localhost:9051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt")
+
+A.1 Registro (invoke) — crear activo CLI-BASE-001
+peer chaincode invoke "${TARGET_TLS_OPTIONS[@]}" -C clientes -n cliente_cc \
+  -c '{"function":"CreateAsset","Args":["CLI-BASE-001","Verde","5","AdminBase","500"]}'
+
+A.2 Consulta (query) — leer el mismo activo
+peer chaincode query -C clientes -n cliente_cc -c '{"function":"ReadAsset","Args":["CLI-BASE-001"]}'
+
+Evidencia esperada: JSON con ID CLI-BASE-001 y campos coherentes con CreateAsset.
+
+Nota: Si CLI-BASE-001 ya existiera de una prueba anterior, cambiar el ID o usar UpdateAsset según el contrato.
+
+================================================================================
+B) TOKEN (ERC-20) — Flujo directo sin middleware
+================================================================================
+Basado en token-erc-20/README.md; canal y nombre de contrato adaptados a: -C clientes -n token_erc20
+
+B.0 Registrar y enrolar identidades minter (Org1) y recipient (Org2) — una vez por red limpia
+
+Terminal Org1 (minter):
+export FABRIC_CA_CLIENT_HOME=${PWD}/organizations/peerOrganizations/org1.example.com/
+fabric-ca-client register --caname ca-org1 --id.name minter --id.secret minterpw --id.type client --tls.certfiles "${PWD}/organizations/fabric-ca/org1/tls-cert.pem"
+fabric-ca-client enroll -u https://minter:minterpw@localhost:7054 --caname ca-org1 -M "${PWD}/organizations/peerOrganizations/org1.example.com/users/minter@org1.example.com/msp" --tls.certfiles "${PWD}/organizations/fabric-ca/org1/tls-cert.pem"
+cp "${PWD}/organizations/peerOrganizations/org1.example.com/msp/config.yaml" "${PWD}/organizations/peerOrganizations/org1.example.com/users/minter@org1.example.com/msp/config.yaml"
+
+Terminal Org2 (recipient):
+export FABRIC_CA_CLIENT_HOME=${PWD}/organizations/peerOrganizations/org2.example.com/
+fabric-ca-client register --caname ca-org2 --id.name recipient --id.secret recipientpw --id.type client --tls.certfiles "${PWD}/organizations/fabric-ca/org2/tls-cert.pem"
+fabric-ca-client enroll -u https://recipient:recipientpw@localhost:8054 --caname ca-org2 -M "${PWD}/organizations/peerOrganizations/org2.example.com/users/recipient@org2.example.com/msp" --tls.certfiles "${PWD}/organizations/fabric-ca/org2/tls-cert.pem"
+cp "${PWD}/organizations/peerOrganizations/org2.example.com/msp/config.yaml" "${PWD}/organizations/peerOrganizations/org2.example.com/users/recipient@org2.example.com/msp/config.yaml"
+
+B.1 Operar como minter (Org1) — Initialize (solo una vez por despliegue del contrato)
+Si ya ejecutaste Initialize en el entregable 1.3 con el mismo token_erc20, NO repitas este paso (fallaría). Pasa directo a B.2 Mint.
+
+Si abres una terminal nueva, vuelve a definir: export TARGET_TLS_OPTIONS=... (igual que en sección A).
+
+export CORE_PEER_TLS_ENABLED=true
+export CORE_PEER_LOCALMSPID=Org1MSP
+export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/minter@org1.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_ADDRESS=localhost:7051
+
+peer chaincode invoke "${TARGET_TLS_OPTIONS[@]}" -C clientes -n token_erc20 \
+  -c '{"function":"Initialize","Args":["TokenBase","TB","2"]}'
+
+B.2 Emitir (Mint)
+peer chaincode invoke "${TARGET_TLS_OPTIONS[@]}" -C clientes -n token_erc20 \
+  -c '{"function":"Mint","Args":["5000"]}'
+
+B.3 Consultar saldo del minter
+peer chaincode query -C clientes -n token_erc20 -c '{"function":"ClientAccountBalance","Args":[]}'
+
+B.4 Obtener ID de cuenta del recipient (terminal Org2)
+export CORE_PEER_LOCALMSPID=Org2MSP
+export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org2.example.com/users/recipient@org2.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+export CORE_PEER_ADDRESS=localhost:9051
+
+peer chaincode query -C clientes -n token_erc20 -c '{"function":"ClientAccountID","Args":[]}'
+
+Copiar el valor devuelto (contrato Go suele devolver base64). Exportar como RECIPIENT en la terminal del minter para el paso B.5.
+
+Ejemplo (Go — el valor real lo genera tu consulta):
+export RECIPIENT="<pegar salida completa de ClientAccountID>"
+
+B.5 Volver a identidad minter (Org1) y transferir
+export CORE_PEER_LOCALMSPID=Org1MSP
+export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/minter@org1.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_ADDRESS=localhost:7051
+
+peer chaincode invoke "${TARGET_TLS_OPTIONS[@]}" -C clientes -n token_erc20 \
+  -c '{"function":"Transfer","Args":["'"$RECIPIENT"'","100"]}'
+
+B.6 Consultar saldos (minter en Org1, recipient en Org2) — mismas variables CORE_PEER que arriba según usuario
+peer chaincode query -C clientes -n token_erc20 -c '{"function":"ClientAccountBalance","Args":[]}'
+
+Evidencia esperada: saldo minter disminuido, saldo recipient aumentado (valores coherentes con Mint y Transfer).
+
+================================================================================
+C) CONFIRMAR PERSISTENCIA EN EL LEDGER
+================================================================================
+La persistencia se demuestra de tres formas complementarias (elegir al menos dos para evidencia):
+
+C.1 Estado mundial (world state) — las queries ReadAsset y ClientAccountBalance devuelven datos tras confirmación; si el peer respondió con el nuevo valor, el estado quedó escrito en CouchDB/LevelDB del peer.
+
+C.2 Identificador de transacción — las salidas de peer chaincode invoke suelen incluir un txid en el bloque de respuesta; guardar ese txid como evidencia de commit.
+
+C.3 Altura del canal (opcional) — con CORE_PEER apuntando a un peer de Org1:
+peer channel getinfo -c clientes
+
+Se observa el campo "height" o información de bloque actual; tras varias invocaciones, el height debería incrementarse.
+
+C.4 Explorador de CouchDB (si usáis -s couchdb) — en Fauxton, bases relacionadas al canal/chaincode; los documentos de estado reflejan claves/valores tras las operaciones.
+
+================================================================================
+ENTREGABLE PARA EL DOCENTE / REPOSITORIO
+================================================================================
+- Capturas o copia de terminal: CreateAsset + ReadAsset (Asset).
+- Capturas: Initialize (si aplica), Mint, ClientAccountBalance, Transfer, balances finales (Token).
+- Una captura de peer channel getinfo -c clientes o nota del txid de una invoke.
+- Breve nota: "Línea base verificada sin middleware; las mismas operaciones luego las expondrá la API."
+
+Qué no subir
+No incluir llaves privadas ni PEM completos en el repositorio.
