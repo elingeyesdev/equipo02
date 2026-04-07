@@ -1,0 +1,76 @@
+1.4 Identidades y credenciales del administrador principal
+
+Objetivo del entregable
+En este punto se deja definido quién será el administrador principal del proyecto dentro de la red, cuál es su organización de referencia, qué MSP utilizará y en qué ruta se encuentran sus credenciales. La intención es que el equipo tenga claro qué identidad se usará como base para operar la red en nombre del proyecto y cómo se reconocerá esa identidad dentro del entorno de Hyperledger Fabric.
+
+Administrador principal del proyecto
+Para esta etapa del proyecto, se define como administrador principal a la identidad de administrador de Org1. Esta decisión se toma porque Org1 se usará como organización base o ancla para las operaciones iniciales del sistema y para la validación de la red.
+
+Identidad definida (nombre completo)
+Admin@org1.example.com
+(Referencia coloquial: administrador de Org1.)
+
+MSP asociado
+Org1MSP
+
+Descripción
+La identidad Admin@org1.example.com será la referencia principal para operar la red en nombre del proyecto. Esto significa que será la identidad usada para realizar tareas iniciales de administración, validación y prueba dentro de la red blockchain. No se está creando una identidad nueva desde cero, sino tomando como administrador principal una identidad ya generada por la red cuando se levantó el entorno con Fabric CA.
+
+Ubicación de credenciales
+Las credenciales de esta identidad se encuentran dentro de la estructura generada por la red de Hyperledger Fabric. La ruta esperada del MSP del administrador principal es la carpeta correspondiente al usuario administrador dentro de la organización Org1.
+
+Ruta general esperada
+organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+
+Esta ruta puede variar ligeramente según cómo haya quedado el proyecto en el equipo, pero la lógica es la misma: dentro de peerOrganizations, luego Org1, luego users, luego el administrador, y dentro de esa carpeta el MSP.
+
+Qué representa el MSP
+El MSP es la estructura que identifica formalmente a la organización y al usuario dentro de la red. En este caso, el MSP de Org1 permite que el administrador sea reconocido como una identidad válida y autorizada para operar. Por eso, este punto no se basa solo en nombrar al administrador, sino también en dejar claro con qué MSP trabaja y dónde se encuentra.
+
+Función del administrador principal
+El administrador principal tendrá el rol de identidad base para la operación del proyecto en sus primeras etapas. Su uso está orientado a validar que la red responde correctamente, que el canal del proyecto puede ser consultado y que la identidad elegida realmente funciona como credencial válida dentro del sistema.
+
+No se pretende todavía definir todos los perfiles finales del proyecto, sino dejar fija la identidad inicial que servirá como punto de partida para la administración del entorno.
+
+Qué se documenta en este entregable
+En este entregable se documenta:
+quién es el administrador principal del proyecto
+a qué MSP pertenece
+dónde se ubican sus credenciales dentro del proyecto
+qué papel cumple dentro de la red
+
+Qué no se debe incluir
+No se deben pegar llaves privadas, certificados completos ni información sensible. Solo se deben dejar claras las rutas, el nombre del administrador y su relación con el MSP correspondiente.
+
+Peer de referencia para CLI (Org1)
+peer0.org1.example.com — localhost:7051
+
+Variables de entorno para operar como administrador principal (ejecutar desde red-hyperledger/test-network)
+Estas variables indican al comando peer qué identidad firma la operación. Ajustar FABRIC_CFG_PATH si la carpeta config del repo está en otra ruta relativa.
+
+export FABRIC_CFG_PATH=${PWD}/../config
+export CORE_PEER_TLS_ENABLED=true
+export CORE_PEER_LOCALMSPID=Org1MSP
+export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_ADDRESS=localhost:7051
+
+Validación de la identidad (obligatorio para cerrar el entregable 1.4)
+Tras exportar las variables anteriores, ejecutar al menos una de estas pruebas y conservar la salida (terminal o captura) como respaldo:
+
+1) Listar canales en los que participa el peer (debe aparecer el canal del proyecto, p. ej. clientes):
+   peer channel list
+
+2) Opcional — consulta de solo lectura al chaincode ya desplegado (ejemplo si existe el activo CLI001):
+   peer chaincode query -C clientes -n cliente_cc -c '{"function":"ReadAsset","Args":["CLI001"]}'
+
+Salida esperada (ejemplo para 1; el nombre del canal debe coincidir con el acordado por el equipo):
+Channels peers has joined:
+clientes
+
+Entregable escrito vs demostración en vivo
+- Demostración en vivo ante el docente: válida y recomendable (misma terminal, mismos exports, se ve el canal y/o la query).
+- Documento: este archivo describe la identidad y los pasos; no es obligatorio pegar salidas largas aquí si el criterio del curso acepta solo la demo. Para un informe impreso o evidencia archivada, basta una captura de pantalla o copia breve de la salida de peer channel list (sin incluir material criptográfico).
+
+Resumen del punto 1.4
+Para esta etapa se define como administrador principal del proyecto a la identidad Admin@org1.example.com, asociada al MSP Org1MSP. Sus credenciales se ubican dentro de la carpeta de usuarios de Org1 en la estructura generada por la red. La validación se demuestra con peer channel list (y opcionalmente una query de chaincode) usando las variables CORE_PEER_* indicadas arriba. Con esto se deja clara la identidad base que operará la red en nombre del proyecto y la ubicación de sus materiales de acceso dentro del entorno de Hyperledger Fabric.
