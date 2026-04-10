@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# Hyperledger Blockchain Explorer conectado al test-network (canal clientes).
+# Basado en https://github.com/hyperledger-labs/blockchain-explorer
+# y en red-hyperledger/token-sdk/explorer/docker-compose.yaml
+
+volumes:
+  pgdata_explorer_clientes:
+  walletstore_explorer_clientes:
+
+networks:
+  fabric:
+    name: fabric_test
+    external: true
+
+services:
+  explorerdb.clientes:
+    image: ghcr.io/hyperledger-labs/explorer-db:latest
+    container_name: explorerdb.clientes
+    hostname: explorerdb.clientes
+    environment:
+      - DATABASE_DATABASE=fabricexplorer
+      - DATABASE_USERNAME=hppoc
+      - DATABASE_PASSWORD=password
+    healthcheck:
+      test: "pg_isready -h localhost -p 5432 -q -U postgres"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - pgdata_explorer_clientes:/var/lib/postgresql/data
+    networks:
+      - fabric
+
+  explorer.clientes:
+    image: ghcr.io/hyperledger-labs/explorer:latest
+    container_name: explorer.clientes
+    hostname: explorer.clientes
+    environment:
+      - DATABASE_HOST=explorerdb.clientes
+      - DATABASE_DATABASE=fabricexplorer
+      - DATABASE_USERNAME=hppoc
+      - DATABASE_PASSWD=password
+      - LOG_LEVEL_APP=info
+      - LOG_LEVEL_DB=info
+      - LOG_LEVEL_CONSOLE=debug
+      - LOG_CONSOLE_STDOUT=true
+      - DISCOVERY_AS_LOCALHOST=false
+      - PORT=${PORT:-8081}
+    volumes:
+      - ${EXPLORER_CONFIG_FILE_PATH}:/opt/explorer/app/platform/fabric/config.json
+      - ${EXPLORER_PROFILE_DIR_PATH}:/opt/explorer/app/platform/fabric/connection-profile
+      - ${FABRIC_CRYPTO_PATH}:/tmp/crypto
+      - walletstore_explorer_clientes:/opt/explorer/wallet
+    ports:
+      - ${PORT:-8081}:${PORT:-8081}
+    depends_on:
+      explorerdb.clientes:
+        condition: service_healthy
+    networks:
+      - fabric

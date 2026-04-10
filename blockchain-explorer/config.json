@@ -1,0 +1,9 @@
+{
+	"network-configs": {
+		"clientes-network": {
+			"name": "Test Network — canal clientes",
+			"profile": "./connection-profile/clientes-network.json"
+		}
+	},
+	"license": "Apache-2.0"
+}

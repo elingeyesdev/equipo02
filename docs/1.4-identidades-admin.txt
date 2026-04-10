@@ -68,9 +68,5 @@ Salida esperada (ejemplo para 1; el nombre del canal debe coincidir con el acord
 Channels peers has joined:
 clientes
 
-Entregable escrito vs demostración en vivo
-- Demostración en vivo ante el docente: válida y recomendable (misma terminal, mismos exports, se ve el canal y/o la query).
-- Documento: este archivo describe la identidad y los pasos; no es obligatorio pegar salidas largas aquí si el criterio del curso acepta solo la demo. Para un informe impreso o evidencia archivada, basta una captura de pantalla o copia breve de la salida de peer channel list (sin incluir material criptográfico).
-
 Resumen del punto 1.4
 Para esta etapa se define como administrador principal del proyecto a la identidad Admin@org1.example.com, asociada al MSP Org1MSP. Sus credenciales se ubican dentro de la carpeta de usuarios de Org1 en la estructura generada por la red. La validación se demuestra con peer channel list (y opcionalmente una query de chaincode) usando las variables CORE_PEER_* indicadas arriba. Con esto se deja clara la identidad base que operará la red en nombre del proyecto y la ubicación de sus materiales de acceso dentro del entorno de Hyperledger Fabric.
