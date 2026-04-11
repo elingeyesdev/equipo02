@@ -12,26 +12,24 @@ type SmartContract struct {
 	contractapi.Contract
 }
 
-// Asset describes basic details of what makes up a simple asset
-// Insert struct field in alphabetic order => to achieve determinism across languages
-// golang keeps the order when marshal to json but doesn't order automatically
+// Asset describes basic details of what makes up a simple asset (Cliente)
+// Se han actualizado los campos para coincidir con la Especificación 1.2
 type Asset struct {
-	AppraisedValue int    `json:"AppraisedValue"`
-	Color          string `json:"Color"`
-	ID             string `json:"ID"`
-	Owner          string `json:"Owner"`
-	Size           int    `json:"Size"`
+	ClienteId       string `json:"clienteId"`
+	Nombre          string `json:"nombre"`
+	TipoDocumento   string `json:"tipoDocumento"`
+	NumeroDocumento string `json:"numeroDocumento"`
+	FechaAlta       string `json:"fechaAlta"`
+	Estado          string `json:"estado"`
+	Telefono        string `json:"telefono"`
+	Email           string `json:"email"`
+	Notas           string `json:"notas"`
 }
 
 // InitLedger adds a base set of assets to the ledger
 func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) error {
 	assets := []Asset{
-		{ID: "asset1", Color: "blue", Size: 5, Owner: "Tomoko", AppraisedValue: 300},
-		{ID: "asset2", Color: "red", Size: 5, Owner: "Brad", AppraisedValue: 400},
-		{ID: "asset3", Color: "green", Size: 10, Owner: "Jin Soo", AppraisedValue: 500},
-		{ID: "asset4", Color: "yellow", Size: 10, Owner: "Max", AppraisedValue: 600},
-		{ID: "asset5", Color: "black", Size: 15, Owner: "Adriana", AppraisedValue: 700},
-		{ID: "asset6", Color: "white", Size: 15, Owner: "Michel", AppraisedValue: 800},
+		{ClienteId: "CLI-INIT", Nombre: "Initial Admin", TipoDocumento: "CI", NumeroDocumento: "0000000", FechaAlta: "2026-04-10", Estado: "ACTIVO", Telefono: "000", Email: "admin@example.com", Notas: "init"},
 	}
 
 	for _, asset := range assets {
@@ -40,7 +38,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 			return err
 		}
 
-		err = ctx.GetStub().PutState(asset.ID, assetJSON)
+		err = ctx.GetStub().PutState(asset.ClienteId, assetJSON)
 		if err != nil {
 			return fmt.Errorf("failed to put to world state. %v", err)
 		}
@@ -50,7 +48,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 }
 
 // CreateAsset issues a new asset to the world state with given details.
-func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, id string, color string, size int, owner string, appraisedValue int) error {
+func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, id string, nombre string, tipoDoc string, numDoc string, fechaAlta string, estado string, tlf string, email string, notas string) error {
 	exists, err := s.AssetExists(ctx, id)
 	if err != nil {
 		return err
@@ -60,11 +58,15 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 	}
 
 	asset := Asset{
-		ID:             id,
-		Color:          color,
-		Size:           size,
-		Owner:          owner,
-		AppraisedValue: appraisedValue,
+		ClienteId:       id,
+		Nombre:          nombre,
+		TipoDocumento:   tipoDoc,
+		NumeroDocumento: numDoc,
+		FechaAlta:       fechaAlta,
+		Estado:          estado,
+		Telefono:        tlf,
+		Email:           email,
+		Notas:           notas,
 	}
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
@@ -94,7 +96,7 @@ func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, i
 }
 
 // UpdateAsset updates an existing asset in the world state with provided parameters.
-func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface, id string, color string, size int, owner string, appraisedValue int) error {
+func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface, id string, nombre string, tipoDoc string, numDoc string, fechaAlta string, estado string, tlf string, email string, notas string) error {
 	exists, err := s.AssetExists(ctx, id)
 	if err != nil {
 		return err
@@ -105,11 +107,15 @@ func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface,
 
 	// overwriting original asset with new asset
 	asset := Asset{
-		ID:             id,
-		Color:          color,
-		Size:           size,
-		Owner:          owner,
-		AppraisedValue: appraisedValue,
+		ClienteId:       id,
+		Nombre:          nombre,
+		TipoDocumento:   tipoDoc,
+		NumeroDocumento: numDoc,
+		FechaAlta:       fechaAlta,
+		Estado:          estado,
+		Telefono:        tlf,
+		Email:           email,
+		Notas:           notas,
 	}
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
@@ -142,27 +148,9 @@ func (s *SmartContract) AssetExists(ctx contractapi.TransactionContextInterface,
 	return assetJSON != nil, nil
 }
 
-// TransferAsset updates the owner field of asset with given id in world state, and returns the old owner.
+// TransferAsset dummy keeping signature compatibility for general interface (unused for Cliente)
 func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterface, id string, newOwner string) (string, error) {
-	asset, err := s.ReadAsset(ctx, id)
-	if err != nil {
-		return "", err
-	}
-
-	oldOwner := asset.Owner
-	asset.Owner = newOwner
-
-	assetJSON, err := json.Marshal(asset)
-	if err != nil {
-		return "", err
-	}
-
-	err = ctx.GetStub().PutState(id, assetJSON)
-	if err != nil {
-		return "", err
-	}
-
-	return oldOwner, nil
+	return "", fmt.Errorf("TransferAsset is not fully supported for Client models")
 }
 
 // GetAllAssets returns all assets found in world state

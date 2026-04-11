@@ -1,0 +1,132 @@
+# Reporte de Sprint 2.1: Integración Middleware a Blockchain
+
+## 1. Resumen de Objetivos Logrados (Lista de Comprobación)
+
+Durante este sprint, se completó al 100% el hito "2.1. API puente con validaciones", abarcando explícitamente las 4 tareas planificadas:
+
+1. Crear estructura base del servicio middleware: Se construyó la aplicación desde cero utilizando el lenguaje Go y el framework Gin.
+2. Definir rutas de entrada principales: Se establecieron mediante el enrutador (`internal/routes`) los endpoints exactos para Clientes (`POST /clientes`, `GET /clientes/:id`) y Tokens (`POST /tokens/emitir`).
+3. Implementar validación de formato de solicitudes: Se integró la robusta librería basada en OpenAPI 3.0 para validar que cualquier JSON entrante posea obligatoriamente la cantidad y los tipos de datos requeridos por la especificación.
+4. Implementar manejo uniforme de errores de entrada: Si el escudo detecta un JSON incompleto o el Smart Contract experimenta un fallo, el middleware responde invariablemente con una estructura JSON unificada (ej. `{"ok": false, "codigo": "ERROR_VALIDACION_OPENAPI", "mensaje": "..." }`) aislando fallos internos del usuario final.
+
+Adicional a la API, conectamos exitosamente al canal `clientes` de Hyperledger y levantamos el **Blockchain Explorer**.
+
+---
+
+## 2. Arquitectura de la API (Clean Architecture)
+
+El proyecto se organizó bajo el estándar de modularidad de Go, dividiendo responsabilidades estrictamente para evitar espagueti de código:
+
+```text
+api-middleware/
+├── cmd/
+│   └── server/
+│       └── main.go         # Punto de entrada (Arranca el servidor y conecta a la red)
+├── internal/               # Lógica privada del negocio aislando capas
+│   ├── handlers/           # Reciben la orden HTTP, la procesan y devuelven la respuesta
+│   ├── middleware/         # Escudo de seguridad: Valida el formato OpenAPI de los JSON
+│   ├── fabric/             # Conexión directa a Hyperledger y generación de firmas
+│   └── routes/             # Enrutamiento de URLs
+├── pkg/
+│   └── models/             # Estructuras de datos (Structs) que mapean a Cliente y Token
+├── go.mod                  # Gestor de dependencias
+└── .env                    # Configuración dinámica (Rutas de certificados e IPs)
+```
+
+### Justificación de la Arquitectura Seleccionada
+Se escogió implementar el patrón de diseño derivado de **Clean Architecture** (con separación de `cmd`, `internal` y `pkg`) por las siguientes razones críticas para el proyecto:
+1. Seguridad Comercial: Mantener la conexión a la red de Fabric y todas las manipulaciones de llaves criptográficas dentro de la carpeta `internal/` protege ese código crítico. En Go, cualquier código dentro de `internal` no puede ser importado ni explotado por proyectos externos.
+2. Alta Cohesión y Mantenimiento: Separar los "Manejadores" (`handlers`) del código de infraestructura (`fabric`) nos permitió inyectar el salto de regla ERC20 (hacer `Mint` + `Transfer`) de una forma transparente en el Backend sin tocar la librería ni el Smart Contract de Hyperledger.
+3. Escudo de Validación Perimetral: Obligar a que todas las entradas pasen primero por la carpeta `middleware/` permite que nuestra API intercepte ataques o datos insuficientes automáticamente usando estándares OpenAPI, de forma que la lógica de Fabric jamás se satura de basura o solicitudes mal formadas.
+
+---
+
+## 3. Justificación de Cambios en Smart Contracts
+
+Durante el levantamiento de pruebas, se determinó que el diseño del Smart Contract original venía defectuoso o no se adaptaba a nuestras reglas de negocio. Por ello se realizaron los siguientes arreglos medulares arquitectónicos:
+
+1.  Adaptación del Modelo de Datos (Cliente_CC):
+    El chaincode genérico anterior solo soportaba 5 campos ("ID, Color, Tamaño..."). Esto chocaba directamente con nuestro modelo relacional OpenAPI. El contrato fue reescrito completamente para soportar la estructura transaccional de **9 ejes**: 
+    `ClienteId, Nombre, TipoDocumento, NumeroDocumento, FechaAlta, Estado, Teléfono, Email, Notas`.
+    
+2.  Integridad de Reglas para Tokens (Token_ERC20):
+    El esquema oficial de finanzas `ERC20` de Hyperledger Fabric dictaba que *no se pueden transferir tokens hacia otras personas si estos primero no han sido ingresados al Banco Central*. 
+    En vez de "hackear" e invalidar el estándar global en el contrato, decidimos mover la complejidad al Middleware, respetando el canon de la Blockchain. Se modificó el `token_handler.go` de nuestra API para comportarse como un gestor inteligente realizando 2 operaciones internas secuenciales: 
+    - `Mint()` al repositorio central bancario.
+    - `Transfer()` inmediato silencioso a la cuenta del cliente destino.
+
+---
+
+## 4. Guía de Ejecución para el Equipo de Desarrollo
+
+Si necesitan arrancar y probar todo el backend transaccional del proyecto desde cero, sigan los siguientes comandos en orden utilizando la consola de **Linux/WSL**:
+
+### A. Limpieza de Ambientes Zombis (Opcional si hay errores previos)
+```bash
+# Navega al directorio de la test-network
+cd red-hyperledger/test-network
+./network.sh down
+```
+
+### B. Levantar la Infraestructura Principal de Fabric
+```bash
+cd red-hyperledger/test-network
+# 1. Levantamiento de los Nodos CAs y base de datos de auditoría
+./network.sh up createChannel -ca -s couchdb -c clientes
+
+# 2. Despliegue de los Smart Contracts a la capa del Ledget
+./network.sh deployCC -ccn cliente_cc -ccp ../asset-transfer-basic/chaincode-go/ -ccl go -c clientes -ccv 2.0 -ccs 2
+./network.sh deployCC -ccn token_erc20 -ccp ../token-erc-20/chaincode-go/ -ccl go -c clientes
+
+# 3. Inicializar parámetros bancarios en ERC20 (Solo se hace una vez)
+./network.sh cc invoke -c clientes -ccn token_erc20 -ccic '{"Args":["Initialize","Bolivianos","BOB","2"]}'
+```
+
+### C. Levantar el Interfaz Visual (Blockchain Explorer)
+Dejen la red test network ejecutándose y abran una nueva pestaña en la consola.
+```bash
+# Navega al directorio del Explorer
+cd blockchain-explorer
+./prep-explorer-msp.sh
+docker-compose --env-file .env up -d
+```
+> La interfaz visual estará inmediatamente activa para demostraciones en `http://localhost:8081`.
+
+### D. Levantar la API Middleware en Go
+```bash
+# En una pestaña separada navega a la carpeta de la api
+cd api-middleware
+go run cmd/server/main.go
+```
+> La terminal se congelará escuchando exitosamente el puerto `3000`.
+
+### E. Probetas de Integración (Testing Local)
+Envíen datos JSON vía consola para probar el funcionamiento end-to-end simulando un cliente web moderno:
+
+**Para Clientes:**
+```bash
+curl -X POST http://localhost:3000/clientes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clienteId": "CLI-001",
+    "nombre": "Juan Perez",
+    "tipoDocumento": "CI",
+    "numeroDocumento": "1234567-LP",
+    "fechaAlta": "2026-04-10",
+    "estado": "ACTIVO",
+    "email": "juan@example.com",
+    "telefono": "12345678"
+  }'
+```
+
+**Para Inyectar Dinero/Tokens:**
+```bash
+curl -X POST http://localhost:3000/tokens/emitir \
+  -H "Content-Type: application/json" \
+  -d '{
+    "destinatario": "CLI-001",
+    "monto": 1000,
+    "codigoToken": "BOB"
+  }'
+```
+EVIDENCIAS DE FOTOS EN LA PARTE DE ARCHIVOS ADJUNTOS
