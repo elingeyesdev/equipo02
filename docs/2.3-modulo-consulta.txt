@@ -1,0 +1,68 @@
+ENTREGABLE 2.3: MODULO DE CONSULTA (ASSET + TOKEN)
+
+Objetivo
+Implementar y dejar documentado el flujo de consultas de solo lectura del middleware sobre Hyperledger Fabric, garantizando respuestas consistentes para frontend y manejo claro de errores.
+
+Alcance implementado
+1) Consulta Asset:
+- Endpoint: GET /clientes/{clienteId}
+- Operacion en Fabric: EvaluateTransaction("ReadAsset", clienteId)
+- Sin mutacion de estado.
+- Manejo de error:
+  - 404 NO_ENCONTRADO cuando el cliente no existe.
+  - 500 ERROR_FABRIC para fallos internos de consulta.
+
+2) Consulta saldo Token:
+- Endpoint: GET /tokens/saldo/{clienteId}?codigoToken=...
+- Operacion en Fabric: EvaluateTransaction("BalanceOf", clienteId)
+- Sin mutacion de estado.
+- Regla token unico:
+  - token_erc20 actual acepta un solo codigo configurado (TOKEN_CODE, por defecto TOK).
+  - si llega otro codigoToken: 400 TOKEN_NO_SOPORTADO.
+- Manejo de error:
+  - 404 NO_ENCONTRADO para cuenta inexistente.
+  - 500 ERROR_FABRIC para fallos internos.
+
+3) Historial token:
+- Endpoint: GET /tokens/historial/{clienteId}?codigoToken=...
+- Estado actual: funcionalidad reservada.
+- Respuesta controlada: 501 NO_IMPLEMENTADO_CHAINCODE.
+- Justificacion: token_erc20 desplegado no expone GetHistory por cuenta.
+
+Normalizacion de respuestas de lectura
+
+Exito de lectura (estructura comun):
+{
+  "ok": true,
+  "codigo": "CONSULTA_EXITOSA",
+  "mensaje": "Descripcion amigable",
+  "datos": { ... }
+}
+
+Error (estructura comun):
+{
+  "ok": false,
+  "codigo": "CODIGO_ERROR",
+  "mensaje": "Descripcion clara"
+}
+
+Contratos actualizados
+- handlers:
+  - internal/handlers/cliente_handler.go
+  - internal/handlers/token_handler.go
+- modelos:
+  - pkg/models/responses.go (RespuestaLectura)
+- OpenAPI:
+  - api-middleware/openapi.yaml
+    - /clientes/{clienteId} y /tokens/saldo/{clienteId} ahora documentan respuesta de lectura normalizada.
+    - se agregan esquemas RespuestaLecturaCliente y RespuestaLecturaSaldoToken.
+    - se documentan respuestas 500 para errores internos de consulta.
+
+Arquitectura respetada
+- Se mantiene el flujo: routes -> handlers -> fabric.
+- No se mueve logica de red fuera de internal/fabric.
+- Endpoints de consulta usan exclusivamente EvaluateTransaction.
+- No se agregan dependencias a chaincode inexistente.
+
+Nota para el equipo
+Este entregable cierra la capa de consulta para frontend con un contrato uniforme y predecible. Las futuras extensiones de historial por cuenta dependen de evolucionar el chaincode token_erc20.

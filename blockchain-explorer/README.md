@@ -14,7 +14,7 @@ Explorer debe usar **esa misma red** (`external: true` en `docker-compose.yaml`)
 
 ## Prerrequisitos
 
-- Docker Desktop (macOS).
+- Docker Desktop.
 - Red arriba con CA, CouchDB y canal **clientes**:
 
 ```bash

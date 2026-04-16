@@ -122,60 +122,96 @@ func TransferirToken(c *gin.Context) {
 
 // ConsultarSaldo obtiene el balance usando 'BalanceOf'.
 func ConsultarSaldo(c *gin.Context) {
-	clienteId := c.Param("clienteId")
-	chaincode := os.Getenv("TOKEN_CHAINCODE_NAME")
+	clienteId := strings.TrimSpace(c.Param("clienteId"))
+	codigoToken := strings.TrimSpace(c.Query("codigoToken"))
+	tokenCodeDefault := strings.TrimSpace(os.Getenv("TOKEN_CODE"))
+	if tokenCodeDefault == "" {
+		tokenCodeDefault = "TOK"
+	}
+
+	if codigoToken == "" {
+		c.JSON(http.StatusBadRequest, models.RespuestaError{
+			Ok:      false,
+			Codigo:  "VALIDACION",
+			Mensaje: "codigoToken es obligatorio en query",
+		})
+		return
+	}
+
+	// token_erc20 maneja un único token por contrato. Aceptamos solo el token configurado.
+	if !strings.EqualFold(codigoToken, tokenCodeDefault) {
+		c.JSON(http.StatusBadRequest, models.RespuestaError{
+			Ok:      false,
+			Codigo:  "TOKEN_NO_SOPORTADO",
+			Mensaje: fmt.Sprintf("El contrato actual solo soporta codigoToken=%s", tokenCodeDefault),
+		})
+		return
+	}
+
+	chaincode, errResp := tokenChaincodeNombre()
+	if errResp != nil {
+		c.JSON(http.StatusInternalServerError, errResp)
+		return
+	}
 
 	result, err := fabric.EvaluateTransaction(chaincode, "BalanceOf", clienteId)
 	if err != nil {
-		c.JSON(http.StatusNotFound, models.RespuestaError{
+		if esErrorNoEncontrado(err) {
+			c.JSON(http.StatusNotFound, models.RespuestaError{
+				Ok:      false,
+				Codigo:  "NO_ENCONTRADO",
+				Mensaje: "Cuenta de cliente no encontrada en el token",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, models.RespuestaError{
 			Ok:      false,
 			Codigo:  "ERROR_FABRIC",
-			Mensaje: "Error al consultar saldo: " + err.Error(),
+			Mensaje: "Error interno al consultar saldo en Blockchain",
 		})
 		return
 	}
 
 	var saldo int64
-	json.Unmarshal(result, &saldo)
+	if err := json.Unmarshal(result, &saldo); err != nil {
+		c.JSON(http.StatusInternalServerError, models.RespuestaError{
+			Ok:      false,
+			Codigo:  "ERROR_FORMATO",
+			Mensaje: "Error al interpretar el saldo devuelto por Blockchain",
+		})
+		return
+	}
 
-	c.JSON(http.StatusOK, models.SaldoToken{
+	saldoResp := models.SaldoToken{
 		ClienteId:   clienteId,
-		CodigoToken: "TOK",
+		CodigoToken: tokenCodeDefault,
 		Saldo:       saldo,
+	}
+
+	c.JSON(http.StatusOK, models.RespuestaLectura{
+		Ok:      true,
+		Codigo:  "CONSULTA_EXITOSA",
+		Mensaje: "Saldo consultado correctamente",
+		Datos:   saldoResp,
 	})
 }
 
 // ConsultarHistorial obtiene la lista de operaciones desde el ledger.
 func ConsultarHistorial(c *gin.Context) {
-	clienteId := c.Param("clienteId")
-	chaincode := os.Getenv("TOKEN_CHAINCODE_NAME")
-
-	// 1. Evaluar transacción de historial (Debe existir en el Chaincode)
-	result, err := fabric.EvaluateTransaction(chaincode, "GetHistory", clienteId)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.RespuestaError{
+	codigoToken := strings.TrimSpace(c.Query("codigoToken"))
+	if codigoToken == "" {
+		c.JSON(http.StatusBadRequest, models.RespuestaError{
 			Ok:      false,
-			Codigo:  "ERROR_FABRIC",
-			Mensaje: "Error al consultar historial: " + err.Error(),
+			Codigo:  "VALIDACION",
+			Mensaje: "codigoToken es obligatorio en query",
 		})
 		return
 	}
 
-	// 2. Parsear el resultado
-	var operaciones []models.OperacionHistorial
-	if err := json.Unmarshal(result, &operaciones); err != nil {
-		c.JSON(http.StatusInternalServerError, models.RespuestaError{
-			Ok:      false,
-			Codigo:  "ERROR_FORMATO",
-			Mensaje: "Error al interpretar el historial de la Blockchain",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, models.HistorialToken{
-		ClienteId:   clienteId,
-		CodigoToken: "TOK",
-		Operaciones: operaciones,
+	c.JSON(http.StatusNotImplemented, models.RespuestaError{
+		Ok:      false,
+		Codigo:  "NO_IMPLEMENTADO_CHAINCODE",
+		Mensaje: "El chaincode token_erc20 actual no expone una función GetHistory por cuenta. Endpoint reservado para una versión futura.",
 	})
 }
 

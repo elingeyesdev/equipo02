@@ -70,16 +70,32 @@ func RegistrarCliente(c *gin.Context) {
 
 // ConsultarCliente obtiene los datos de un cliente desde el ledger.
 func ConsultarCliente(c *gin.Context) {
-	clienteId := c.Param("clienteId")
-	chaincode := os.Getenv("CHAINCODE_NAME")
+	clienteId := strings.TrimSpace(c.Param("clienteId"))
+	chaincode := strings.TrimSpace(os.Getenv("CHAINCODE_NAME"))
+	if chaincode == "" {
+		c.JSON(http.StatusInternalServerError, models.RespuestaError{
+			Ok:      false,
+			Codigo:  "CONFIGURACION",
+			Mensaje: "No se encontró CHAINCODE_NAME en variables de entorno",
+		})
+		return
+	}
 
 	// 1. Evaluar el Chaincode (Consulta)
 	result, err := fabric.EvaluateTransaction(chaincode, "ReadAsset", clienteId)
 	if err != nil {
-		c.JSON(http.StatusNotFound, models.RespuestaError{
+		if esErrorNoEncontrado(err) {
+			c.JSON(http.StatusNotFound, models.RespuestaError{
+				Ok:      false,
+				Codigo:  "NO_ENCONTRADO",
+				Mensaje: "Cliente no encontrado en la Blockchain",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, models.RespuestaError{
 			Ok:      false,
-			Codigo:  "NO_ENCONTRADO",
-			Mensaje: "Cliente no encontrado en la Blockchain: " + err.Error(),
+			Codigo:  "ERROR_FABRIC",
+			Mensaje: "Error interno al consultar cliente en Blockchain",
 		})
 		return
 	}
@@ -95,7 +111,12 @@ func ConsultarCliente(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, cliente)
+	c.JSON(http.StatusOK, models.RespuestaLectura{
+		Ok:      true,
+		Codigo:  "CONSULTA_EXITOSA",
+		Mensaje: "Cliente consultado correctamente",
+		Datos:   cliente,
+	})
 }
 
 func validarRegistroCliente(cliente models.Cliente) error {
@@ -116,4 +137,12 @@ func validarRegistroCliente(cliente models.Cliente) error {
 	}
 
 	return nil
+}
+
+func esErrorNoEncontrado(err error) bool {
+	m := strings.ToLower(err.Error())
+	return strings.Contains(m, "does not exist") ||
+		strings.Contains(m, "not found") ||
+		strings.Contains(m, "no existe") ||
+		strings.Contains(m, "cannot read world state pair with key")
 }

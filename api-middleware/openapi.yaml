@@ -78,7 +78,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Cliente'
+                $ref: '#/components/schemas/RespuestaLecturaCliente'
+              example:
+                ok: true
+                codigo: CONSULTA_EXITOSA
+                mensaje: Cliente consultado correctamente
+                datos:
+                  clienteId: CLI001
+                  nombre: Juan Perez
+                  tipoDocumento: CI
+                  numeroDocumento: "1234567"
+                  fechaAlta: "2026-04-01"
+                  estado: ACTIVO
+                  telefono: "70000000"
+                  email: juan@gmail.com
+                  notas: Cliente de prueba
         '404':
           description: Cliente no encontrado
           content:
@@ -89,6 +103,16 @@ paths:
                 ok: false
                 codigo: NO_ENCONTRADO
                 mensaje: Cliente no registrado
+        '500':
+          description: Error interno al consultar cliente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                ok: false
+                codigo: ERROR_FABRIC
+                mensaje: Error interno al consultar cliente en Blockchain
 
   /tokens/emitir:
     post:
@@ -107,7 +131,7 @@ paths:
             schema:
               $ref: '#/components/schemas/EmitirToken'
             example:
-              destinatario: CLI001
+              destinatario: eDUwOTo6Q049cmVjaXBpZW50LE9VPWNsaWVudCxPPUh5cGVybGVkZ2VyLFNUPU5vcnRoIENhcm9saW5hLEM9VVM6OkNOPWNhLm9yZzIuZXhhbXBsZS5jb20sTz1vcmcyLmV4YW1wbGUuY29tLEw9SHVyc2xleSxTVD1IYW1wc2hpcmUsQz1VSw==
               monto: 1000
               codigoToken: TOK001
       responses:
@@ -144,7 +168,7 @@ paths:
               $ref: '#/components/schemas/TransferirToken'
             example:
               origen: CLI001
-              destino: CLI002
+              destino: eDUwOTo6Q049cmVjaXBpZW50LE9VPWNsaWVudCxPPUh5cGVybGVkZ2VyLFNUPU5vcnRoIENhcm9saW5hLEM9VVM6OkNOPWNhLm9yZzIuZXhhbXBsZS5jb20sTz1vcmcyLmV4YW1wbGUuY29tLEw9SHVyc2xleSxTVD1IYW1wc2hpcmUsQz1VSw==
               monto: 250
               codigoToken: TOK001
       responses:
@@ -170,8 +194,9 @@ paths:
       tags: [tokens]
       summary: Consultar saldo
       description: >-
-        Consulta el saldo de un token para un cliente. Requiere el código de token
-        como parámetro de consulta (alineado al modelo de datos 1.2).
+        Consulta el saldo de un token para una cuenta del contrato ERC-20.
+        El parámetro clienteId aquí representa accountId en ledger (p. ej. ClientAccountID).
+        Requiere el código de token como parámetro de consulta (alineado al modelo de datos 1.2).
       parameters:
         - name: clienteId
           in: path
@@ -192,11 +217,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SaldoToken'
+                $ref: '#/components/schemas/RespuestaLecturaSaldoToken'
               example:
-                clienteId: CLI001
-                codigoToken: TOK001
-                saldo: 750
+                ok: true
+                codigo: CONSULTA_EXITOSA
+                mensaje: Saldo consultado correctamente
+                datos:
+                  clienteId: CLI001
+                  codigoToken: TOK001
+                  saldo: 750
         '404':
           description: Cliente o saldo no encontrado
           content:
@@ -207,14 +236,25 @@ paths:
                 ok: false
                 codigo: NO_ENCONTRADO
                 mensaje: Cliente no registrado o sin saldo para ese token
+        '500':
+          description: Error interno al consultar saldo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                ok: false
+                codigo: ERROR_FABRIC
+                mensaje: Error interno al consultar saldo en Blockchain
 
   /tokens/historial/{clienteId}:
     get:
       tags: [tokens]
       summary: Consultar historial
       description: >-
-        Consulta el historial de operaciones de valor de un cliente para un token
-        concreto (codigoToken obligatorio en query).
+        Endpoint reservado para historial por cuenta/token.
+        En la versión actual de token_erc20 (sample oficial) no existe función GetHistory por cuenta,
+        por lo que este endpoint puede devolver 501 hasta que el chaincode se extienda.
       parameters:
         - name: clienteId
           in: path
@@ -258,6 +298,16 @@ paths:
                 ok: false
                 codigo: NO_ENCONTRADO
                 mensaje: No existe historial para el cliente y token indicados
+        '501':
+          description: Funcionalidad no implementada en el chaincode actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+              example:
+                ok: false
+                codigo: NO_IMPLEMENTADO_CHAINCODE
+                mensaje: El chaincode token_erc20 actual no expone historial por cuenta
 
 components:
   schemas:
@@ -367,6 +417,46 @@ components:
         saldo:
           type: integer
           format: int64
+
+    RespuestaLecturaCliente:
+      type: object
+      required:
+        - ok
+        - codigo
+        - mensaje
+        - datos
+      properties:
+        ok:
+          type: boolean
+          example: true
+        codigo:
+          type: string
+          example: CONSULTA_EXITOSA
+        mensaje:
+          type: string
+          example: Cliente consultado correctamente
+        datos:
+          $ref: '#/components/schemas/Cliente'
+
+    RespuestaLecturaSaldoToken:
+      type: object
+      required:
+        - ok
+        - codigo
+        - mensaje
+        - datos
+      properties:
+        ok:
+          type: boolean
+          example: true
+        codigo:
+          type: string
+          example: CONSULTA_EXITOSA
+        mensaje:
+          type: string
+          example: Saldo consultado correctamente
+        datos:
+          $ref: '#/components/schemas/SaldoToken'
 
     OperacionHistorial:
       type: object

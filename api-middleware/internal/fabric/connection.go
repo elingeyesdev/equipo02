@@ -90,7 +90,7 @@ func loadSigner(keyPathDir string) (func(digest []byte) ([]byte, error), error) 
 
 	var keyFile string
 	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) != ".pem" {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".pem" {
 			keyFile = filepath.Join(keyPathDir, file.Name())
 			break
 		}
