@@ -1,0 +1,218 @@
+# Reporte de Sprint 2.2: Módulo de escritura
+
+## 1. Resumen general
+
+En esta tarea se completó el módulo de escritura del proyecto real, conectando el backend en Go (`api-middleware`) con la red Hyperledger Fabric (`red-hyperledger`) para ejecutar operaciones reales sobre blockchain.
+
+La tarea 2.2 incluía cuatro puntos:
+
+1. Implementar flujo de registro de datos Asset
+2. Implementar flujo de operaciones Token que escriben estado
+3. Conectar flujos de escritura con red Fabric
+4. Devolver respuesta de confirmación de operación
+
+Los cuatro puntos quedaron implementados y probados en el proyecto real.
+
+---
+
+## 2. Punto 1: Implementar flujo de registro de datos Asset
+
+En este proyecto, el Asset del punto 1 corresponde a la entidad **Cliente**.
+
+Se trabajó sobre el backend en Go para que el endpoint de registro de clientes no fuera solo una prueba local, sino una operación real conectada a Hyperledger Fabric.
+
+### Qué se hizo
+- Se revisó la estructura del middleware.
+- Se confirmó que el Asset de este punto era `Cliente`.
+- Se mejoró el flujo de escritura del endpoint `POST /clientes`.
+- Se agregaron validaciones de datos.
+- Se ajustó la llamada a Fabric para devolver `txId` real confirmado.
+- Se verificó la configuración del canal y chaincode.
+- Se desplegó el chaincode `cliente_cc` en el canal `clientes`.
+- Se probó el registro real en blockchain.
+- Se probó la lectura posterior para comprobar persistencia.
+
+### Pruebas realizadas
+#### Registrar cliente
+Comando usado:
+curl -X POST http://localhost:3000/clientes -H "Content-Type: application/json" -d "{\"clienteId\":\"CLI001\",\"nombre\":\"Juan Perez\",\"tipoDocumento\":\"CI\",\"numeroDocumento\":\"1234567\",\"fechaAlta\":\"2026-04-01\",\"estado\":\"ACTIVO\",\"telefono\":\"70000000\",\"email\":\"juan@gmail.com\",\"notas\":\"Cliente de prueba\"}"
+
+Respuesta obtenida:
+{
+  "ok": true,
+  "txId": "a434b09ca15b5a733a799968c84fddc6a276f76065c196c1a434a38d920652c0",
+  "mensaje": "Cliente registrado correctamente en la Blockchain"
+}
+
+#### Consultar cliente registrado
+Comando usado:
+curl http://localhost:3000/clientes/CLI001
+
+Respuesta obtenida:
+{
+  "clienteId": "CLI001",
+  "nombre": "Juan Perez",
+  "tipoDocumento": "CI",
+  "numeroDocumento": "1234567",
+  "fechaAlta": "2026-04-01",
+  "estado": "ACTIVO",
+  "telefono": "70000000",
+  "email": "juan@gmail.com",
+  "notas": "Cliente de prueba"
+}
+
+### Resultado
+El flujo de registro de Cliente como Asset quedó implementado y probado exitosamente en el proyecto real.
+
+---
+
+## 3. Punto 2: Implementar flujo de operaciones Token que escriben estado
+
+En este punto se trabajó sobre las operaciones de Token del backend para que escriban estado real en Hyperledger Fabric.
+
+El chaincode usado fue:
+
+- `token_erc20`
+
+sobre el canal:
+
+- `clientes`
+
+### Qué se hizo
+- Se revisaron los handlers y modelos de Token ya existentes.
+- Se ajustó `EmitirToken` para usar transacciones reales confirmadas.
+- Se mejoró `TransferirToken` para alinear mejor el flujo con el contrato ERC-20.
+- Se hizo que las respuestas devuelvan `txId` real.
+- En la emisión se añadió también `txIdMint`.
+- Se validó `TOKEN_CHAINCODE_NAME`.
+- Se desplegó el chaincode `token_erc20`.
+- Se detectó que `Mint` fallaba porque faltaba inicializar el contrato.
+- Se inicializó `token_erc20`.
+- Luego se probó exitosamente la emisión real de tokens.
+
+### Comandos operativos usados
+
+#### Desplegar token_erc20
+./network.sh deployCC -ccn token_erc20 -ccp ../token-erc-20/chaincode-go/ -ccl go -c clientes
+
+#### Inicializar token_erc20
+./network.sh cc invoke -c clientes -ccn token_erc20 -ccic '{"Args":["Initialize","Bolivianos","BOB","2"]}'
+
+### Prueba realizada
+#### Emitir tokens
+Comando usado:
+curl -i -X POST http://localhost:3000/tokens/emitir -H "Content-Type: application/json" -d "{\"destinatario\":\"test-destino\",\"monto\":100,\"codigoToken\":\"TOK001\"}"
+
+Respuesta obtenida:
+HTTP/1.1 200 OK
+
+{
+  "ok": true,
+  "txId": "45ae05eebff106643f2160812e25cc37551c2b2866916477820791f1c7843020",
+  "mensaje": "Tokens emitidos: Mint y Transfer confirmados en la red",
+  "txIdMint": "38d7177c8f53d0d540547a7e5bd11cf9e16308f232f096b364f6ec00e464a262"
+}
+
+### Resultado
+El flujo real de escritura de tokens quedó implementado y probado exitosamente mediante una operación compuesta por `Mint + Transfer`.
+
+---
+
+## 4. Punto 3: Conectar flujos de escritura con red Fabric
+
+Este punto consistía en comprobar que los flujos de escritura del backend realmente estuvieran conectados a la red Hyperledger Fabric y no se quedaran solo en lógica local.
+
+### Cómo se validó
+Se validó con pruebas reales de ambos flujos:
+
+- `POST /clientes` invocando `cliente_cc`
+- `POST /tokens/emitir` invocando `token_erc20`
+
+Ambos casos devolvieron respuestas exitosas y transacciones reales, lo que confirmó que el backend ya estaba conectado correctamente con la red Fabric.
+
+### Resultado
+El punto 3 quedó validado mediante pruebas reales de escritura sobre blockchain.
+
+---
+
+## 5. Punto 4: Devolver respuesta de confirmación de operación
+
+Este punto consistía en que el backend devuelva respuestas claras, consistentes y útiles cuando una operación sale bien o sale mal.
+
+### En éxito
+Se devolvieron respuestas con:
+- `ok`
+- `txId`
+- `mensaje`
+
+Y en el caso de Token también:
+- `txIdMint`
+
+### En error
+Se devolvieron respuestas con:
+- `ok: false`
+- `codigo`
+- `mensaje`
+
+### Ejemplos validados
+#### Cliente
+{
+  "ok": true,
+  "txId": "...",
+  "mensaje": "Cliente registrado correctamente en la Blockchain"
+}
+
+#### Token
+{
+  "ok": true,
+  "txId": "...",
+  "mensaje": "Tokens emitidos: Mint y Transfer confirmados en la red",
+  "txIdMint": "..."
+}
+
+#### Error
+{
+  "ok": false,
+  "codigo": "ERROR_FABRIC",
+  "mensaje": "..."
+}
+
+### Resultado
+El punto 4 quedó cubierto porque el sistema ya devuelve confirmación clara y consistente para operaciones reales sobre Fabric.
+
+---
+
+## 6. Archivos del backend modificados
+
+Los cambios funcionales de la tarea 2.2 se realizaron en:
+
+- api-middleware/internal/fabric/gateway.go
+- api-middleware/internal/handlers/cliente_handler.go
+- api-middleware/internal/handlers/token_handler.go
+- api-middleware/pkg/models/responses.go
+- api-middleware/pkg/models/token.go
+- api-middleware/openapi.yaml
+
+---
+
+## 7. Qué no se subió
+
+No se subieron cambios de:
+- `install-fabric.sh`
+- `red-hyperledger/test-network/...`
+
+Esos cambios fueron operativos/locales para hacer correr la red en la máquina de trabajo y no forman parte del código funcional del entregable.
+
+---
+
+## 8. Conclusión final
+
+La tarea 2.2 del módulo de escritura quedó completada en el proyecto real.
+
+Se logró:
+- registrar Cliente como Asset en blockchain,
+- emitir Tokens escribiendo estado real,
+- conectar el backend con Hyperledger Fabric,
+- y devolver respuestas claras de confirmación de operación con `txId` reales.
+
+Por lo tanto, la integración del módulo de escritura quedó implementada, probada y subida al repositorio del proyecto.
