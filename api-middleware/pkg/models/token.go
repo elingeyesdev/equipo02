@@ -1,6 +1,7 @@
 package models
 
 // EmitirToken representa la solicitud para emitir valor a un cliente.
+// CodigoToken es etiqueta de API; token_erc20 no recibe este campo en Mint/Transfer.
 type EmitirToken struct {
 	Destinatario string `json:"destinatario" binding:"required"`
 	Monto        int64  `json:"monto" binding:"required,gt=0"`
@@ -8,6 +9,7 @@ type EmitirToken struct {
 }
 
 // TransferirToken representa la solicitud de transferencia entre clientes.
+// Origen es informativo; en ERC-20 el origen del ledger es la identidad que firma la transacción.
 type TransferirToken struct {
 	Origen      string `json:"origen" binding:"required"`
 	Destino     string `json:"destino" binding:"required"`

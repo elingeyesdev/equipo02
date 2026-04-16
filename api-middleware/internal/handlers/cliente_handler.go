@@ -4,8 +4,11 @@ import (
 	"api-middleware/internal/fabric"
 	"api-middleware/pkg/models"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,10 +25,28 @@ func RegistrarCliente(c *gin.Context) {
 		return
 	}
 
+	if err := validarRegistroCliente(n); err != nil {
+		c.JSON(http.StatusBadRequest, models.RespuestaError{
+			Ok:      false,
+			Codigo:  "VALIDACION",
+			Mensaje: err.Error(),
+		})
+		return
+	}
+
 	// 1. Invocar el Chaincode (Fase 4)
 	// Función: CreateAsset(clienteId, nombre, tipoDoc, numeroDoc, fechaAlta, estado, telefono, email, notas)
 	chaincode := os.Getenv("CHAINCODE_NAME")
-	result, err := fabric.InvokeTransaction(chaincode, "CreateAsset",
+	if strings.TrimSpace(chaincode) == "" {
+		c.JSON(http.StatusInternalServerError, models.RespuestaError{
+			Ok:      false,
+			Codigo:  "CONFIGURACION",
+			Mensaje: "No se encontró CHAINCODE_NAME en variables de entorno",
+		})
+		return
+	}
+
+	result, err := fabric.InvokeTransactionWithTxID(chaincode, "CreateAsset",
 		n.ClienteId, n.Nombre, n.TipoDocumento, n.NumeroDocumento,
 		n.FechaAlta, n.Estado, n.Telefono, n.Email, n.Notas,
 	)
@@ -42,7 +63,7 @@ func RegistrarCliente(c *gin.Context) {
 	// 2. Responder con el éxito
 	c.JSON(http.StatusCreated, models.RespuestaExitoTx{
 		Ok:      true,
-		TxId:    string(result), // El SDK de Gateway a menudo devuelve el ID de TX o el resultado
+		TxId:    result.TxID,
 		Mensaje: "Cliente registrado correctamente en la Blockchain",
 	})
 }
@@ -75,4 +96,24 @@ func ConsultarCliente(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, cliente)
+}
+
+func validarRegistroCliente(cliente models.Cliente) error {
+	if strings.TrimSpace(cliente.ClienteId) == "" {
+		return fmt.Errorf("clienteId es obligatorio")
+	}
+	if strings.TrimSpace(cliente.Nombre) == "" {
+		return fmt.Errorf("nombre es obligatorio")
+	}
+	if strings.TrimSpace(cliente.NumeroDocumento) == "" {
+		return fmt.Errorf("numeroDocumento es obligatorio")
+	}
+	if strings.TrimSpace(cliente.FechaAlta) == "" {
+		return fmt.Errorf("fechaAlta es obligatoria")
+	}
+	if _, err := time.Parse("2006-01-02", cliente.FechaAlta); err != nil {
+		return fmt.Errorf("fechaAlta debe tener formato YYYY-MM-DD")
+	}
+
+	return nil
 }

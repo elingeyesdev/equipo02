@@ -94,7 +94,12 @@ paths:
     post:
       tags: [tokens]
       summary: Emitir token
-      description: Registra una operación de emisión de valor a un cliente.
+      description: >-
+        Emisión real en chaincode token_erc20: Mint a la cuenta del minter (identidad del gateway)
+        y Transfer al destinatario. Los campos txId y txIdMint (si aplica) son identificadores de
+        transacción confirmados en Fabric. destinatario debe ser una cuenta válida en el contrato
+        (p. ej. ClientAccountID / identidad de cliente en Fabric), no necesariamente el clienteId
+        del asset cliente_cc. codigoToken no se envía al chaincode (contrato ERC-20 único).
       requestBody:
         required: true
         content:
@@ -127,7 +132,10 @@ paths:
     post:
       tags: [tokens]
       summary: Transferir token
-      description: Registra una transferencia de valor entre clientes.
+      description: >-
+        Transferencia real en token_erc20: el origen del débito en ledger es la identidad que firma
+        (gateway), no el campo origen del JSON (origen es informativo para trazabilidad de negocio).
+        destino debe ser cuenta válida en el contrato. codigoToken no se envía al chaincode.
       requestBody:
         required: true
         content:
@@ -307,7 +315,7 @@ components:
       properties:
         destinatario:
           type: string
-          description: Cliente que recibe el valor (clienteId)
+          description: Cuenta destino en el contrato (p. ej. ClientAccountID en Fabric)
           minLength: 1
         monto:
           type: integer
@@ -316,7 +324,7 @@ components:
           minimum: 1
         codigoToken:
           type: string
-          description: Código del token
+          description: Etiqueta lógica en la API; el chaincode token_erc20 no recibe este parámetro
           minLength: 1
 
     TransferirToken:
@@ -329,11 +337,11 @@ components:
       properties:
         origen:
           type: string
-          description: Cliente que envía el valor (clienteId)
+          description: Informativo; el contrato transfiere desde la identidad del gateway
           minLength: 1
         destino:
           type: string
-          description: Cliente que recibe el valor (clienteId)
+          description: Cuenta destino en el contrato (p. ej. ClientAccountID en Fabric)
           minLength: 1
         monto:
           type: integer
@@ -342,7 +350,7 @@ components:
           minimum: 1
         codigoToken:
           type: string
-          description: Código del token
+          description: Etiqueta lógica en la API; el chaincode token_erc20 no recibe este parámetro
           minLength: 1
 
     SaldoToken:
@@ -407,6 +415,9 @@ components:
           example: true
         txId:
           type: string
+        txIdMint:
+          type: string
+          description: Presente en emisión cuando hubo Mint previo a Transfer
         mensaje:
           type: string
 
