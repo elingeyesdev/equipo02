@@ -21,5 +21,7 @@ func SetupRoutes(router *gin.Engine) {
 		tokens.POST("/transferir", handlers.TransferirToken)
 		tokens.GET("/saldo/:clienteId", handlers.ConsultarSaldo)
 		tokens.GET("/historial/:clienteId", handlers.ConsultarHistorial)
-	}
+	// Endpoint Unificado (Detección Automática - Hito 2.4)
+	router.POST("/operar", handlers.AutoRouteOperation)
+	router.GET("/operar", handlers.AutoRouteOperation)
 }

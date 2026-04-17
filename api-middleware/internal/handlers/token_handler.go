@@ -10,13 +10,14 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 )
 
 // EmitirToken ejecuta Mint (fondos en cuenta del minter/gateway) y Transfer al destinatario.
 // El contrato token_erc20 (sample) no usa codigoToken: hay un único activo; el campo se mantiene por contrato de API.
 func EmitirToken(c *gin.Context) {
 	var s models.EmitirToken
-	if err := c.ShouldBindJSON(&s); err != nil {
+	if err := c.ShouldBindBodyWith(&s, binding.JSON); err != nil {
 		c.JSON(http.StatusBadRequest, models.RespuestaError{
 			Ok:      false,
 			Codigo:  "VALIDACION",
@@ -73,7 +74,7 @@ func EmitirToken(c *gin.Context) {
 // TransferirToken ejecuta Transfer: el origen en ledger es la identidad que firma (gateway), no el campo JSON `origen`.
 func TransferirToken(c *gin.Context) {
 	var s models.TransferirToken
-	if err := c.ShouldBindJSON(&s); err != nil {
+	if err := c.ShouldBindBodyWith(&s, binding.JSON); err != nil {
 		c.JSON(http.StatusBadRequest, models.RespuestaError{
 			Ok:      false,
 			Codigo:  "VALIDACION",

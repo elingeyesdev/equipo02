@@ -1,0 +1,76 @@
+REPORTE DE SPRINT 2.4: DETECCION AUTOMATICA ASSET/TOKEN
+
+1. RESUMEN DE OBJETIVOS LOGRADOS (LISTA DE COMPROBACION)
+
+Se ha completado al 100% el hito "2.4. Detección automática Asset/Token", cumpliendo los 4 puntos requeridos en la especificación:
+
+1. Definir regla de clasificación por tipo de solicitud: Implementado un clasificador inteligente que identifica Activos y Tokens basándose en campos, valores (prefijos CLI-) y parámetros de consulta.
+2. Implementar enrutamiento automático hacia módulo correspondiente: Creación del endpoint unificado /operar que actúa como Gateway Dispatcher.
+3. Manejar solicitudes ambiguas o incompletas: El sistema valida la colisión de campos o la ausencia de datos clave, respondiendo con errores 400 detallados.
+4. Registrar decisión de enrutamiento por cada solicitud: Implementación de auditoría por consola que justifica técnicamente cada decisión tomada por el middleware.
+
+---
+
+2. ARQUITECTURA DEL GATEWAY INTELIGENTE
+
+Se introdujo una nueva capa de control en internal/handlers/gateway_handler.go que centraliza la recepción de tráfico.
+
+Reglas de Clasificacion (Logica de Decision)
+El sistema aplica tres filtros secuenciales para decidir el destino de una petición:
+- Filtro por Campos Clave: Si existen campos como monto o codigoToken, se clasifica como operacion financiera (Token). Si existen campos de identidad como tipoDocumento, se clasifica como Activo.
+- Inteligencia por Prefijos: Si un identificador empieza con el prefijo "CLI-" (ej: CLI-001), el sistema lo reconoce automáticamente como un Activo/Cliente.
+- Jerarquia de Conflicto: En caso de que una petición contenga nombres de campos que existan en ambos modelos, el sistema prioriza el módulo de Tokens si detecta intenciones de movimiento de valor (seguridad financiera).
+
+Enrutamiento Unificado
+Se habilitaron las siguientes rutas maestras en internal/routes/routes.go:
+- POST /operar: Para registros de clientes y emisiones/transferencias de tokens.
+- GET /operar: Para consultas de saldo o lectura de datos de cliente mediante parámetros.
+
+---
+
+3. MANEJO DE ERRORES Y EXCEPCIONES
+
+Para asegurar la robustez del sistema, el Gateway intercepta peticiones mal formadas antes de que lleguen a la Blockchain:
+
+- Error de Ambigüedad (ERROR_AMBIGUO): Se dispara cuando un JSON contiene campos de ambos mundos, solicitando al usuario separar las operaciones.
+- Error de Solicitud Incompleta (ERROR_SOLICITUD_INCOMPLETA): Se dispara cuando los datos no bastan para clasificar la petición, sugiriendo los campos mínimos requeridos.
+
+---
+
+4. AUDITORIA Y LOGGING (PUNTO 4)
+
+Cada petición procesada por el Gateway deja una traza clara en la terminal del servidor:
+[GATEWAY] >>> SOLICITUD RECIBIDA: POST /operar
+[GATEWAY] Clasificacion: TOKEN | Motivacion: Campo financiero detectado: monto
+[GATEWAY] >>> ENRUTANDO A MODULO TOKENS
+
+---
+
+5. GUIA DE USO PARA PRUEBAS (CURL)
+
+Registrar Cliente (Detectado Automaticamente como ASSET)
+curl -X POST http://localhost:3000/operar \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clienteId": "CLI-888",
+    "nombre": "Software S.A.",
+    "tipoDocumento": "NIT",
+    "numeroDocumento": "123456",
+    "fechaAlta": "2026-04-17",
+    "estado": "ACTIVO"
+  }'
+
+Emisión de Valor (Detectado Automaticamente como TOKEN)
+curl -X POST http://localhost:3000/operar \
+  -H "Content-Type: application/json" \
+  -d '{
+    "destinatario": "CLI-888",
+    "monto": 2500,
+    "codigoToken": "BOB"
+  }'
+
+---
+
+6. CONCLUSION
+
+Con la implementación de la Detección Automática, la API Middleware ha evolucionado de un simple puente de rutas a un Gateway Inteligente (Cerebro Central). Esto simplifica la integración con aplicaciones frontend, mejora la seguridad del sistema y proporciona una auditoría detallada de cada operación.

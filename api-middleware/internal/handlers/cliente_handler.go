@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 )
 
 // RegistrarCliente maneja la creación de un nuevo asset de cliente en Fabric.
 func RegistrarCliente(c *gin.Context) {
 	var n models.Cliente
-	if err := c.ShouldBindJSON(&n); err != nil {
+	if err := c.ShouldBindBodyWith(&n, binding.JSON); err != nil {
 		c.JSON(http.StatusBadRequest, models.RespuestaError{
 			Ok:      false,
 			Codigo:  "VALIDACION",
