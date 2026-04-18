@@ -1,55 +1,96 @@
-REPORTE DE SPRINT 2.4: DETECCION AUTOMATICA ASSET/TOKEN
+REPORTE DE SPRINT 2.4: DETECCIÓN AUTOMÁTICA ASSET / TOKEN
 
-1. RESUMEN DE OBJETIVOS LOGRADOS (LISTA DE COMPROBACION)
+1. RESUMEN DE OBJETIVOS (LISTA DE COMPROBACIÓN)
 
-Se ha completado al 100% el hito "2.4. Detección automática Asset/Token", cumpliendo los 4 puntos requeridos en la especificación:
+Hito 2.4 cubre cuatro puntos, reflejados en código y contrato OpenAPI:
 
-1. Definir regla de clasificación por tipo de solicitud: Implementado un clasificador inteligente que identifica Activos y Tokens basándose en campos, valores (prefijos CLI-) y parámetros de consulta.
-2. Implementar enrutamiento automático hacia módulo correspondiente: Creación del endpoint unificado /operar que actúa como Gateway Dispatcher.
-3. Manejar solicitudes ambiguas o incompletas: El sistema valida la colisión de campos o la ausencia de datos clave, respondiendo con errores 400 detallados.
-4. Registrar decisión de enrutamiento por cada solicitud: Implementación de auditoría por consola que justifica técnicamente cada decisión tomada por el middleware.
-
----
-
-2. ARQUITECTURA DEL GATEWAY INTELIGENTE
-
-Se introdujo una nueva capa de control en internal/handlers/gateway_handler.go que centraliza la recepción de tráfico.
-
-Reglas de Clasificacion (Logica de Decision)
-El sistema aplica tres filtros secuenciales para decidir el destino de una petición:
-- Filtro por Campos Clave: Si existen campos como monto o codigoToken, se clasifica como operacion financiera (Token). Si existen campos de identidad como tipoDocumento, se clasifica como Activo.
-- Inteligencia por Prefijos: Si un identificador empieza con el prefijo "CLI-" (ej: CLI-001), el sistema lo reconoce automáticamente como un Activo/Cliente.
-- Jerarquia de Conflicto: En caso de que una petición contenga nombres de campos que existan en ambos modelos, el sistema prioriza el módulo de Tokens si detecta intenciones de movimiento de valor (seguridad financiera).
-
-Enrutamiento Unificado
-Se habilitaron las siguientes rutas maestras en internal/routes/routes.go:
-- POST /operar: Para registros de clientes y emisiones/transferencias de tokens.
-- GET /operar: Para consultas de saldo o lectura de datos de cliente mediante parámetros.
+1. Regla de clasificación por tipo de solicitud: clasificador en
+   internal/handlers/gateway_handler.go según cuerpo JSON (POST), query (GET),
+   campos típicos de token vs identidad, y prefijo CLI- en identificadores.
+2. Enrutamiento automático: endpoint unificado POST y GET /operar en
+   internal/routes/routes.go que delega en los handlers existentes de clientes
+   y tokens.
+3. Solicitudes ambiguas o incompletas: respuestas 400 con códigos
+   ERROR_AMBIGUO y ERROR_SOLICITUD_INCOMPLETA según el caso.
+4. Registro de la decisión: logs en consola por cada petición a /operar
+   (clasificación y motivación antes de enrutar).
 
 ---
 
-3. MANEJO DE ERRORES Y EXCEPCIONES
+2. ARQUITECTURA DEL GATEWAY
 
-Para asegurar la robustez del sistema, el Gateway intercepta peticiones mal formadas antes de que lleguen a la Blockchain:
+Archivo principal: internal/handlers/gateway_handler.go.
 
-- Error de Ambigüedad (ERROR_AMBIGUO): Se dispara cuando un JSON contiene campos de ambos mundos, solicitando al usuario separar las operaciones.
-- Error de Solicitud Incompleta (ERROR_SOLICITUD_INCOMPLETA): Se dispara cuando los datos no bastan para clasificar la petición, sugiriendo los campos mínimos requeridos.
+Reglas de clasificación (orden relevante)
+
+- Conflicto en el mismo mensaje: si en el cuerpo aparecen a la vez señales
+  claras de token (p. ej. monto, codigoToken, destinatario, destino, origen) y
+  de asset (solo tipoDocumento y numeroDocumento cuentan como “campos de
+  identidad” para marcar asset), la petición se marca como AMBIGUO y no se
+  enruta a ningún módulo (HTTP 400, ERROR_AMBIGUO). Ya no se prioriza token
+  sobre asset en ese caso.
+- Token: presencia de campos de movimiento/consulta de token en JSON, o en GET
+  el query codigoToken (aunque vaya vacío, la clave dispara la rama token).
+- Asset por prefijo: en GET, clienteId cuyo valor empiece por CLI- (sin
+  codigoToken en query) se trata como consulta de cliente (asset).
+- Asset por identidad: en POST, tipoDocumento o numeroDocumento en el cuerpo.
+- Desconocido: no hay señales suficientes (HTTP 400, ERROR_SOLICITUD_INCOMPLETA).
+
+Enrutamiento POST /operar
+
+- ASSET → RegistrarCliente (mismo cuerpo que POST /clientes).
+- TOKEN sin campo origen en JSON → EmitirToken.
+- TOKEN con campo origen en JSON → TransferirToken (el chaincode no usa
+  origen como firmante; es convención de la API para elegir emisión vs
+  transferencia).
+
+Enrutamiento GET /operar
+
+- TOKEN (p. ej. query incluye codigoToken) → ConsultarSaldo: obligatorios
+  clienteId y codigoToken en query. Aquí clienteId es la cuenta en el contrato
+  ERC-20 (p. ej. ClientAccountID en Fabric), alineado con GET /tokens/saldo/:clienteId,
+  no necesariamente el clienteId del asset cliente_cc.
+- ASSET (p. ej. solo clienteId con prefijo CLI-) → ConsultarCliente: query
+  clienteId obligatorio.
+
+Contrato OpenAPI: rutas /operar documentadas en openapi.yaml para que el
+middleware de validación no rechace la petición antes del gateway.
 
 ---
 
-4. AUDITORIA Y LOGGING (PUNTO 4)
+3. MANEJO DE ERRORES
 
-Cada petición procesada por el Gateway deja una traza clara en la terminal del servidor:
+- ERROR_AMBIGUO: cuerpo con mezcla explícita token + campos de identidad
+  (tipoDocumento / numeroDocumento) que activan ambos mundos.
+- ERROR_SOLICITUD_INCOMPLETA: no se puede clasificar, o GET sin clienteId
+  cuando el handler delegado lo exige (saldo o cliente).
+
+---
+
+4. AUDITORÍA Y LOGGING (PUNTO 4)
+
+Ejemplo de trazas reales (formato y textos pueden variar levemente):
+
 [GATEWAY] >>> SOLICITUD RECIBIDA: POST /operar
-[GATEWAY] Clasificacion: TOKEN | Motivacion: Campo financiero detectado: monto
-[GATEWAY] >>> ENRUTANDO A MODULO TOKENS
+[GATEWAY] Clasificacion: TOKEN | Motivacion: Campo financiero o consulta de token detectada: monto
+[GATEWAY] Enrutando a módulo de TOKENS
+
+[GATEWAY] >>> SOLICITUD RECIBIDA: GET /operar
+[GATEWAY] Clasificacion: ASSET | Motivacion: ID con prefijo CLI detectado: query:clienteId
+[GATEWAY] Enrutando a módulo de ASSETS (Clientes)
 
 ---
 
-5. GUIA DE USO PARA PRUEBAS (CURL)
+5. GUÍA DE PRUEBAS (CURL)
 
-Registrar Cliente (Detectado Automaticamente como ASSET)
-curl -X POST http://localhost:3000/operar \
+Variables de ejemplo: BASE=http://localhost:3000
+Sustituya codigoToken por el valor configurado en TOKEN_CODE (.env); si no hay
+variable, el middleware suele esperar el valor por defecto documentado en el
+código (p. ej. TOK).
+
+5.1 Registrar cliente (POST → ASSET → RegistrarCliente)
+
+curl -X POST "${BASE}/operar" \
   -H "Content-Type: application/json" \
   -d '{
     "clienteId": "CLI-888",
@@ -60,17 +101,63 @@ curl -X POST http://localhost:3000/operar \
     "estado": "ACTIVO"
   }'
 
-Emisión de Valor (Detectado Automaticamente como TOKEN)
-curl -X POST http://localhost:3000/operar \
+5.2 Emitir token (POST → TOKEN → EmitirToken; sin clave "origen")
+
+El campo destinatario debe ser una cuenta válida en el chaincode token_erc20
+(ClientAccountID / identidad de cliente en Fabric), no el clienteId del asset
+salvo que en su despliegue coincidan. Ejemplo de forma típica (valor ilustrativo;
+copie uno real de su red):
+
+curl -X POST "${BASE}/operar" \
   -H "Content-Type: application/json" \
   -d '{
-    "destinatario": "CLI-888",
+    "destinatario": "eDUwOTo6Q049cmVjaXBpZW50LE9VPWNsaWVudCxPPUh5cGVybGVkZ2VyLFNUPU5vcnRoIENhcm9saW5hLEM9VVM6OkNOPWNhLm9yZzIuZXhhbXBsZS5jb20sTz1vcmcyLmV4YW1wbGUuY29tLEw9SHVyc2xleSxTVD1IYW1wc2hpcmUsQz1VSw==",
     "monto": 2500,
-    "codigoToken": "BOB"
+    "codigoToken": "TOK"
+  }'
+
+5.3 Transferir token (POST → TOKEN → TransferirToken; presencia de "origen")
+
+curl -X POST "${BASE}/operar" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origen": "informativo-gateway-firma",
+    "destino": "eDUwOTo6Q049cmVjaXBpZW50LE9VPWNsaWVudCxPPUh5cGVybGVkZ2VyLFNUPU5vcnRoIENhcm9saW5hLEM9VVM6OkNOPWNhLm9yZzIuZXhhbXBsZS5jb20sTz1vcmcyLmV4YW1wbGUuY29tLEw9SHVyc2xleSxTVD1IYW1wc2hpcmUsQz1VSw==",
+    "monto": 100,
+    "codigoToken": "TOK"
+  }'
+
+5.4 Consultar cliente por GET (ASSET)
+
+curl -G "${BASE}/operar" --data-urlencode "clienteId=CLI-888"
+
+5.5 Consultar saldo por GET (TOKEN)
+
+Reemplace CUENTA_LEDGER por el accountId usado en BalanceOf (misma semántica
+que en GET /tokens/saldo/:clienteId).
+
+curl -G "${BASE}/operar" \
+  --data-urlencode "clienteId=CUENTA_LEDGER" \
+  --data-urlencode "codigoToken=TOK"
+
+5.6 Ejemplo de ambigüedad (debe responder ERROR_AMBIGUO)
+
+curl -X POST "${BASE}/operar" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "monto": 10,
+    "codigoToken": "TOK",
+    "tipoDocumento": "CI",
+    "numeroDocumento": "1234567"
   }'
 
 ---
 
-6. CONCLUSION
+6. CONCLUSIÓN
 
-Con la implementación de la Detección Automática, la API Middleware ha evolucionado de un simple puente de rutas a un Gateway Inteligente (Cerebro Central). Esto simplifica la integración con aplicaciones frontend, mejora la seguridad del sistema y proporciona una auditoría detallada de cada operación.
+El endpoint /operar concentra la detección y el enrutamiento hacia los mismos
+handlers que /clientes y /tokens, con trazabilidad en logs y respuestas de
+error explícitas. Los integradores deben distinguir siempre el identificador de
+asset (CLI-…, chaincode cliente_cc) de la cuenta usada en el token ERC-20
+(chaincode token_erc20), tal como describe el OpenAPI de /tokens/emitir y
+/tokens/saldo/{clienteId}.

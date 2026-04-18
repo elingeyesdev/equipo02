@@ -2,6 +2,8 @@ package routes
 
 import (
 	"api-middleware/internal/handlers"
+	"api-middleware/internal/middleware"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,7 +23,22 @@ func SetupRoutes(router *gin.Engine) {
 		tokens.POST("/transferir", handlers.TransferirToken)
 		tokens.GET("/saldo/:clienteId", handlers.ConsultarSaldo)
 		tokens.GET("/historial/:clienteId", handlers.ConsultarHistorial)
-	// Endpoint Unificado (Detección Automática - Hito 2.4)
+	}
+
+	// Endpoint unificado (detección automática — hito 2.4)
 	router.POST("/operar", handlers.AutoRouteOperation)
 	router.GET("/operar", handlers.AutoRouteOperation)
+
+	// Invocación controlada por lista blanca (hito 2.5) — integradores (contrato OpenAPI)
+	chaincode := router.Group("/chaincode")
+	{
+		chaincode.POST("/invocar", handlers.InvocarChaincodeIntegrador)
+	}
+
+	// Rutas administrativas: fuera del OpenAPI público; validación omitida en middleware y API key obligatoria
+	admin := router.Group("/admin")
+	admin.Use(middleware.AdminAPIKey())
+	{
+		admin.POST("/chaincode/invocar", handlers.InvocarChaincodeAdmin)
+	}
 }

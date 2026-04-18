@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/hyperledger/fabric-gateway/pkg/client"
 )
@@ -14,14 +15,26 @@ type SubmitResult struct {
 	TxID    string
 }
 
-// InvokeTransaction envía una transacción de escritura al ledger.
+func canalEfectivo(nombreCanal string) string {
+	c := strings.TrimSpace(nombreCanal)
+	if c != "" {
+		return c
+	}
+	return strings.TrimSpace(os.Getenv("CHANNEL_NAME"))
+}
+
+// InvokeTransaction envía una transacción de escritura al ledger (canal desde CHANNEL_NAME).
 func InvokeTransaction(chaincodeName string, functionName string, args ...string) ([]byte, error) {
+	return InvokeTransactionEnCanal(canalEfectivo(""), chaincodeName, functionName, args...)
+}
+
+// InvokeTransactionEnCanal envía una transacción de escritura al canal indicado.
+func InvokeTransactionEnCanal(channelName string, chaincodeName string, functionName string, args ...string) ([]byte, error) {
 	if GlobalGateway == nil {
 		return nil, fmt.Errorf("el gateway no está inicializado")
 	}
 
-	networkName := os.Getenv("CHANNEL_NAME")
-	network := GlobalGateway.GetNetwork(networkName)
+	network := GlobalGateway.GetNetwork(canalEfectivo(channelName))
 	contract := network.GetContract(chaincodeName)
 
 	result, err := contract.SubmitTransaction(functionName, args...)
@@ -32,14 +45,18 @@ func InvokeTransaction(chaincodeName string, functionName string, args ...string
 	return result, nil
 }
 
-// InvokeTransactionWithTxID envía una transacción de escritura y devuelve el txID real confirmado.
+// InvokeTransactionWithTxID envía una transacción de escritura y devuelve el txID real confirmado (canal CHANNEL_NAME).
 func InvokeTransactionWithTxID(chaincodeName string, functionName string, args ...string) (*SubmitResult, error) {
+	return InvokeTransactionWithTxIDEnCanal(canalEfectivo(""), chaincodeName, functionName, args...)
+}
+
+// InvokeTransactionWithTxIDEnCanal igual que InvokeTransactionWithTxID pero sobre el canal dado.
+func InvokeTransactionWithTxIDEnCanal(channelName string, chaincodeName string, functionName string, args ...string) (*SubmitResult, error) {
 	if GlobalGateway == nil {
 		return nil, fmt.Errorf("el gateway no está inicializado")
 	}
 
-	networkName := os.Getenv("CHANNEL_NAME")
-	network := GlobalGateway.GetNetwork(networkName)
+	network := GlobalGateway.GetNetwork(canalEfectivo(channelName))
 	contract := network.GetContract(chaincodeName)
 
 	result, commit, err := contract.SubmitAsync(functionName, client.WithArguments(args...))
@@ -61,14 +78,18 @@ func InvokeTransactionWithTxID(chaincodeName string, functionName string, args .
 	}, nil
 }
 
-// EvaluateTransaction realiza una consulta de solo lectura al ledger.
+// EvaluateTransaction realiza una consulta de solo lectura al ledger (canal CHANNEL_NAME).
 func EvaluateTransaction(chaincodeName string, functionName string, args ...string) ([]byte, error) {
+	return EvaluateTransactionEnCanal(canalEfectivo(""), chaincodeName, functionName, args...)
+}
+
+// EvaluateTransactionEnCanal realiza evaluate sobre el canal indicado.
+func EvaluateTransactionEnCanal(channelName string, chaincodeName string, functionName string, args ...string) ([]byte, error) {
 	if GlobalGateway == nil {
 		return nil, fmt.Errorf("el gateway no está inicializado")
 	}
 
-	networkName := os.Getenv("CHANNEL_NAME")
-	network := GlobalGateway.GetNetwork(networkName)
+	network := GlobalGateway.GetNetwork(canalEfectivo(channelName))
 	contract := network.GetContract(chaincodeName)
 
 	result, err := contract.EvaluateTransaction(functionName, args...)

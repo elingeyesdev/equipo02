@@ -21,6 +21,9 @@ const (
 // detectRequestType analiza el cuerpo o los parámetros de consulta para clasificar la solicitud.
 // Punto 1 "Premium": Detección por campos, prefijos, soporte GET y jerarquía.
 func detectRequestType(body map[string]interface{}, queryParams map[string][]string) (string, string) {
+	if body == nil {
+		body = map[string]interface{}{}
+	}
 	hasTokenFields := false
 	hasAssetFields := false
 	idPrefixMatch := false
@@ -70,13 +73,13 @@ func detectRequestType(body map[string]interface{}, queryParams map[string][]str
 		}
 	}
 
-	// 3. Lógica de Decisión con Jerarquía y Razón
+	// 3. Lógica de decisión: conflicto explícito antes que priorizar un módulo
+	if hasTokenFields && hasAssetFields {
+		return TipoAmbiguo, "Se detectaron a la vez campos típicos de Token y de Asset (cliente): " + matchedKey
+	}
+
 	if hasTokenFields {
-		razon := "Campo financiero detectado: " + matchedKey
-		if hasAssetFields || idPrefixMatch {
-			razon += " (Conflicto detectado, priorizando TOKEN)"
-		}
-		return TipoTokenString, razon
+		return TipoTokenString, "Campo financiero o consulta de token detectada: " + matchedKey
 	}
 
 	if idPrefixMatch {
@@ -85,11 +88,6 @@ func detectRequestType(body map[string]interface{}, queryParams map[string][]str
 
 	if hasAssetFields {
 		return TipoAssetString, "Campo de identidad detectado: " + matchedKey
-	}
-
-	// Prioridad 3: Ambigüedad si no podemos decidir con las reglas anteriores
-	if hasAssetFields && hasTokenFields {
-		return TipoAmbiguo, "Conflicto directo de campos Asset/Token"
 	}
 
 	return TipoUnknown, "No se encontraron campos clave para clasificar"
@@ -107,6 +105,9 @@ func AutoRouteOperation(c *gin.Context) {
 			log.Printf("[GATEWAY] Aviso: Body no es JSON válido: %v", err)
 		}
 	}
+	if body == nil {
+		body = map[string]interface{}{}
+	}
 
 	// 1 y 4. Clasificación con Justificación Técnica
 	tipo, razon := detectRequestType(body, queryParams)
@@ -119,9 +120,21 @@ func AutoRouteOperation(c *gin.Context) {
 	switch tipo {
 	case TipoTokenString:
 		log.Printf("[GATEWAY] Enrutando a módulo de TOKENS")
-		// Dependiendo del método o campos, podríamos ser más específicos (Emitir vs Transferir)
-		// Por ahora, asumimos que el handler de token sabrá que hacer con el body bindeado
-		if _, ok := body["origen"]; ok || c.Request.URL.Path == "/tokens/transferir" {
+		if c.Request.Method == http.MethodGet {
+			clienteID := strings.TrimSpace(c.Query("clienteId"))
+			if clienteID == "" {
+				c.JSON(http.StatusBadRequest, models.RespuestaError{
+					Ok:      false,
+					Codigo:  "ERROR_SOLICITUD_INCOMPLETA",
+					Mensaje: "Para consulta de saldo vía /operar se requiere query clienteId y codigoToken.",
+				})
+				return
+			}
+			c.Params = gin.Params{gin.Param{Key: "clienteId", Value: clienteID}}
+			ConsultarSaldo(c)
+			return
+		}
+		if _, ok := body["origen"]; ok {
 			TransferirToken(c)
 		} else {
 			EmitirToken(c)
@@ -132,6 +145,16 @@ func AutoRouteOperation(c *gin.Context) {
 		if c.Request.Method == http.MethodPost {
 			RegistrarCliente(c)
 		} else {
+			clienteID := strings.TrimSpace(c.Query("clienteId"))
+			if clienteID == "" {
+				c.JSON(http.StatusBadRequest, models.RespuestaError{
+					Ok:      false,
+					Codigo:  "ERROR_SOLICITUD_INCOMPLETA",
+					Mensaje: "Para consulta de cliente vía /operar se requiere query clienteId.",
+				})
+				return
+			}
+			c.Params = gin.Params{gin.Param{Key: "clienteId", Value: clienteID}}
 			ConsultarCliente(c)
 		}
 
@@ -146,9 +169,9 @@ func AutoRouteOperation(c *gin.Context) {
 		// Caso de solicitud incompleta o desconocida
 		detalles := "No se pudo identificar el tipo de operacion (Asset o Token)."
 		sugerencia := "Asegúrese de enviar al menos 'monto' y 'codigoToken' para transacciones, o 'tipoDocumento' y 'numeroDocumento' para registros de clientes."
-		
+
 		if len(body) == 0 && len(queryParams) == 0 {
-			detalles = "Peticion vacia."
+			detalles = "Petición vacía."
 		}
 
 		c.JSON(http.StatusBadRequest, models.RespuestaError{

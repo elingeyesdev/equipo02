@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"api-middleware/pkg/models"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,14 @@ func OapiValidator(specPath string) gin.HandlerFunc {
 		},
 	}
 
-	// 3. Retornar el middleware de validación
-	return ginmiddleware.OapiRequestValidatorWithOptions(swagger, options)
+	inner := ginmiddleware.OapiRequestValidatorWithOptions(swagger, options)
+
+	// Las rutas bajo /admin/ no forman parte del contrato OpenAPI público; se omiten aquí de forma explícita.
+	return func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/admin/") {
+			c.Next()
+			return
+		}
+		inner(c)
+	}
 }

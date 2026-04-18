@@ -15,6 +15,8 @@ tags:
     description: Registro y consulta de clientes (Asset)
   - name: tokens
     description: Emisión, transferencia, saldo e historial (Token)
+  - name: chaincode
+    description: Invocación controlada de chaincode (lista blanca, evaluate o submit)
 
 paths:
   /clientes:
@@ -113,6 +115,156 @@ paths:
                 ok: false
                 codigo: ERROR_FABRIC
                 mensaje: Error interno al consultar cliente en Blockchain
+
+  /operar:
+    get:
+      tags: [clientes, tokens]
+      summary: Operación unificada (consulta — hito 2.4)
+      description: >-
+        Clasificación por query: con codigoToken se enruta a consulta de saldo; con solo clienteId
+        (p. ej. prefijo CLI-) a consulta de cliente. El middleware solo exige que exista al menos
+        un query param; la lógica del gateway valida el resto.
+      parameters:
+        - name: clienteId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: codigoToken
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Respuesta del handler enrutado (cliente o saldo)
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Solicitud incompleta o error de validación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '404':
+          description: Recurso no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+    post:
+      tags: [clientes, tokens]
+      summary: Operación unificada (escritura — hito 2.4)
+      description: >-
+        Clasificación por cuerpo JSON hacia registro de cliente (asset) o emisión/transferencia de
+        token. Cuerpo flexible según el tipo detectado.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Operación de token completada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExitoTx'
+        '201':
+          description: Cliente registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaExitoTx'
+        '400':
+          description: Validación, ambigüedad o solicitud incompleta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+
+  /chaincode/invocar:
+    post:
+      tags: [chaincode]
+      summary: Invocar chaincode (integrador, lista blanca)
+      description: >-
+        Ejecuta evaluate o submit solo para combinaciones (canal, contrato, función, modo, número de
+        argumentos) permitidas por la política embebida o por CHAINCODE_POLITICAS_FILE. No existe
+        invoke genérico: cualquier otra combinación responde 403. Cabecera opcional X-Actor-Id para
+        bitácora de auditoría.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudInvocacionChaincode'
+            example:
+              canal: clientes
+              contrato: cliente_cc
+              funcion: ReadAsset
+              parametros: ["CLI001"]
+              modo: evaluate
+      responses:
+        '200':
+          description: Evaluate exitoso (RespuestaLectura) o submit confirmado (RespuestaExitoTx)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RespuestaLectura'
+                  - $ref: '#/components/schemas/RespuestaExitoTx'
+        '400':
+          description: Validación de cuerpo o modo inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: Combinación no permitida por política
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '404':
+          description: Recurso no encontrado en ledger (evaluate/submit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '500':
+          description: Error interno Fabric genérico
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '502':
+          description: Endoso o confirmación rechazada en Fabric
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '503':
+          description: Gateway no conectado, timeout o red no disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
 
   /tokens/emitir:
     post:
@@ -311,6 +463,36 @@ paths:
 
 components:
   schemas:
+    SolicitudInvocacionChaincode:
+      type: object
+      required:
+        - canal
+        - contrato
+        - funcion
+        - modo
+      properties:
+        canal:
+          type: string
+          description: Nombre del canal Fabric
+          minLength: 1
+        contrato:
+          type: string
+          description: Nombre del chaincode desplegado en el canal
+          minLength: 1
+        funcion:
+          type: string
+          description: Nombre de la función del contrato a invocar
+          minLength: 1
+        parametros:
+          type: array
+          description: Argumentos posicionales como cadenas (coincidir con número esperado por política)
+          items:
+            type: string
+        modo:
+          type: string
+          description: evaluate (solo lectura) o submit (escritura confirmada)
+          enum: [evaluate, submit]
+
     Cliente:
       type: object
       required:
