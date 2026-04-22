@@ -2,9 +2,11 @@ package middleware
 
 import (
 	"api-middleware/pkg/models"
+	"context"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/gin-gonic/gin"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
 )
@@ -28,6 +30,13 @@ func OapiValidator(specPath string) gin.HandlerFunc {
 				Mensaje: "La petición no cumple con el contrato: " + message,
 			})
 			c.Abort()
+		},
+		// Las operaciones declaran security ApiKeyAuth; kin-openapi exige AuthenticationFunc.
+		// La comprobación real de API key y roles la aplican XAPIKeyAuth / RequireAPIRoles en routes.
+		Options: openapi3filter.Options{
+			AuthenticationFunc: func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
+				return nil
+			},
 		},
 	}
 

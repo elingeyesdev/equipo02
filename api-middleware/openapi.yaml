@@ -6,6 +6,11 @@ info:
     Contrato base para registrar clientes (Asset) y operaciones de valor (Token)
     sobre la red Hyperledger Fabric del proyecto.
 
+    Autenticación de consumo (hito 2.6): cabecera obligatoria `X-API-Key` en las rutas del contrato.
+    El rol efectivo lo determina el servidor según qué variable de entorno coincide con la clave
+    (`API_KEY_ADMIN`, `API_KEY_INTEGRADOR`, `API_KEY_SOLO_LECTURA`). Las rutas bajo `/admin/` siguen
+    usando `X-Admin-Api-Key` y no forman parte de este esquema.
+
 servers:
   - url: http://localhost:3000
     description: Servidor local de desarrollo
@@ -21,6 +26,8 @@ tags:
 paths:
   /clientes:
     post:
+      security:
+        - ApiKeyAuth: []
       tags: [clientes]
       summary: Registrar cliente
       description: Registra un nuevo cliente como Asset dentro del sistema.
@@ -61,9 +68,23 @@ paths:
                 ok: false
                 codigo: VALIDACION
                 mensaje: Faltan campos obligatorios
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso (solo integrador o admin pueden registrar)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
 
   /clientes/{clienteId}:
     get:
+      security:
+        - ApiKeyAuth: []
       tags: [clientes]
       summary: Consultar cliente
       description: Consulta un cliente registrado en el sistema.
@@ -115,9 +136,23 @@ paths:
                 ok: false
                 codigo: ERROR_FABRIC
                 mensaje: Error interno al consultar cliente en Blockchain
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
 
   /operar:
     get:
+      security:
+        - ApiKeyAuth: []
       tags: [clientes, tokens]
       summary: Operación unificada (consulta — hito 2.4)
       description: >-
@@ -160,7 +195,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespuestaError'
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
     post:
+      security:
+        - ApiKeyAuth: []
       tags: [clientes, tokens]
       summary: Operación unificada (escritura — hito 2.4)
       description: >-
@@ -198,9 +247,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespuestaError'
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso (escritura solo integrador o admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
 
   /chaincode/invocar:
     post:
+      security:
+        - ApiKeyAuth: []
       tags: [chaincode]
       summary: Invocar chaincode (integrador, lista blanca)
       description: >-
@@ -235,8 +298,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespuestaError'
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
         '403':
-          description: Combinación no permitida por política
+          description: >-
+            Combinación no permitida por política de chaincode, API key inválida, o rol sin permiso
+            (solo integrador o admin vía X-API-Key). Revisar campo `codigo` en el cuerpo JSON.
           content:
             application/json:
               schema:
@@ -268,6 +339,8 @@ paths:
 
   /tokens/emitir:
     post:
+      security:
+        - ApiKeyAuth: []
       tags: [tokens]
       summary: Emitir token
       description: >-
@@ -303,9 +376,23 @@ paths:
                 ok: false
                 codigo: VALIDACION
                 mensaje: El monto debe ser mayor que cero
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso (emisión solo rol admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
 
   /tokens/transferir:
     post:
+      security:
+        - ApiKeyAuth: []
       tags: [tokens]
       summary: Transferir token
       description: >-
@@ -340,9 +427,23 @@ paths:
                 ok: false
                 codigo: SALDO_INVALIDO
                 mensaje: El monto debe ser mayor que cero
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso (transferencia solo rol admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
 
   /tokens/saldo/{clienteId}:
     get:
+      security:
+        - ApiKeyAuth: []
       tags: [tokens]
       summary: Consultar saldo
       description: >-
@@ -398,9 +499,23 @@ paths:
                 ok: false
                 codigo: ERROR_FABRIC
                 mensaje: Error interno al consultar saldo en Blockchain
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
 
   /tokens/historial/{clienteId}:
     get:
+      security:
+        - ApiKeyAuth: []
       tags: [tokens]
       summary: Consultar historial
       description: >-
@@ -460,8 +575,29 @@ paths:
                 ok: false
                 codigo: NO_IMPLEMENTADO_CHAINCODE
                 mensaje: El chaincode token_erc20 actual no expone historial por cuenta
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
 
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: >-
+        Credencial del consumidor de la API. El servidor asocia la clave a un rol según
+        API_KEY_ADMIN, API_KEY_INTEGRADOR o API_KEY_SOLO_LECTURA (solo una coincide).
+
   schemas:
     SolicitudInvocacionChaincode:
       type: object
@@ -639,6 +775,35 @@ components:
           example: Saldo consultado correctamente
         datos:
           $ref: '#/components/schemas/SaldoToken'
+
+    RespuestaLectura:
+      type: object
+      required:
+        - ok
+        - codigo
+        - mensaje
+        - datos
+      properties:
+        ok:
+          type: boolean
+          example: true
+        codigo:
+          type: string
+          example: CONSULTA_EXITOSA
+        mensaje:
+          type: string
+          example: Consulta realizada correctamente
+        datos:
+          description: Payload dinámico de lecturas evaluate (depende de contrato y función).
+          oneOf:
+            - type: object
+            - type: array
+              items:
+                type: object
+            - type: string
+            - type: number
+            - type: integer
+            - type: boolean
 
     OperacionHistorial:
       type: object

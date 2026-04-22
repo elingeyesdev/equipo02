@@ -1,0 +1,154 @@
+================================================================================
+  TAREA 2.6 – GESTIÓN DE IDENTIDADES (API KEYS Y ROLES)
+  Proyecto: equipo02 | Backend: api-middleware
+================================================================================
+
+1. RESUMEN GENERAL
+--------------------------------------------------------------------------------
+Se añadió control de acceso a la API del middleware (sin tocar la red Fabric ni
+la lógica de negocio ya validada en el hito 2.2). Cada petición a las rutas del
+contrato OpenAPI debe llevar la cabecera X-API-Key. El servidor compara esa
+clave con valores definidos en variables de entorno y asigna un rol. Según la
+ruta y el método, se permite el acceso o se responde con 401/403 y un JSON de
+error unificado (models.RespuestaError).
+
+Las rutas bajo /admin/ no usan X-API-Key: siguen igual que antes, con
+X-Admin-Api-Key y ADMIN_API_KEY.
+
+
+2. QUÉ SE IMPLEMENTÓ
+--------------------------------------------------------------------------------
+- Variables de entorno para tres claves, cada una asociada a un rol:
+    API_KEY_ADMIN
+    API_KEY_INTEGRADOR
+    API_KEY_SOLO_LECTURA
+
+- Middleware en internal/middleware (archivo api_key_roles.go):
+    • XAPIKeyAuth: lee X-API-Key, valida presencia y coincidencia con .env,
+      guarda el rol en el contexto de Gin.
+    • RequireAPIRoles: comprueba que el rol esté entre los permitidos para
+      esa ruta.
+
+- Encadenado de middleware en internal/routes/routes.go por ruta (sin meter
+  autorización dentro de los handlers de cliente/token/Fabric).
+
+- Contrato OpenAPI actualizado: esquema de seguridad ApiKeyAuth (cabecera
+  X-API-Key), uso en operaciones y respuestas documentadas.
+
+- Archivo .env.example con las variables API_KEY_* documentadas.
+
+- Definición de esquema RespuestaLectura en openapi.yaml donde el contrato la
+  referencia (evaluate de chaincode).
+
+
+3. ROLES DEFINIDOS
+--------------------------------------------------------------------------------
+admin
+  Acceso amplio sobre las rutas protegidas con X-API-Key (incluye emisión y
+  transferencia de tokens según la matriz de rutas).
+
+integrador
+  Puede operaciones de escritura acordadas (registro de cliente, POST /operar,
+  invocación chaincode de integrador, etc.) pero no todo lo que solo puede admin.
+
+solo_lectura
+  Solo consultas (GET) en las rutas donde aplica “cualquier rol válido”.
+
+
+4. CÓMO FUNCIONA LA CREDENCIAL Y EL MIDDLEWARE
+--------------------------------------------------------------------------------
+Credencial
+  El cliente envía:  X-API-Key: <valor secreto>
+  Los valores válidos se cargan desde .env al arrancar el servidor (godotenv
+  en main), igual que el resto de configuración.
+
+Mapeo clave → rol
+  Se compara la cabecera (tras quitar espacios) con las variables de entorno,
+  en este orden: API_KEY_ADMIN, luego API_KEY_INTEGRADOR, luego
+  API_KEY_SOLO_LECTURA. La primera coincidencia define el rol. Variables vacías
+  se ignoran.
+
+Flujo por petición
+  1) XAPIKeyAuth: si no hay clave → 401 CREDENCIAL_AUSENTE. Si hay clave pero no
+     coincide con ninguna configurada → 403 CREDENCIAL_INVALIDA. Si coincide,
+     se fija el rol en el contexto.
+  2) RequireAPIRoles: si el rol no está en la lista permitida para esa ruta →
+     403 ACCESO_DENEGADO. Si está permitido → continúa al handler (lógica 2.2
+     intacta).
+
+Validación OpenAPI (kin-openapi) y security ApiKeyAuth: existe una función de
+autenticación mínima en el validador para que el spec cargue; la decisión real
+de quién entra la hacen los middlewares anteriores a los handlers.
+
+
+5. QUÉ RUTAS QUEDARON PROTEGIDAS (X-API-Key)
+--------------------------------------------------------------------------------
+Cualquier rol válido (admin, integrador, solo_lectura):
+  GET  /clientes/{clienteId}
+  GET  /tokens/saldo/{clienteId}
+  GET  /tokens/historial/{clienteId}
+  GET  /operar
+
+Solo admin o integrador:
+  POST /clientes
+  POST /operar
+  POST /chaincode/invocar
+
+Solo admin:
+  POST /tokens/emitir
+  POST /tokens/transferir
+
+Fuera de X-API-Key (sin cambios respecto al hito anterior):
+  POST /admin/chaincode/invocar  →  cabecera X-Admin-Api-Key (ADMIN_API_KEY)
+
+
+6. QUÉ PRUEBAS SE HICIERON
+--------------------------------------------------------------------------------
+1) Sin credencial: GET /clientes/CLI001 (sin X-API-Key).
+2) Credencial inválida: GET /clientes/CLI001 con X-API-Key: no-existe.
+3) Solo lectura permitido: GET /clientes/CLI001 con X-API-Key: sec-lect.
+4) Integrador permitido: POST /clientes con X-API-Key: sec-int (cuerpo válido).
+5) Solo lectura denegado: POST /tokens/emitir con X-API-Key: sec-lect.
+6) Admin permitido: POST /tokens/emitir con X-API-Key: sec-admin (cuerpo válido).
+
+
+7. QUÉ RESULTADOS SE OBTUVIERON
+--------------------------------------------------------------------------------
+1) Sin credencial
+   HTTP 401
+   codigo: CREDENCIAL_AUSENTE
+
+2) Credencial inválida
+   HTTP 403
+   codigo: CREDENCIAL_INVALIDA
+
+3) Solo lectura – consulta cliente
+   HTTP 200 OK
+   Consulta exitosa (respuesta de lectura según handler).
+
+4) Integrador – alta de cliente
+   HTTP 201 Created
+   Respuesta con txId real de Fabric (hito 2.2 sigue operando detrás del auth).
+
+5) Solo lectura – emisión de token (ruta solo admin)
+   HTTP 403
+   codigo: ACCESO_DENEGADO
+
+6) Admin – emisión de token
+   HTTP 200 OK
+   Respuesta con txId y txIdMint según el flujo de emisión del proyecto.
+
+
+8. CONCLUSIÓN FINAL
+--------------------------------------------------------------------------------
+La tarea 2.6 añade una capa de identidad simple y coherente con el stack actual
+(Gin, .env, RespuestaError, OpenAPI): quien consume la API debe presentar
+X-API-Key; el servidor decide rol y permisos por ruta sin modificar la lógica
+de blockchain ya probada en la 2.2. Las respuestas 401 y 403 distinguen
+ausencia de credencial, clave no reconocida y falta de permiso por rol. Las
+rutas administrativas de chaincode bajo /admin/ permanecen aisladas con su
+propia cabecera administrativa.
+
+================================================================================
+Fin del documento – Tarea 2.6
+================================================================================

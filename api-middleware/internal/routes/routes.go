@@ -9,31 +9,36 @@ import (
 
 // SetupRoutes configura todos los endpoints del API Middleware.
 func SetupRoutes(router *gin.Engine) {
-	// Grupo de Clientes
-	clientes := router.Group("/clientes")
-	{
-		clientes.POST("", handlers.RegistrarCliente)
-		clientes.GET("/:clienteId", handlers.ConsultarCliente)
+	// --- API pública del contrato OpenAPI: X-API-Key + rol (hito 2.6) ---
+	authCualquierRol := []gin.HandlerFunc{
+		middleware.XAPIKeyAuth(),
+		middleware.RequireAPIRoles(middleware.RoleAdmin, middleware.RoleIntegrador, middleware.RoleSoloLectura),
 	}
+	authIntegradorOAdmin := []gin.HandlerFunc{
+		middleware.XAPIKeyAuth(),
+		middleware.RequireAPIRoles(middleware.RoleAdmin, middleware.RoleIntegrador),
+	}
+	authSoloAdmin := []gin.HandlerFunc{
+		middleware.XAPIKeyAuth(),
+		middleware.RequireAPIRoles(middleware.RoleAdmin),
+	}
+
+	// Grupo de Clientes
+	router.POST("/clientes", append(authIntegradorOAdmin, handlers.RegistrarCliente)...)
+	router.GET("/clientes/:clienteId", append(authCualquierRol, handlers.ConsultarCliente)...)
 
 	// Grupo de Tokens
-	tokens := router.Group("/tokens")
-	{
-		tokens.POST("/emitir", handlers.EmitirToken)
-		tokens.POST("/transferir", handlers.TransferirToken)
-		tokens.GET("/saldo/:clienteId", handlers.ConsultarSaldo)
-		tokens.GET("/historial/:clienteId", handlers.ConsultarHistorial)
-	}
+	router.POST("/tokens/emitir", append(authSoloAdmin, handlers.EmitirToken)...)
+	router.POST("/tokens/transferir", append(authSoloAdmin, handlers.TransferirToken)...)
+	router.GET("/tokens/saldo/:clienteId", append(authCualquierRol, handlers.ConsultarSaldo)...)
+	router.GET("/tokens/historial/:clienteId", append(authCualquierRol, handlers.ConsultarHistorial)...)
 
 	// Endpoint unificado (detección automática — hito 2.4)
-	router.POST("/operar", handlers.AutoRouteOperation)
-	router.GET("/operar", handlers.AutoRouteOperation)
+	router.GET("/operar", append(authCualquierRol, handlers.AutoRouteOperation)...)
+	router.POST("/operar", append(authIntegradorOAdmin, handlers.AutoRouteOperation)...)
 
 	// Invocación controlada por lista blanca (hito 2.5) — integradores (contrato OpenAPI)
-	chaincode := router.Group("/chaincode")
-	{
-		chaincode.POST("/invocar", handlers.InvocarChaincodeIntegrador)
-	}
+	router.POST("/chaincode/invocar", append(authIntegradorOAdmin, handlers.InvocarChaincodeIntegrador)...)
 
 	// Rutas administrativas: fuera del OpenAPI público; validación omitida en middleware y API key obligatoria
 	admin := router.Group("/admin")
