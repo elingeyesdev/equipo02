@@ -1,0 +1,63 @@
+ENTREGABLE 2.7: MONITOREO DE EVENTOS
+
+Objetivo del entregable
+Implementar un sistema de monitoreo y despacho de eventos en tiempo real provenientes de la red Hyperledger Fabric, permitiendo la captura de transacciones confirmadas y la auditoria continua mediante una interfaz API Middleware robusta.
+
+1. RESUMEN TECNICO
+Configuracion del motor de eventos:
+- Protocolo de transmision: Server-Sent Events (SSE)
+- Mecanismo de persistencia: Historial circular en memoria (Ultimos 100 eventos)
+- Seguridad: Validacion via OpenAPI 3.0 y API Key
+- Auditoria: Bitacora estructurada en JSON con sincronizacion fisica (Sync)
+- Resiliencia: Re-intento automatico con Retroceso Exponencial (5s a 60s)
+
+2. LOGICA DE MONITOREO - EVENTOS DE BLOCKCHAIN
+Se ha implementado un Broker de Eventos que intercepta las señales del Chaincode con el siguiente mapeo logico:
+
+| Componente            | Funcion                       | Descripcion                                          |
+| :---                  | :---                          | :---                                                 |
+| Event Broker          | Distribuidor Pub/Sub          | Maneja multiples suscriptores concurrentes (SSE).    |
+| Event Listener        | Escucha Activa                | Intercepta bloques y extrae eventos del Ledger.      |
+| Normalizador          | Estandarizacion JSON          | Convierte eventos crudos a formato legible de negocio.|
+| Keep-Alive            | Heartbeat (15s)               | Mantiene la conexion abierta evitando cortes de proxy.|
+
+3. CONFIGURACION DE LA BITACORA DE AUDITORIA
+Para cumplir con el requerimiento de trazabilidad, se ha desplegado un sistema de logs con las siguientes reglas:
+
+- Ubicacion: logs/chaincode.log (Configurable via .env)
+- Formato: JSON estandarizado para facil ingesta en herramientas de analisis.
+- Etiquetas de filtrado: [BITACORA_CHAINCODE] y [BITACORA_EVENTO].
+- Integridad: Uso de Sync() para garantizar que cada registro se escriba en disco al instante.
+
+4. ENDPOINTS DE MONITOREO (API)
+
+A. Flujo en Tiempo Real (SSE):
+Ruta: GET /eventos/stream
+Seguridad: Requiere X-API-Key (Rol Administrador o Integrador)
+Uso: Monitoreo en vivo desde interfaces web o dashboards.
+
+B. Consulta de Historial:
+Ruta: GET /eventos/historial
+Seguridad: Requiere X-API-Key
+Uso: Recuperar eventos recientes que ocurrieron mientras el monitor estaba desconectado.
+
+5. COMANDOS DE VERIFICACION Y PRUEBAS
+
+Prueba de Monitoreo en Vivo (SSE):
+curl -H "X-API-Key: sec-admin" http://localhost:3000/eventos/stream
+
+Prueba de Historial de Eventos:
+curl -H "X-API-Key: sec-admin" http://localhost:3000/eventos/historial
+
+Script de Prueba Automatizada (Verificacion de captura):
+./scripts/qa_events_test.sh
+
+6. PLAN DE RESILIENCIA Y RECUPERACION
+El sistema esta diseñado para fallar de manera segura. Ante una caida del Peer de Fabric o un reinicio de la red:
+- El listener detecta la perdida de gRPC.
+- Inicia una rutina de reconexion silenciosa en segundo plano.
+- Registra el fallo en la bitacora de auditoria.
+- Al recuperarse la red, el flujo de eventos se reanuda automaticamente sin intervencion humana.
+
+---------------------------------------------------------------------------
+Nota Final: Este documento consolida el trabajo realizado en el motor de eventos, la seguridad perimetral y el sistema de bitacora para el cumplimiento del entregable 2.7 de la Facultad de Ingenieria.

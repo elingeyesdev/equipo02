@@ -73,6 +73,11 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 		return err
 	}
 
+	err = ctx.GetStub().SetEvent("CreateAsset", assetJSON)
+	if err != nil {
+		return fmt.Errorf("failed to set event: %v", err)
+	}
+
 	return ctx.GetStub().PutState(id, assetJSON)
 }
 
@@ -120,6 +125,11 @@ func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface,
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
 		return err
+	}
+
+	err = ctx.GetStub().SetEvent("UpdateAsset", assetJSON)
+	if err != nil {
+		return fmt.Errorf("failed to set event: %v", err)
 	}
 
 	return ctx.GetStub().PutState(id, assetJSON)

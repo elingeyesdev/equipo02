@@ -40,6 +40,10 @@ func SetupRoutes(router *gin.Engine) {
 	// Invocación controlada por lista blanca (hito 2.5) — integradores (contrato OpenAPI)
 	router.POST("/chaincode/invocar", append(authIntegradorOAdmin, handlers.InvocarChaincodeIntegrador)...)
 
+	// --- Módulo de Monitoreo de Eventos (hito 2.7) ---
+	router.GET("/eventos/stream", append(authIntegradorOAdmin, handlers.StreamEventos)...)
+	router.GET("/eventos/historial", append(authIntegradorOAdmin, handlers.ObtenerUltimosEventos)...)
+
 	// Rutas administrativas: fuera del OpenAPI público; validación omitida en middleware y API key obligatoria
 	admin := router.Group("/admin")
 	admin.Use(middleware.AdminAPIKey())

@@ -22,6 +22,8 @@ tags:
     description: Emisión, transferencia, saldo e historial (Token)
   - name: chaincode
     description: Invocación controlada de chaincode (lista blanca, evaluate o submit)
+  - name: eventos
+    description: Monitoreo de eventos de Blockchain en tiempo real y consulta de historial
 
 paths:
   /clientes:
@@ -148,6 +150,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespuestaError'
+
+  /eventos/stream:
+    get:
+      security:
+        - ApiKeyAuth: []
+      tags: [eventos]
+      summary: Flujo de eventos de Blockchain en tiempo real (SSE)
+      description: Inicia una conexión Server-Sent Events (SSE) para recibir eventos de los contratos configurados.
+      responses:
+        '200':
+          description: Conexión establecida. Los eventos se envían con el prefijo "data:".
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: Falta la cabecera X-API-Key
+        '403':
+          description: API key inválida o rol sin permiso
+
+  /eventos/historial:
+    get:
+      security:
+        - ApiKeyAuth: []
+      tags: [eventos]
+      summary: Consultar historial de eventos recientes
+      description: Obtiene los últimos 100 eventos normalizados almacenados en la memoria del middleware.
+      responses:
+        '200':
+          description: Historial de eventos obtenido correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLectura'
+        '401':
+          description: Falta la cabecera X-API-Key
+        '403':
+          description: API key inválida o rol sin permiso
 
   /operar:
     get:

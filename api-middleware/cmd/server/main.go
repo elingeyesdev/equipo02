@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 
+	"api-middleware/internal/bitacora"
 	"api-middleware/internal/fabric"
 	"api-middleware/internal/middleware"
 	"api-middleware/internal/routes"
@@ -19,6 +21,9 @@ func main() {
 	if err != nil {
 		log.Println("Aviso: No se encontró el archivo .env, usando variables del sistema")
 	}
+	
+	// 1.1 Configurar Bitácora (ahora que el .env ya está cargado)
+	bitacora.ConfigurarBitacora()
 
 	// 2. Conectar a la Blockchain (Fase 4)
 	fmt.Println("Conectando a Hyperledger Fabric...")
@@ -27,6 +32,20 @@ func main() {
 		log.Println("El API correrá en modo desconectado (las llamadas a Fabric fallarán)")
 	} else {
 		fmt.Println("¡Conexión exitosa con Hyperledger Fabric!")
+
+		// PASO 2: Iniciar suscripción/escucha de eventos desde el middleware
+		ctx := context.Background()
+		
+		// Leemos los chaincodes configurados
+		ccCliente := os.Getenv("CHAINCODE_NAME")
+		ccToken := os.Getenv("TOKEN_CHAINCODE_NAME")
+
+		if ccCliente != "" {
+			go fabric.StartEventListening(ctx, ccCliente)
+		}
+		if ccToken != "" && ccToken != ccCliente {
+			go fabric.StartEventListening(ctx, ccToken)
+		}
 	}
 
 	port := os.Getenv("PORT")
