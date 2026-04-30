@@ -11,6 +11,10 @@ info:
     (`API_KEY_ADMIN`, `API_KEY_INTEGRADOR`, `API_KEY_SOLO_LECTURA`). Las rutas bajo `/admin/` siguen
     usando `X-Admin-Api-Key` y no forman parte de este esquema.
 
+    Auditoría (hito 2.8): cada respuesta incluye la cabecera `X-Operacion-Id` (identificador de operación).
+    Opcionalmente el cliente puede enviar `X-Correlation-Id` (ASCII alfanumérico, guiones, puntos y
+    subrayado, máx. 128 caracteres) para reutilizar ese valor como id de operación en bitácora.
+
 servers:
   - url: http://localhost:3000
     description: Servidor local de desarrollo
@@ -23,7 +27,7 @@ tags:
   - name: chaincode
     description: Invocación controlada de chaincode (lista blanca, evaluate o submit)
   - name: eventos
-    description: Monitoreo de eventos de Blockchain en tiempo real y consulta de historial
+    description: Monitoreo de eventos emitidos por chaincode (SSE e historial en memoria)
 
 paths:
   /clientes:
@@ -150,44 +154,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespuestaError'
-
-  /eventos/stream:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [eventos]
-      summary: Flujo de eventos de Blockchain en tiempo real (SSE)
-      description: Inicia una conexión Server-Sent Events (SSE) para recibir eventos de los contratos configurados.
-      responses:
-        '200':
-          description: Conexión establecida. Los eventos se envían con el prefijo "data:".
-          content:
-            text/event-stream:
-              schema:
-                type: string
-        '401':
-          description: Falta la cabecera X-API-Key
-        '403':
-          description: API key inválida o rol sin permiso
-
-  /eventos/historial:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [eventos]
-      summary: Consultar historial de eventos recientes
-      description: Obtiene los últimos 100 eventos normalizados almacenados en la memoria del middleware.
-      responses:
-        '200':
-          description: Historial de eventos obtenido correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '401':
-          description: Falta la cabecera X-API-Key
-        '403':
-          description: API key inválida o rol sin permiso
 
   /operar:
     get:
@@ -372,6 +338,66 @@ paths:
                 $ref: '#/components/schemas/RespuestaError'
         '503':
           description: Gateway no conectado, timeout o red no disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+
+  /eventos/stream:
+    get:
+      security:
+        - ApiKeyAuth: []
+      tags: [eventos]
+      summary: Stream en vivo de eventos de chaincode (SSE)
+      description: >-
+        Server-Sent Events (text/event-stream): eventos normalizados emitidos por los chaincodes
+        configurados (p. ej. CreateAsset). Requiere rol administrador o integrador. La respuesta no
+        es un único JSON: son fragmentos SSE (`data:`) con objetos EventoNormalizado.
+      responses:
+        '200':
+          description: Flujo continuo text/event-stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Fragmentos SSE (líneas `data:` con JSON por evento, comentarios `:` para keep-alive)
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso (solo admin o integrador)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+
+  /eventos/historial:
+    get:
+      security:
+        - ApiKeyAuth: []
+      tags: [eventos]
+      summary: Últimos eventos de chaincode en memoria
+      description: >-
+        Devuelve los últimos eventos retenidos en el middleware (tamaño acotado, p. ej. 100). Cualquier
+        rol con API key válida (incl. solo lectura).
+      responses:
+        '200':
+          description: Historial reciente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaLectura'
+        '401':
+          description: Falta la cabecera X-API-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaError'
+        '403':
+          description: API key inválida o rol sin permiso
           content:
             application/json:
               schema:

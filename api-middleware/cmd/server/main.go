@@ -29,6 +29,7 @@ func main() {
 	fmt.Println("Conectando a Hyperledger Fabric...")
 	if err := fabric.Connect(); err != nil {
 		log.Printf("ADVERTENCIA: No se pudo conectar a Fabric: %v\n", err)
+		bitacora.RegistrarFalloConexionFabric(err)
 		log.Println("El API correrá en modo desconectado (las llamadas a Fabric fallarán)")
 	} else {
 		fmt.Println("¡Conexión exitosa con Hyperledger Fabric!")
@@ -56,7 +57,9 @@ func main() {
 	// 3. Inicializar Gin
 	router := gin.Default()
 
-	// 3. Registrar Middleware de Validación OpenAPI
+	// Auditoría HTTP (hito 2.8): id de operación + bitácora solicitud/resultado (envuelve toda la API)
+	router.Use(middleware.AuditOperaciones())
+
 	// El archivo openapi.yaml está en la carpeta raíz del middleware (api-middleware/)
 	router.Use(middleware.OapiValidator("openapi.yaml"))
 

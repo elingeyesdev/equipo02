@@ -18,6 +18,7 @@ var (
 // EntradaBitacoraChaincode es un registro estructurado para auditoría (stdout + archivo opcional).
 type EntradaBitacoraChaincode struct {
 	Timestamp     time.Time `json:"timestamp"`
+	OperacionID   string    `json:"operacionId,omitempty"`
 	Actor         string    `json:"actor"`
 	Audiencia     string    `json:"audiencia"` // integrador | administracion
 	Canal         string    `json:"canal"`
@@ -56,7 +57,7 @@ func ConfigurarBitacora() {
 // EntradaBitacoraEvento representa un registro de error o evento administrativo del módulo de monitoreo.
 type EntradaBitacoraEvento struct {
 	Timestamp time.Time `json:"timestamp"`
-	Categoria string    `json:"categoria"` // EVENT_ERROR | EVENT_RECONNECT
+	Categoria string    `json:"categoria"` // EVENT_ERROR | EVENT_CRITICAL | EVENT_DELIVERY_SKIPPED
 	Contrato  string    `json:"contrato"`
 	Mensaje   string    `json:"mensaje"`
 	Error     string    `json:"error,omitempty"`

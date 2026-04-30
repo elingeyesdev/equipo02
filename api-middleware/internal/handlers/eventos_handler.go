@@ -45,17 +45,18 @@ func StreamEventos(c *gin.Context) {
 			c.Writer.Write([]byte(":\n\n"))
 			c.Writer.Flush()
 			return true
-		case evento := <-ch:
-			// Serializar el evento normalizado
+		case evento, ok := <-ch:
+			if !ok {
+				return false
+			}
 			data, err := json.Marshal(evento)
 			if err != nil {
-				return true // ignorar este evento y seguir con el próximo
+				return true
 			}
-			
-			// Enviar usando el formato SSE: "data: {json}\n\n"
 			c.Writer.Write([]byte("data: "))
 			c.Writer.Write(data)
 			c.Writer.Write([]byte("\n\n"))
+			c.Writer.Flush()
 			return true
 		}
 	})

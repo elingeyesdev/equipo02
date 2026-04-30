@@ -57,22 +57,29 @@ func (b *EventBroker) RemoveClient(ch chan EventoNormalizado) {
 // Broadcast distribuye el evento a todos los clientes SSE y lo guarda en el historial.
 func (b *EventBroker) Broadcast(evento EventoNormalizado) {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	// 1. Guardar en historial
 	b.historial = append(b.historial, evento)
 	if len(b.historial) > HistorialMaximo {
-		b.historial = b.historial[1:] // Mantener el tamaño máximo (FIFO)
+		b.historial = b.historial[1:]
 	}
-
-	// 2. Distribuir a los canales (SSE)
+	dropped := 0
 	for ch := range b.clients {
 		select {
 		case ch <- evento:
-			// Enviado con éxito
 		default:
-			// Si el canal está lleno, se salta para no bloquear al broker
+			dropped++
 		}
+	}
+	b.mu.Unlock()
+
+	if dropped > 0 {
+		bitacora.RegistrarFalloEvento(bitacora.EntradaBitacoraEvento{
+			Categoria: "EVENT_DELIVERY_SKIPPED",
+			Contrato:  evento.Contrato,
+			Mensaje: fmt.Sprintf(
+				"cola SSE llena: %d suscriptor(es) no recibieron el evento %s (txId=%s)",
+				dropped, evento.NombreEvento, evento.TxID,
+			),
+		})
 	}
 }
 

@@ -17,7 +17,7 @@ Se ha implementado un Broker de Eventos que intercepta las señales del Chaincod
 | Componente            | Funcion                       | Descripcion                                          |
 | :---                  | :---                          | :---                                                 |
 | Event Broker          | Distribuidor Pub/Sub          | Maneja multiples suscriptores concurrentes (SSE).    |
-| Event Listener        | Escucha Activa                | Intercepta bloques y extrae eventos del Ledger.      |
+| Event Listener        | Escucha Activa                | Suscripción a eventos de chaincode (Fabric Gateway). |
 | Normalizador          | Estandarizacion JSON          | Convierte eventos crudos a formato legible de negocio.|
 | Keep-Alive            | Heartbeat (15s)               | Mantiene la conexion abierta evitando cortes de proxy.|
 
@@ -27,6 +27,7 @@ Para cumplir con el requerimiento de trazabilidad, se ha desplegado un sistema d
 - Ubicacion: logs/chaincode.log (Configurable via .env)
 - Formato: JSON estandarizado para facil ingesta en herramientas de analisis.
 - Etiquetas de filtrado: [BITACORA_CHAINCODE] y [BITACORA_EVENTO].
+- Fallos de entrega SSE (cola de cliente llena): categoria JSON EVENT_DELIVERY_SKIPPED en [BITACORA_EVENTO].
 - Integridad: Uso de Sync() para garantizar que cada registro se escriba en disco al instante.
 
 4. ENDPOINTS DE MONITOREO (API)
@@ -38,7 +39,7 @@ Uso: Monitoreo en vivo desde interfaces web o dashboards.
 
 B. Consulta de Historial:
 Ruta: GET /eventos/historial
-Seguridad: Requiere X-API-Key
+Seguridad: Requiere X-API-Key (cualquier rol válido, incl. solo lectura)
 Uso: Recuperar eventos recientes que ocurrieron mientras el monitor estaba desconectado.
 
 5. COMANDOS DE VERIFICACION Y PRUEBAS

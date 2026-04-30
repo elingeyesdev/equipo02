@@ -4,6 +4,7 @@ import (
 	"api-middleware/internal/bitacora"
 	"api-middleware/internal/chaincodepolicy"
 	"api-middleware/internal/fabric"
+	"api-middleware/internal/middleware"
 	"api-middleware/pkg/models"
 	"encoding/json"
 	"net/http"
@@ -145,6 +146,7 @@ func actorDesdeCabecera(c *gin.Context, audiencia string) string {
 
 func registrarBitacoraChaincode(c *gin.Context, audiencia string, req models.SolicitudInvocacionChaincode, resultado string, httpCode int, codigoNegocio, txID, detalle string) {
 	bitacora.RegistrarChaincode(bitacora.EntradaBitacoraChaincode{
+		OperacionID:   middleware.OperacionIDDesdeContexto(c),
 		Actor:         actorDesdeCabecera(c, audiencia),
 		Audiencia:     audiencia,
 		Canal:         req.Canal,

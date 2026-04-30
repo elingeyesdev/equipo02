@@ -1,0 +1,24 @@
+ENTREGABLE 2.8: AUDITORÍA Y ERRORES
+
+1. Bitácora de solicitudes recibidas
+- Cada petición HTTP genera una línea JSON con prefijo [BITACORA_SOLICITUD] (stdout y, si aplica,
+  archivo configurado por CHAINCODE_BITACORA_FILE).
+- Campos: operacionId, metodo, ruta, remoto, userAgent, actor (cabecera opcional X-Actor-Id).
+
+2. Errores de validación y de conexión
+- Validación OpenAPI o cuerpos inválidos: el resultado final se registra como resultado
+  error_validacion o error_cliente según el código HTTP (p. ej. 400).
+- Fallo al conectar Fabric al arranque: [BITACORA_CONEXION] con fase fabric_connect.
+
+3. Resultado final de cada operación
+- Tras procesar la petición: [BITACORA_RESULTADO] con operacionId, metodo, ruta, codigoHttp,
+  duracionMs, resultado (exito | error_validacion | error_credencial | error_cliente |
+  error_servidor | error_conexion_upstream) y detalle opcional (incluye rol API si existía).
+
+4. Trazabilidad mínima (identificador de operación)
+- Cabecera de respuesta: X-Operacion-Id (UUID v4 por defecto).
+- Cabecera de petición opcional: X-Correlation-Id (si es segura y corta, se usa como operacionId).
+- Invocaciones chaincode en bitácora específica incluyen el campo operacionId alineado al mismo id.
+
+5. Configuración
+- CHAINCODE_BITACORA_FILE: ruta de archivo JSONL compartido por chaincode, eventos y auditoría HTTP.
