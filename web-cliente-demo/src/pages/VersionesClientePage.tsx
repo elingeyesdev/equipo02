@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import type { ClienteApi } from '../types/api'
+import { parseClienteDatos } from '../lib/apiClienteAdapter'
+import { displayClienteField } from '../lib/clienteDisplay'
 import {
   crearBorradorApi,
   confirmarBorradorApi,
@@ -9,6 +11,75 @@ import {
 } from '../services/apiVersiones'
 import { consultarClienteApi } from '../services/apiClientes'
 import { ApiHttpError } from '../services/apiClient'
+
+/** Normaliza lectura API + campos de versiones (revision, draft). */
+function clienteParaVista(datos: unknown): ClienteApi | null {
+  const parsed = parseClienteDatos(datos)
+  if (!parsed) return null
+  if (!datos || typeof datos !== 'object') return parsed
+  const o = datos as Record<string, unknown>
+  return {
+    ...parsed,
+    revision: typeof o.revision === 'number' ? o.revision : parsed.revision,
+    isDraft: o.isDraft === true ? true : parsed.isDraft,
+    draftOf: typeof o.draftOf === 'string' ? o.draftOf : parsed.draftOf,
+  }
+}
+
+type FilaDetalle = { label: string; value: string; audit?: boolean }
+
+function filasDetallePresentacion(c: ClienteApi, opts?: { incluirEstado?: boolean }): FilaDetalle[] {
+  const filas: FilaDetalle[] = [
+    { label: 'Nombre', value: displayClienteField('nombre', c.nombre) },
+    {
+      label: 'Documento',
+      value: `${displayClienteField('tipoDocumento', c.tipoDocumento)} ${displayClienteField('numeroDocumento', c.numeroDocumento)}`.trim(),
+    },
+    { label: 'Fecha Alta', value: displayClienteField('fechaAlta', c.fechaAlta) },
+    { label: 'Telefono', value: displayClienteField('telefono', c.telefono) || '—' },
+    { label: 'Email', value: displayClienteField('email', c.email) || '—' },
+  ]
+  if (opts?.incluirEstado) {
+    filas.splice(3, 0, { label: 'Estado', value: displayClienteField('estado', c.estado) })
+  }
+  const notas = displayClienteField('notas', c.notas)
+  filas.push({ label: 'Notas', value: notas === '(vacío)' ? '—' : notas })
+  if (c.informacionAuditoria?.trim()) {
+    filas.push({
+      label: 'Informacion de auditoria',
+      value: c.informacionAuditoria,
+      audit: true,
+    })
+  }
+  return filas
+}
+
+function ClienteDetalleDl({
+  cliente,
+  incluirEstado,
+}: {
+  cliente: ClienteApi
+  incluirEstado?: boolean
+}) {
+  return (
+    <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-3">
+      {filasDetallePresentacion(cliente, { incluirEstado }).map(({ label, value, audit }) => (
+        <div key={label} className={audit ? 'col-span-2 sm:col-span-3' : undefined}>
+          <dt className="text-muted">{label}</dt>
+          <dd
+            className={
+              audit
+                ? 'mt-0.5 whitespace-pre-wrap rounded-lg border border-line/60 bg-surface/40 p-2 text-[11px] text-muted'
+                : 'truncate text-slate-200'
+            }
+          >
+            {value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
 
 // ─── Sub-componentes ───────────────────────────────────────────────────────────
 
@@ -59,9 +130,7 @@ export default function VersionesClientePage() {
     setLoadingCliente(true)
     try {
       const res = await consultarClienteApi(clienteId)
-      // El middleware envuelve en RespuestaLectura con campo `datos`
-      const datos = (res as { datos?: ClienteApi }).datos ?? (res as unknown as ClienteApi)
-      setCliente(datos as ClienteApi)
+      setCliente(clienteParaVista(res.payloadDecodificado ?? res.datos))
     } catch {
       setCliente(null)
     } finally {
@@ -73,7 +142,10 @@ export default function VersionesClientePage() {
     setLoadingRev(true)
     try {
       const res = await obtenerRevisionesApi(clienteId)
-      setRevisiones(res.revisiones ?? [])
+      const revs = (res.revisiones ?? [])
+        .map((rev) => clienteParaVista(rev))
+        .filter((r): r is ClienteApi => r !== null)
+      setRevisiones(revs)
     } catch {
       setRevisiones([])
     } finally {
@@ -192,21 +264,7 @@ export default function VersionesClientePage() {
         {loadingCliente ? (
           <p className="text-xs text-muted animate-pulse">Cargando...</p>
         ) : cliente ? (
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-3">
-            {([
-              ['Nombre', cliente.nombre],
-              ['Documento', `${cliente.tipoDocumento} ${cliente.numeroDocumento}`],
-              ['Fecha Alta', cliente.fechaAlta],
-              ['Telefono', cliente.telefono ?? '—'],
-              ['Email', cliente.email ?? '—'],
-              ['Notas', cliente.notas ?? '—'],
-            ] as [string, string][]).map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-muted">{k}</dt>
-                <dd className="truncate text-slate-200">{v}</dd>
-              </div>
-            ))}
-          </dl>
+          <ClienteDetalleDl cliente={cliente} />
         ) : (
           <p className="text-xs text-danger/80">No se pudo cargar el cliente.</p>
         )}
@@ -306,22 +364,7 @@ export default function VersionesClientePage() {
 
                   {isOpen && (
                     <div className="mt-3 rounded-xl border border-line bg-surface/60 p-4">
-                      <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-3">
-                        {([
-                          ['Nombre', rev.nombre],
-                          ['Documento', `${rev.tipoDocumento} ${rev.numeroDocumento}`],
-                          ['Fecha Alta', rev.fechaAlta],
-                          ['Estado', rev.estado],
-                          ['Telefono', rev.telefono ?? '—'],
-                          ['Email', rev.email ?? '—'],
-                          ['Notas', rev.notas ?? '—'],
-                        ] as [string, string][]).map(([k, v]) => (
-                          <div key={k}>
-                            <dt className="text-muted">{k}</dt>
-                            <dd className="truncate text-slate-200">{v}</dd>
-                          </div>
-                        ))}
-                      </dl>
+                      <ClienteDetalleDl cliente={rev} incluirEstado />
                     </div>
                   )}
                 </li>
