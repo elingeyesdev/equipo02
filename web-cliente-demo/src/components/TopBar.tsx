@@ -11,31 +11,31 @@ interface TopBarProps {
 }
 
 const SECTION_META: Record<string, { title: string; subtitle: string }> = {
-  '/': {
+  '/app': {
     title: 'Panel del puente',
     subtitle: 'Resumen, accesos rápidos y actividad reciente',
   },
-  '/clientes-registrados': {
+  '/app/clientes-registrados': {
     title: 'Clientes en red',
     subtitle: 'Listado de solo lectura desde GET /clientes',
   },
-  '/consultas': {
+  '/app/consultas': {
     title: 'Consultas',
     subtitle: 'Buscar cliente por clienteId exacto',
   },
-  '/auditoria': {
+  '/app/auditoria': {
     title: 'Auditar',
     subtitle: 'Bitácora HTTP + eventos de cadena (GET /auditoria/combinada)',
   },
-  '/historial': {
+  '/app/historial': {
     title: 'Historial',
     subtitle: 'Operaciones observadas en esta sesión',
   },
-  '/trazabilidad': {
+  '/app/trazabilidad': {
     title: 'Trazabilidad',
     subtitle: 'Línea de tiempo y comprobación de TXID',
   },
-  '/credenciales': {
+  '/app/credenciales': {
     title: 'Perfil de sesión',
     subtitle: 'Datos del usuario y permisos asignados',
   },
@@ -58,20 +58,20 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const workspace = workspaceLabel(role)
   const nombre = nombreUsuario || usuario?.usuario || 'Sin sesión'
   const meta = useMemo(() => {
-    if (pathname.startsWith('/historial-cliente')) {
+    if (pathname.startsWith('/app/historial-cliente')) {
       return {
         title: 'Historial en cadena',
         subtitle: 'GET /api/clientes/historial/:clienteId',
       }
     }
-    const base = SECTION_META[pathname] ?? SECTION_META['/']
-    if (pathname === '/clientes-registrados') {
+    const base = SECTION_META[pathname] ?? SECTION_META['/app']
+    if (pathname === '/app/clientes-registrados') {
       return {
         ...base,
         subtitle: isAgricultura ? 'Listado de solo lectura desde GET /api/datos' : base.subtitle,
       }
     }
-    if (pathname === '/consultas') {
+    if (pathname === '/app/consultas') {
       return {
         ...base,
         subtitle: isAgricultura
@@ -96,7 +96,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           </svg>
         </button>
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">CampusChain</p>
+          <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#1a3a5c]">Nexum</p>
           <h1 className="truncate text-base font-semibold tracking-tight text-ink sm:text-lg">{meta.title}</h1>
           <p className="hidden truncate text-xs text-muted sm:block">{meta.subtitle}</p>
         </div>
@@ -148,7 +148,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                     className="block w-full px-3 py-2 text-left text-xs text-ink-secondary hover:bg-gray-50"
                     onClick={() => {
                       setMenuAbierto(false)
-                      navigate('/credenciales')
+                      navigate('/app/credenciales')
                     }}
                   >
                     Perfil de sesión

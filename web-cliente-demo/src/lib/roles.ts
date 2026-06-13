@@ -18,14 +18,14 @@ export interface RolePermissions {
 }
 
 export type AppRoutePath =
-  | '/'
-  | '/clientes-registrados'
-  | '/consultas'
-  | '/auditoria'
-  | '/historial-cliente'
-  | '/historial'
-  | '/trazabilidad'
-  | '/credenciales'
+  | '/app'
+  | '/app/clientes-registrados'
+  | '/app/consultas'
+  | '/app/auditoria'
+  | '/app/historial-cliente'
+  | '/app/historial'
+  | '/app/trazabilidad'
+  | '/app/credenciales'
 
 /** Convierte el rol del backend (admin|integrador|lectura) al alias usado en la UI. */
 export function roleFromBackend(rol: string | undefined | null): AppRole {

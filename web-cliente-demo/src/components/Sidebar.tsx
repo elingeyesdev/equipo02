@@ -19,13 +19,13 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const { tenant } = useSettings()
   const isAgricultura = tenant.trim().toLowerCase() === 'agricultura'
   const items: NavItem[] = [
-    { to: '/', label: 'Panel', icon: IconGrid, end: true },
-    { to: '/clientes-registrados', label: isAgricultura ? 'Registros en red' : 'Clientes en red', icon: IconList },
-    { to: '/consultas', label: isAgricultura ? 'Detalle de registro' : 'Consultas', icon: IconSearch },
-    { to: '/auditoria', label: 'Auditar', icon: IconShield },
-    { to: '/historial', label: 'Historial', icon: IconClock },
-    { to: '/trazabilidad', label: 'Trazabilidad', icon: IconFlow },
-    { to: '/credenciales', label: 'Perfil', icon: IconKey },
+    { to: '/app', label: 'Panel', icon: IconGrid, end: true },
+    { to: '/app/clientes-registrados', label: isAgricultura ? 'Registros en red' : 'Clientes en red', icon: IconList },
+    { to: '/app/consultas', label: isAgricultura ? 'Detalle de registro' : 'Consultas', icon: IconSearch },
+    { to: '/app/auditoria', label: 'Auditar', icon: IconShield },
+    { to: '/app/historial', label: 'Historial', icon: IconClock },
+    { to: '/app/trazabilidad', label: 'Trazabilidad', icon: IconFlow },
+    { to: '/app/credenciales', label: 'Perfil', icon: IconKey },
   ]
   return (
     <>
@@ -44,16 +44,9 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         ].join(' ')}
       >
         <div className="border-b border-white/10 px-5 py-5">
-          <NavLink to="/" end className="block" onClick={onCloseMobile}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-white/10">
-                <span className="text-lg font-bold text-white">C</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold tracking-tight text-white">CampusChain</p>
-                <p className="text-xs text-white/60">Trazabilidad institucional</p>
-              </div>
-            </div>
+          <NavLink to="/app" end className="block" onClick={onCloseMobile}>
+            <span className="text-xl font-bold uppercase tracking-[0.08em] text-white">Nexum</span>
+            <p className="mt-1 text-xs text-white/55">Panel de auditoría</p>
           </NavLink>
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
@@ -162,3 +155,4 @@ function IconKey({ className }: { className?: string }) {
     </svg>
   )
 }
+

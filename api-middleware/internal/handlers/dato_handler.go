@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -75,6 +76,21 @@ func buscarRevisionHistorial(entries []historialDatoEntry, txID string) *histori
 		}
 	}
 	return nil
+}
+
+func inyectarMetaRestauracion(payload json.RawMessage, desdeTxID string) (json.RawMessage, error) {
+	var m map[string]interface{}
+	if err := json.Unmarshal(payload, &m); err != nil {
+		return nil, err
+	}
+	meta, ok := m["_baasMeta"].(map[string]interface{})
+	if !ok || meta == nil {
+		meta = map[string]interface{}{}
+	}
+	meta["restauradoDesdeTxId"] = strings.TrimSpace(desdeTxID)
+	meta["restauradoEn"] = time.Now().UTC().Format(time.RFC3339)
+	m["_baasMeta"] = meta
+	return json.Marshal(m)
 }
 
 // CrearDato registra un nuevo activo genérico (CreateDato) en el canal del tenant.
@@ -304,6 +320,17 @@ func RestaurarDato(c *gin.Context) {
 		return
 	}
 
+	payloadConMeta, err := inyectarMetaRestauracion(dato.Payload, in.TxID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.RespuestaError{
+			Ok:      false,
+			Codigo:  "ERROR_FORMATO",
+			Mensaje: "No se pudo marcar la restauración en el payload",
+		})
+		return
+	}
+	dato.Payload = payloadConMeta
+
 	// Si el registro existe en world-state: Update. Si no existe: Create.
 	_, err = fabric.EvaluateTransactionTenant(tenantID, "", "", "ReadDato", id)
 	existeActual := err == nil
@@ -348,6 +375,67 @@ func RestaurarDato(c *gin.Context) {
 	})
 }
 
+func metaRestauracionDesdeRecord(record interface{}) string {
+	if record == nil {
+		return ""
+	}
+	var rec map[string]interface{}
+	switch v := record.(type) {
+	case map[string]interface{}:
+		rec = v
+	case string:
+		if err := json.Unmarshal([]byte(strings.TrimSpace(v)), &rec); err != nil {
+			return ""
+		}
+	default:
+		b, err := json.Marshal(record)
+		if err != nil {
+			return ""
+		}
+		if err := json.Unmarshal(b, &rec); err != nil {
+			return ""
+		}
+	}
+	payloadRaw, ok := rec["payload"]
+	if !ok {
+		payloadRaw = rec["payloadDecodificado"]
+	}
+	var payload map[string]interface{}
+	switch p := payloadRaw.(type) {
+	case map[string]interface{}:
+		payload = p
+	case string:
+		if err := json.Unmarshal([]byte(strings.TrimSpace(p)), &payload); err != nil {
+			return ""
+		}
+	default:
+		return ""
+	}
+	meta, ok := payload["_baasMeta"].(map[string]interface{})
+	if !ok || meta == nil {
+		return ""
+	}
+	tx, _ := meta["restauradoDesdeTxId"].(string)
+	return strings.TrimSpace(tx)
+}
+
+func enriquecerHistorialDatosConRestauracion(datos interface{}) interface{} {
+	slice, ok := datos.([]interface{})
+	if !ok {
+		return datos
+	}
+	for _, el := range slice {
+		entry, ok := el.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if tx := metaRestauracionDesdeRecord(entry["record"]); tx != "" {
+			entry["restauradoDesdeTxId"] = tx
+		}
+	}
+	return slice
+}
+
 // ConsultarHistorialDato devuelve el historial inmutable (GetDatoHistory → GetHistoryForKey).
 func ConsultarHistorialDato(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("datoId"))
@@ -362,5 +450,9 @@ func ConsultarHistorialDato(c *gin.Context) {
 		c.JSON(st, models.RespuestaError{Ok: false, Codigo: cod, Mensaje: pub})
 		return
 	}
-	c.JSON(http.StatusOK, respuestaLecturaFabric(c, raw, "Historial inmutable del dato"))
+	resp := respuestaLecturaFabric(c, raw, "Historial inmutable del dato")
+	if resp.Datos != nil {
+		resp.Datos = enriquecerHistorialDatosConRestauracion(resp.Datos)
+	}
+	c.JSON(http.StatusOK, resp)
 }

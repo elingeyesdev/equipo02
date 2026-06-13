@@ -67,10 +67,19 @@ tenants:
         - dato.creado
         - dato.editado
         - dato.eliminado
+        - dato.restaurado
       roles_actor:
         - integrador
+        - admin
       destinos:
         - tipo: email
           asunto: "[Agricultura] {tipo} → {recurso}"
           destinatarios:
             - admin-agri@empresa.com
+        - tipo: webhook
+          url: "http://127.0.0.1:8000/api/blockchain/notificacion"
+          token: "agro-webhook-local"
+          eventos:
+            - dato.editado
+            - dato.restaurado
+          roles_actor: []
