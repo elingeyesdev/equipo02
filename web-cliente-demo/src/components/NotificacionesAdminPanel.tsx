@@ -114,7 +114,7 @@ function Drawer({ items, estado, error, organizacion, onCerrar, onReintentar, on
 
   const irAAuditar = (n: NotificacionAdmin) => {
     onCerrar()
-    navigate('/auditoria', {
+    navigate('/app/auditoria', {
       state: {
         recursoId: n.recurso?.trim() ?? '',
         txId: n.txId?.trim() ?? '',
@@ -143,8 +143,8 @@ function Drawer({ items, estado, error, organizacion, onCerrar, onReintentar, on
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 pr-2">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                CampusChain · {organizacion}
+              <p className="text-xs font-bold uppercase tracking-[0.06em] text-muted">
+                Nexum · {organizacion}
               </p>
               <h2 id="notificaciones-drawer-title" className="text-base font-semibold text-ink">
                 Centro de avisos

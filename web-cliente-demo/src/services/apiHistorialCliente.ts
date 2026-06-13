@@ -8,10 +8,11 @@ export async function fetchHistorialCliente(clienteId: string): Promise<Historia
 }
 
 export type AccionLineaTiempo = {
-  tipo: 'creado' | 'editado' | 'baja'
+  tipo: 'creado' | 'editado' | 'baja' | 'restaurado'
   etiqueta: string
   fecha: string
   txId: string
+  restauradoDesdeTxId?: string
 }
 
 export type LineaTiempoRespuesta = {
@@ -31,6 +32,10 @@ export type HistorialFilaVista = {
   isDelete: boolean
   resumen: string
   cliente?: ClienteApi | null
+  /** Record crudo del ledger (dato_cc / cliente_cc). */
+  record?: unknown
+  /** Anotado por el middleware al consultar historial de datos. */
+  restauradoDesdeTxId?: string
 }
 
 export function operacionesAVista(h: HistorialClienteApi): HistorialFilaVista[] {
@@ -52,6 +57,7 @@ export function operacionesAVista(h: HistorialClienteApi): HistorialFilaVista[] 
       isDelete: op.isDelete,
       resumen,
       cliente: rec,
+      record: op.record ?? null,
     }
   })
 }

@@ -6,12 +6,15 @@ import { formatDemoDateTime } from '../lib/format'
 import { fetchAuditoriaCombinada, type AuditoriaCombinadaDatos } from '../services/apiAuditoria'
 import {
   fetchHistorialCliente,
-  fetchLineaTiempoCliente,
   operacionesAVista,
   type HistorialFilaVista,
   type LineaTiempoRespuesta,
 } from '../services/apiHistorialCliente'
 import { fetchHistorialDato, restaurarDatoRevision } from '../services/apiDatos'
+import { listarClientesApi } from '../services/apiClientesLista'
+import { filaEnRangoFecha, filasDesdeHistorialOps, type FilaAuditoriaTabla } from '../lib/auditoriaFilas'
+import { buildAccionesFromHistorial, estiloAccionLineaTiempo, iconoAccionLineaTiempo } from '../lib/lineaTiempoAcciones'
+import LineaTiempoStrip from '../components/LineaTiempoStrip'
 import { parseDatoDatos } from '../lib/datoApiAdapter'
 import LoteProcesoPanel, { extraerPayloadLote } from '../components/LoteProcesoPanel'
 import { parseClienteDatos } from '../lib/apiClienteAdapter'
@@ -60,18 +63,7 @@ const btnGhost =
 const btnChip =
   'rounded-lg border border-line bg-gray-50 px-2.5 py-1 text-xs text-ink-secondary hover:border-accent/30 hover:text-ink'
 
-type FilaTabla = {
-  id: string
-  codigo: string
-  nombre: string
-  fecha: string
-  estado: string
-  bloque: string
-  firma: string
-  enlace: string
-  autor: string
-  cliente: any
-}
+type FilaTabla = FilaAuditoriaTabla
 
 function str(v: unknown): string {
   if (v === null || v === undefined) return ''
@@ -116,7 +108,7 @@ function etiquetaCampo(campo: string, isAgricultura: boolean): string {
 function datosComparablesRevision(raw: unknown, isAgricultura: boolean): Record<string, unknown> {
   const origen = isAgricultura ? (extraerPayloadLote(raw) ?? asRecord(raw)) : asRecord(raw)
   if (!isAgricultura) return origen
-  const omitidos = new Set(['actividades', 'producciones', 'notas', 'notasLedger'])
+  const omitidos = new Set(['actividades', 'producciones', 'notas', 'notasLedger', '_baasMeta'])
   return Object.fromEntries(Object.entries(origen).filter(([k]) => !omitidos.has(k)))
 }
 
@@ -269,11 +261,13 @@ export default function AuditarPage() {
   const [limite, setLimite] = useState(150)
   const [desdeDia, setDesdeDia] = useState('')
   const [hastaDia, setHastaDia] = useState('')
-  const [busquedaId, setBusquedaId] = useState('')
-  const [busquedaTxId, setBusquedaTxId] = useState('')
+  const [registroSeleccionado, setRegistroSeleccionado] = useState<string | null>(null)
+  const [timelineAbierta, setTimelineAbierta] = useState<string | null>(null)
+  const [filtroTxIdNav, setFiltroTxIdNav] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [datos, setDatos] = useState<AuditoriaCombinadaDatos | null>(null)
+  const [filasLedger, setFilasLedger] = useState<FilaTabla[]>([])
 
   // --- Estado para Línea de Tiempo por Registro ---
   const [lineaTiempo, setLineaTiempo] = useState<LineaTiempoRespuesta | null>(null)
@@ -286,10 +280,10 @@ export default function AuditarPage() {
   const [selectedUsuario, setSelectedUsuario] = useState<string | null>(null)
   const [restaurandoTxId, setRestaurandoTxId] = useState<string | null>(null)
 
-  const buscarLineaTiempo = useCallback(async (idOverride?: string) => {
-    const id = (idOverride ?? busquedaId).trim()
-    if (!id) return
-    if (idOverride) setBusquedaId(id)
+  const buscarLineaTiempo = useCallback(async (id: string) => {
+    const trimmed = id.trim()
+    if (!trimmed) return
+    setRegistroSeleccionado(trimmed)
     setLineaLoading(true)
     setLineaError(null)
     setLineaTiempo(null)
@@ -309,9 +303,10 @@ export default function AuditarPage() {
                 timestamp: String(op?.timestamp ?? ''),
                 isDelete: Boolean(op?.isDelete),
                 resumen: rec ? `${rec.nombre} (${rec.estado})` : op?.isDelete ? 'Baja / borrado lógico' : 'Sin registro',
-                // En agricultura conservamos el record crudo para evitar acoplar UI
-                // a campos legacy de "cliente" (tipoDocumento, numeroDocumento, etc.).
-                cliente: op?.record,
+                cliente: op?.record ?? null,
+                record: op?.record ?? null,
+                restauradoDesdeTxId:
+                  typeof op?.restauradoDesdeTxId === 'string' ? op.restauradoDesdeTxId.trim() : undefined,
               } satisfies HistorialFilaVista,
               payload: extraerPayloadLote(op?.record),
             }
@@ -320,19 +315,14 @@ export default function AuditarPage() {
           .sort((a, b) => new Date(a.fila.timestamp).getTime() - new Date(b.fila.timestamp).getTime())
         const ops: HistorialFilaVista[] = combinado.map((x) => x.fila)
 
-        const acciones = ops.map((op, idx) => ({
-          tipo: idx === 0 ? ('creado' as const) : op.isDelete ? ('baja' as const) : ('editado' as const),
-          etiqueta: idx === 0 ? 'Creado' : op.isDelete ? 'Baja' : `Edición #${idx}`,
-          fecha: op.timestamp,
-          txId: op.txId,
-        }))
-        setLineaTiempo({ ok: true, clienteId: id, acciones })
+        setLineaTiempo({ ok: true, clienteId: trimmed, acciones: buildAccionesFromHistorial(ops) })
         setHistorialOps(ops)
         setLotePayloadsLT(combinado.map((x) => x.payload))
       } else {
-        const [lt, hist] = await Promise.all([fetchLineaTiempoCliente(id), fetchHistorialCliente(id)])
-        setLineaTiempo(lt)
-        setHistorialOps(operacionesAVista(hist))
+        const hist = await fetchHistorialCliente(trimmed)
+        const ops = operacionesAVista(hist)
+        setLineaTiempo({ ok: true, clienteId: trimmed, acciones: buildAccionesFromHistorial(ops) })
+        setHistorialOps(ops)
         setLotePayloadsLT([])
       }
     } catch (e) {
@@ -340,24 +330,48 @@ export default function AuditarPage() {
     } finally {
       setLineaLoading(false)
     }
-  }, [busquedaId, isAgricultura])
+  }, [isAgricultura])
 
   const navegacionProcesada = useRef<string | null>(null)
-  useEffect(() => {
-    const st = location.state as AuditarLocationState | null
-    const id = st?.recursoId?.trim()
-    if (!id || !puedeConsultarApi) return
-    const clave = `${location.key}:${id}`
-    if (navegacionProcesada.current === clave) return
-    navegacionProcesada.current = clave
-    if (st?.txId?.trim()) setBusquedaTxId(st.txId.trim())
-    void buscarLineaTiempo(id)
-  }, [location.key, location.state, puedeConsultarApi, buscarLineaTiempo])
+
+  const cargarFilasLedger = useCallback(async () => {
+    const lista = await listarClientesApi(tenantId)
+    const ids = lista.map((c) => c.clienteId)
+
+    const out: FilaTabla[] = []
+    for (const id of ids.slice(0, 80)) {
+      try {
+        if (isAgricultura) {
+          const hist = await fetchHistorialDato(id)
+          const raw = Array.isArray(hist.datos) ? hist.datos : []
+          const ops: HistorialFilaVista[] = raw
+            .map((op: any) => ({
+              txId: String(op?.txId ?? ''),
+              timestamp: String(op?.timestamp ?? ''),
+              isDelete: Boolean(op?.isDelete),
+              resumen: String(op?.record?.payload?.nombre ?? op?.record?.datoId ?? 'Sin registro'),
+              cliente: op?.record ?? null,
+            }))
+            .filter((x) => x.txId)
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+          out.push(...filasDesdeHistorialOps(id, ops, true))
+        } else {
+          const hist = await fetchHistorialCliente(id)
+          const ops = operacionesAVista(hist)
+          out.push(...filasDesdeHistorialOps(id, ops, false))
+        }
+      } catch {
+        // omitir registros sin historial accesible
+      }
+    }
+    return out
+  }, [isAgricultura, tenantId])
 
   const load = useCallback(async () => {
     if (!puedeConsultarApi) {
       setError('En modo API hace falta una X-API-Key guardada en Credenciales.')
       setDatos(null)
+      setFilasLedger([])
       return
     }
     setLoading(true)
@@ -365,13 +379,35 @@ export default function AuditarPage() {
     try {
       const d = await fetchAuditoriaCombinada(limite, desdeDia.trim(), hastaDia.trim())
       setDatos(d)
+      const ledgerFilas = await cargarFilasLedger()
+      setFilasLedger(ledgerFilas)
     } catch (e) {
       setError(describeApiError(e))
       setDatos(null)
+      setFilasLedger([])
     } finally {
       setLoading(false)
     }
-  }, [limite, desdeDia, hastaDia, puedeConsultarApi])
+  }, [limite, desdeDia, hastaDia, puedeConsultarApi, cargarFilasLedger])
+
+  useEffect(() => {
+    const st = location.state as AuditarLocationState | null
+    if (!puedeConsultarApi || !st) return
+    const id = st.recursoId?.trim()
+    const tx = st.txId?.trim()
+    const clave = `${location.key}:${id ?? ''}:${tx ?? ''}`
+    if (navegacionProcesada.current === clave) return
+    if (!id && !tx) return
+    navegacionProcesada.current = clave
+    if (tx) setFiltroTxIdNav(tx)
+    if (id) {
+      setExpandidos((prev) => new Set(prev).add(id))
+      setRegistroSeleccionado(id)
+      setTimelineAbierta(id)
+      void buscarLineaTiempo(id)
+    }
+    void load()
+  }, [location.key, location.state, puedeConsultarApi, buscarLineaTiempo, load])
 
   const restaurarRevision = useCallback(async (datoId: string, txId: string) => {
     if (!datoId.trim() || !txId.trim()) return
@@ -395,22 +431,32 @@ export default function AuditarPage() {
   }, [buscarLineaTiempo, load])
 
   const filas = useMemo(() => {
-    let list = datos ? filasDesdeDatos(datos, tenantId) : []
-    // Excluir entidades del legado "borradores" (claves _DRAFT y _REV_N).
+    const fromEventos = datos ? filasDesdeDatos(datos, tenantId) : []
+    const seenTx = new Set(fromEventos.map((r) => r.firma))
+    let list = [...fromEventos]
+    for (const f of filasLedger) {
+      if (!seenTx.has(f.firma)) {
+        list.push(f)
+        seenTx.add(f.firma)
+      }
+    }
+
     list = list.filter((r) => {
       const c = (r.codigo || '').toUpperCase()
       return !c.endsWith('_DRAFT') && !/_REV_\d+$/.test(c)
     })
-    if (busquedaId.trim()) {
-      const q = busquedaId.toLowerCase().trim()
-      list = list.filter(r => r.codigo.toLowerCase().includes(q))
+
+    if (filtroTxIdNav.trim()) {
+      const q = filtroTxIdNav.toLowerCase().trim()
+      return list.filter((r) => r.firma.toLowerCase().includes(q))
     }
-    if (busquedaTxId.trim()) {
-      const q = busquedaTxId.toLowerCase().trim()
-      list = list.filter(r => r.firma.toLowerCase().includes(q))
+
+    if (desdeDia.trim() || hastaDia.trim()) {
+      list = list.filter((r) => filaEnRangoFecha(r.fecha, desdeDia, hastaDia))
     }
-    return list
-  }, [datos, busquedaId, busquedaTxId, tenantId])
+
+    return list.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+  }, [datos, filasLedger, filtroTxIdNav, desdeDia, hastaDia, tenantId])
 
   // Agrupación: 1 fila por clienteId. Cada grupo recuerda en qué índices
   // del array plano `filas` están sus eventos para poder reabrir el modal
@@ -488,21 +534,51 @@ export default function AuditarPage() {
     const ini = new Date(Date.now() - dias * 86400000)
     setDesdeDia(toYmdUtc(ini))
     setHastaDia(toYmdUtc(fin))
+    setFiltroTxIdNav('')
   }
 
   const presetHoy = () => {
     const t = toYmdUtc(new Date())
     setDesdeDia(t)
     setHastaDia(t)
+    setFiltroTxIdNav('')
   }
 
+  const cerrarTimeline = useCallback(() => {
+    setTimelineAbierta(null)
+    setLineaTiempo(null)
+    setLineaError(null)
+    setSelectedAccionIdx(null)
+  }, [])
+
+  const toggleTimeline = useCallback(
+    (codigo: string, e?: React.MouseEvent) => {
+      e?.stopPropagation()
+      if (timelineAbierta === codigo) {
+        cerrarTimeline()
+        return
+      }
+      setTimelineAbierta(codigo)
+      setRegistroSeleccionado(codigo)
+      setExpandidos((prev) => new Set(prev).add(codigo))
+      void buscarLineaTiempo(codigo)
+    },
+    [timelineAbierta, buscarLineaTiempo, cerrarTimeline],
+  )
+
+  const onFilaRegistroClick = useCallback(
+    (codigo: string) => {
+      setRegistroSeleccionado(codigo)
+      toggleExpandido(codigo)
+    },
+    [toggleExpandido],
+  )
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="shrink-0">
         <h1 className="text-lg font-semibold text-ink">Auditar</h1>
-        <p className="mt-1 text-sm text-muted">
-          Bitácora del puente HTTP más eventos del ledger. Busca por ID para ver la línea de tiempo completa.
-        </p>
+        <p className="mt-0.5 text-xs text-muted">Eventos del ledger · selecciona un registro para ver su línea de tiempo</p>
       </div>
 
       {!puedeConsultarApi ? (
@@ -512,105 +588,38 @@ export default function AuditarPage() {
               ? 'Pasá a modo «Red / API» en Credenciales para consultar el middleware.'
               : 'No hay X-API-Key guardada. Sin esa cabecera el backend responde 401 y la consola muestra CREDENCIAL_AUSENTE.'}
           </p>
-          <Link className="mt-2 inline-block text-xs font-medium text-accent hover:underline" to="/credenciales">
+          <Link className="mt-2 inline-block text-xs font-medium text-accent hover:underline" to="/app/credenciales">
             Abrir Credenciales
           </Link>
         </div>
       ) : null}
 
-      <div className="admin-card p-4 shadow-card">
-        <p className="mb-3 text-xs text-muted">
-          Elegí fechas con el calendario (formato <span className="font-mono text-muted">YYYY-MM-DD</span>). El servidor interpreta el día completo en UTC.
-        </p>
-        <div className="mb-3 flex flex-wrap gap-2">
-          <button type="button" className={btnChip} onClick={presetHoy}>
-            Hoy
-          </button>
-          <button type="button" className={btnChip} onClick={() => presetRango(7)}>
-            Últimos 7 días
-          </button>
-          <button type="button" className={btnChip} onClick={() => presetRango(30)}>
-            Últimos 30 días
-          </button>
-          <button
-            type="button"
-            className={btnChip}
-            onClick={() => {
-              setDesdeDia('')
-              setHastaDia('')
-            }}
-          >
-            Limpiar fechas
-          </button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted">Límite (1–1000)</label>
-            <input
-              type="number"
-              min={1}
-              max={1000}
-              value={limite}
-              onChange={(e) => setLimite(Number(e.target.value))}
-              placeholder="150"
-              className={input}
-            />
+      <div className="shrink-0 admin-card p-3 shadow-card">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" className={btnChip} onClick={presetHoy}>Hoy</button>
+            <button type="button" className={btnChip} onClick={() => presetRango(7)}>7 días</button>
+            <button type="button" className={btnChip} onClick={() => presetRango(30)}>30 días</button>
+            <button type="button" className={btnChip} onClick={() => { setDesdeDia(''); setHastaDia('') }}>Limpiar</button>
           </div>
-          <label className="text-xs text-muted">
-            Desde (día)
-            <input type="date" className={`${input} mt-1`} value={desdeDia} onChange={(e) => setDesdeDia(e.target.value)} />
-          </label>
-          <label className="text-xs text-muted">
-            Hasta (día)
-            <input type="date" className={`${input} mt-1`} value={hastaDia} onChange={(e) => setHastaDia(e.target.value)} />
-          </label>
-          <label className="text-xs text-muted">
-            Buscar por ID
-            <input
-              type="text"
-              className={`${input} mt-1 border-accent/40 focus:border-accent`}
-              placeholder={isAgricultura ? 'Ej: AGRO-TEST-001' : 'Ej: CLI100'}
-              value={busquedaId}
-              onChange={(e) => {
-                setBusquedaId(e.target.value)
-                // Limpia la línea de tiempo al cambiar el ID para no mostrar datos obsoletos
-                setLineaTiempo(null)
-                setLineaError(null)
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && void buscarLineaTiempo()}
-            />
-          </label>
-          <label className="text-xs text-muted">
-            Buscar por Firma Digital (TXID)
-            <input
-              type="text"
-              className={`${input} mt-1 border-accent/40 focus:border-accent`}
-              placeholder="Pegar TXID aquí..."
-              value={busquedaTxId}
-              onChange={(e) => setBusquedaTxId(e.target.value)}
-            />
-          </label>
-          <div className="flex flex-wrap items-end gap-2">
-            <button type="button" className={btn} disabled={loading || !puedeConsultarApi} onClick={() => void load()}>
-              {loading ? 'Cargando…' : 'Consultar'}
-            </button>
-            <button
-              type="button"
-              className={`${btnGhost} border-accent/40 text-accent hover:border-accent`}
-              disabled={lineaLoading || !busquedaId.trim() || !puedeConsultarApi}
-              onClick={() => void buscarLineaTiempo()}
-              title={`Ver línea de tiempo del registro: ${busquedaId}`}
-            >
-              {lineaLoading ? 'Buscando…' : '⏱ Ver Historial'}
-            </button>
-            <button type="button" className={btnGhost} disabled={!datos} onClick={onExportJson}>
-              Exportar JSON
-            </button>
-            <button type="button" className={btnGhost} disabled={!filas.length} onClick={onExportCsv}>
-              Exportar CSV
-            </button>
-          </div>
+          <input type="date" className={`${input} !w-auto !py-1.5 text-xs`} value={desdeDia} onChange={(e) => setDesdeDia(e.target.value)} title="Desde" />
+          <input type="date" className={`${input} !w-auto !py-1.5 text-xs`} value={hastaDia} onChange={(e) => setHastaDia(e.target.value)} title="Hasta" />
+          <input type="number" min={1} max={1000} value={limite} onChange={(e) => setLimite(Number(e.target.value))} className={`${input} !w-20 !py-1.5 text-xs`} title="Límite" />
+          <button type="button" className={`${btn} !py-1.5 !text-xs`} disabled={loading || !puedeConsultarApi} onClick={() => void load()}>
+            {loading ? '…' : 'Consultar'}
+          </button>
+          <Link to="/app/consultas" className="inline-flex items-center rounded-xl border border-line px-2.5 py-1.5 text-xs text-muted hover:text-ink-secondary">
+            Buscar por ID / TxID →
+          </Link>
+          <button type="button" className={`${btnGhost} !py-1.5 !text-xs`} disabled={!datos && filasLedger.length === 0} onClick={onExportJson}>JSON</button>
+          <button type="button" className={`${btnGhost} !py-1.5 !text-xs`} disabled={!filas.length} onClick={onExportCsv}>CSV</button>
         </div>
+        {filtroTxIdNav ? (
+          <p className="mt-2 text-[11px] text-amber-700">
+            Filtro TxID: <span className="font-mono">{filtroTxIdNav.slice(0, 24)}…</span>
+            <button type="button" className="ml-2 text-accent hover:underline" onClick={() => setFiltroTxIdNav('')}>Quitar</button>
+          </p>
+        ) : null}
       </div>
 
       {error ? (
@@ -621,91 +630,6 @@ export default function AuditarPage() {
           ) : null}
         </div>
       ) : null}
-
-      {/* Panel de resultados: Línea de Tiempo del registro buscado */}
-      {(lineaError || lineaTiempo) && (
-        <div className="rounded-2xl border border-accent/20 bg-surface p-5 shadow-card animate-in fade-in duration-200">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-accent">Línea de Tiempo del Registro</h2>
-              {lineaTiempo && (
-                <p className="mt-0.5 text-xs text-muted">
-                  <span className="font-mono text-ink-secondary">{lineaTiempo.clienteId}</span>
-                  <span className="ml-2">— {lineaTiempo.acciones.length} acción(es)</span>
-                </p>
-              )}
-            </div>
-            <button
-              className="text-[10px] text-muted hover:text-ink-secondary transition-colors"
-              onClick={() => { setLineaTiempo(null); setLineaError(null) }}
-            >
-              ✕ Cerrar
-            </button>
-          </div>
-
-          {lineaError && (
-            <p className="rounded-md border border-danger/30 bg-danger-soft px-4 py-2 text-xs text-danger-ink">{lineaError}</p>
-          )}
-
-          {lineaTiempo && lineaTiempo.acciones.length === 0 && (
-            <p className="text-xs text-muted italic">No se encontraron acciones para este registro.</p>
-          )}
-
-          {lineaTiempo && lineaTiempo.acciones.length > 0 && (
-            <div className="space-y-4">
-              {/* ── Nivel 1: Chips principales con flechas de orden ── */}
-              <div className="flex flex-wrap items-center gap-2">
-                {lineaTiempo.acciones.map((acc, i) => {
-                  const isSelected = selectedAccionIdx === i
-                  return (
-                    <div key={`${acc.txId}-${i}`} className="flex items-center gap-2">
-                      {i > 0 && (
-                        <svg className="h-4 w-4 flex-shrink-0 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                        </svg>
-                      )}
-                      <button
-                        onClick={() => {
-                          setSelectedAccionIdx(isSelected ? null : i)
-                        }}
-                        className={`relative flex items-start gap-3 rounded-xl border p-3 shadow-sm min-w-[180px] text-left transition-all hover:scale-[1.02] ${
-                          isSelected
-                            ? acc.tipo === 'creado' ? 'border-emerald-500 bg-emerald-500/15 ring-1 ring-emerald-500/50'
-                              : acc.tipo === 'baja' ? 'border-rose-500 bg-rose-500/15 ring-1 ring-rose-500/50'
-                              : 'border-sky-500 bg-sky-500/15 ring-1 ring-sky-500/50'
-                            : acc.tipo === 'creado' ? 'border-emerald-500/30 bg-emerald-500/5'
-                              : acc.tipo === 'baja' ? 'border-rose-500/30 bg-rose-500/5'
-                              : 'border-sky-500/30 bg-sky-500/5'
-                        }`}
-                      >
-                        <span className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-[9px] font-bold text-accent ring-1 ring-accent/30">
-                          {i + 1}
-                        </span>
-                        <div className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-sm ${
-                          acc.tipo === 'creado' ? 'bg-emerald-500/20 text-emerald-400'
-                          : acc.tipo === 'baja' ? 'bg-rose-500/20 text-rose-400'
-                          : 'bg-sky-500/20 text-sky-400'
-                        }`}>
-                          {acc.tipo === 'creado' ? '★' : acc.tipo === 'baja' ? '✖' : '✎'}
-                        </div>
-                        <div className="min-w-0">
-                          <p className={`text-xs font-bold uppercase tracking-wide ${
-                            acc.tipo === 'creado' ? 'text-emerald-400'
-                            : acc.tipo === 'baja' ? 'text-rose-400'
-                            : 'text-sky-400'
-                          }`}>{acc.etiqueta}</p>
-                          <p className="mt-0.5 text-[10px] text-muted">{formatDemoDateTime(acc.fecha)}</p>
-                          <p className="mt-1 font-mono text-[9px] text-muted">{acc.txId.slice(0, 14)}…</p>
-                        </div>
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* UNIFIED GIT-STYLE AUDIT DASHBOARD */}
       {selectedAccionIdx !== null && lineaTiempo?.acciones[selectedAccionIdx] && (() => {
@@ -733,8 +657,7 @@ export default function AuditarPage() {
               {/* Top Navbar */}
               <div className="flex items-center justify-between border-b border-line bg-gray-50 px-6 py-4">
                 <div>
-                  <h2 className="text-sm font-bold text-ink flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500/20 text-xs text-sky-400 font-sans">✎</span>
+                  <h2 className="text-sm font-bold text-ink">
                     Panel de Auditoría de Blockchain — Control de Revisiones
                   </h2>
                   <p className="text-[10px] text-muted mt-0.5">Código de Registro: <span className="font-mono text-ink-secondary font-bold">{lineaTiempo.clienteId}</span></p>
@@ -756,51 +679,35 @@ export default function AuditarPage() {
                   <div className="space-y-2">
                     {lineaTiempo.acciones.map((acc, idx) => {
                       const isSelected = selectedAccionIdx === idx
-                      const opAct = historialOps[idx]
-                      const opAnt = idx > 0 ? historialOps[idx - 1] : null
-                      const countModificados = clienteFilasLegibles(opAct?.cliente).filter(
-                        ({ key, value }) =>
-                          opAnt !== null &&
-                          String(
-                            clienteFilasLegibles(opAnt?.cliente).find((r) => r.key === key)?.value ?? '',
-                          ) !== String(value ?? ''),
-                      ).length
+                      const estilo = estiloAccionLineaTiempo(acc.tipo)
 
                       return (
                         <button
                           key={`${acc.txId}-${idx}`}
                           onClick={() => setSelectedAccionIdx(idx)}
-                          className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 hover:scale-[1.01] ${
-                            isSelected
-                              ? 'border-sky-500 bg-sky-500/10 ring-1 ring-sky-500/40'
-                              : 'border-line/60 bg-gray-50 hover:border-line'
+                          className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
+                            isSelected ? `${estilo.chip} ring-1 ring-[#1a3a5c]/15` : 'border-line/60 bg-white hover:border-line'
                           }`}
                         >
-                          <div className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
-                            acc.tipo === 'creado' ? 'bg-emerald-500/20 text-emerald-400'
-                            : acc.tipo === 'baja' ? 'bg-rose-500/20 text-rose-400'
-                            : 'bg-sky-500/20 text-sky-400'
-                          }`}>
-                            {acc.tipo === 'creado' ? '★' : acc.tipo === 'baja' ? '✖' : '✎'}
+                          <div className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold ${estilo.icon}`}>
+                            {iconoAccionLineaTiempo(acc.tipo)}
                           </div>
                           
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between">
-                              <span className={`text-xs font-bold ${
-                                acc.tipo === 'creado' ? 'text-emerald-400'
-                                : acc.tipo === 'baja' ? 'text-rose-400'
-                                : 'text-sky-400'
-                              }`}>
-                                {acc.tipo === 'creado' ? 'Snap Original (Bloque)' : `Edición #${idx}`}
+                              <span className={`text-xs font-bold ${estilo.text}`}>
+                                {acc.tipo === 'creado'
+                                  ? 'Snap Original (Bloque)'
+                                  : acc.tipo === 'baja'
+                                    ? 'Baja'
+                                    : acc.etiqueta}
                               </span>
-                              {acc.tipo === 'editado' && (
-                                <span className="rounded bg-sky-500/20 px-1.5 py-0.2 font-mono text-[9px] text-sky-300 font-bold">
-                                  {countModificados} campo{countModificados !== 1 ? 's' : ''}
-                                </span>
-                              )}
                             </div>
                             <p className="text-[10px] text-ink-secondary truncate mt-0.5">{formatDemoDateTime(acc.fecha)}</p>
                             <p className="text-[9px] text-muted font-mono truncate mt-1">Tx: {acc.txId.slice(0, 24)}…</p>
+                            {acc.restauradoDesdeTxId ? (
+                              <p className="text-[9px] text-amber-600 mt-1">Restaurado desde tx: {acc.restauradoDesdeTxId.slice(0, 20)}…</p>
+                            ) : null}
                           </div>
                         </button>
                       )
@@ -812,16 +719,16 @@ export default function AuditarPage() {
                 <div className="w-2/3 flex flex-col bg-surface overflow-hidden">
                   {/* Action Details Header */}
                   <div className="bg-gray-50 border-b border-line/30 p-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-400/80">Detalle de la Modificación</p>
-                    <h3 className="text-xs font-bold text-ink mt-1 flex items-center gap-1.5">
-                      {selectedAcc.tipo === 'creado' ? (
-                        <span className="text-emerald-400 flex items-center gap-1">★ Snap Inmutable Inicial (Creación)</span>
-                      ) : (
-                        <span className="text-sky-400 flex items-center gap-1">✎ Bloque de Modificaciones #{selectedAccionIdx}</span>
-                      )}
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Detalle de la Modificación</p>
+                    <h3 className="text-xs font-bold text-ink mt-1">
+                      {selectedAcc.tipo === 'creado'
+                        ? 'Snap Inmutable Inicial (Creación)'
+                        : selectedAcc.tipo === 'baja'
+                          ? 'Baja lógica'
+                          : selectedAcc.etiqueta}
                     </h3>
                     
-                    <div className="grid grid-cols-2 gap-4 mt-3 text-[10px] text-muted bg-surface/20 p-2.5 rounded-lg border border-line/40">
+                    <div className="grid grid-cols-2 gap-4 mt-3 text-[10px] text-muted bg-white p-2.5 rounded-lg border border-line/60">
                       <div>
                         <span className="text-muted block">Autor / Firma digital:</span>
                         <span className="text-ink-secondary font-medium">{selectedAutor}</span>
@@ -840,7 +747,7 @@ export default function AuditarPage() {
                       <div className="mt-3 flex justify-end">
                         <button
                           type="button"
-                          className="admin-btn-primary !rounded-lg !px-3.5 !py-1.5 !text-xs disabled:opacity-50"
+                          className="rounded-lg bg-[#1a3a5c] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0f2844] disabled:opacity-50"
                           disabled={restaurandoTxId === selectedAcc.txId || esRevisionEliminada}
                           onClick={() => void restaurarRevision(lineaTiempo.clienteId, selectedAcc.txId)}
                           title={
@@ -858,7 +765,7 @@ export default function AuditarPage() {
                   {/* Attributes Comparison Table */}
                   <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                     {isAgricultura && lotePayloadsLT[selectedAccionIdx] ? (
-                      <div className="mb-4 rounded-xl border border-line/60 bg-surface/20 p-4">
+                      <div className="mb-4 rounded-xl border border-line/60 bg-white p-4">
                         <LoteProcesoPanel
                           datos={lotePayloadsLT[selectedAccionIdx]}
                           titulo="Proceso del lote en esta revisión"
@@ -896,18 +803,18 @@ export default function AuditarPage() {
                               opAnterior !== null && valorComparable(valAnterior) !== valorComparable(valActual)
 
                             return (
-                              <tr key={campo} className={`transition-colors ${cambió ? 'bg-sky-500/5 hover:bg-sky-500/10' : 'hover:bg-surface/20'}`}>
-                                <td className={`py-3 font-semibold ${cambió ? 'text-sky-400' : 'text-muted'}`}>
+                              <tr key={campo} className={`transition-colors ${cambió ? 'bg-amber-50/80 hover:bg-amber-50' : 'hover:bg-gray-50'}`}>
+                                <td className={`py-3 font-semibold ${cambió ? 'text-[#1a2332]' : 'text-muted'}`}>
                                   {etiquetaCampo(campo, isAgricultura)}
                                 </td>
                                 <td className="py-3">
                                   {cambió ? (
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <span className="rounded bg-rose-500/10 px-1.5 py-0.5 font-mono text-[10px] text-rose-300/80 line-through">
+                                      <span className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 font-mono text-[10px] text-red-800 line-through">
                                         {anteriorStr || '(vacío)'}
                                       </span>
                                       <span className="text-muted text-[10px]">→</span>
-                                      <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 font-mono text-[10px] font-medium text-emerald-400">
+                                      <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-emerald-900">
                                         {actualStr || '(vacío)'}
                                       </span>
                                     </div>
@@ -927,11 +834,11 @@ export default function AuditarPage() {
                   <div className="flex items-center justify-start border-t border-line px-6 py-3 bg-gray-50">
                     <div className="flex items-center gap-4 text-[10px] text-muted">
                       <div className="flex items-center gap-1.5">
-                        <div className="h-2 w-2 rounded-full bg-rose-500/60"></div>
+                        <div className="h-2 w-2 rounded-full bg-red-400"></div>
                         <span>Anterior</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+                        <div className="h-2 w-2 rounded-full bg-emerald-600"></div>
                         <span>Nuevo</span>
                       </div>
                     </div>
@@ -943,13 +850,15 @@ export default function AuditarPage() {
         )
       })()}
 
-      {datos ? (
-        <p className="text-xs text-muted">
-          HTTP: {datos.totalHttp} filas · Eventos cadena: {datos.totalEventos} · Registros con actividad: {grupos.length}
-        </p>
-      ) : null}
-
-      <div className="min-h-0 flex-1 overflow-auto admin-card shadow-card">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden admin-card shadow-card">
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
+          <p className="text-xs text-muted">
+            {datos || filasLedger.length > 0
+              ? `${grupos.length} registro(s) · HTTP ${datos?.totalHttp ?? 0} · cadena ${datos?.totalEventos ?? 0}`
+              : 'Pulse Consultar para cargar'}
+          </p>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full text-left text-sm">
           <thead className="sticky top-0 z-10 border-b border-line bg-gray-50 text-xs uppercase text-muted backdrop-blur-sm">
             <tr>
@@ -960,23 +869,30 @@ export default function AuditarPage() {
               <th className="px-3 py-2 font-medium">Autor / Rol</th>
               <th className="px-3 py-2 font-medium">Estado</th>
               <th className="px-3 py-2 font-medium text-center"># Cambios</th>
+              <th className="px-3 py-2 font-medium text-center w-36">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {grupos.length === 0 && !loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted">
-                  Pulse Consultar para cargar la auditoría de Blockchain (Ledger).
+                <td colSpan={8} className="px-4 py-8 text-center text-muted">
+                  {datos || filasLedger.length > 0
+                    ? 'No hay registros que coincidan con los filtros activos.'
+                    : 'Pulse Consultar para cargar la auditoría de Blockchain (Ledger).'}
                 </td>
               </tr>
             ) : null}
             {grupos.map((g) => {
               const isOpen = expandidos.has(g.codigo)
+              const isSelected = registroSeleccionado === g.codigo
+              const timelineVisible = timelineAbierta === g.codigo
               return (
                 <Fragment key={g.codigo}>
                   <tr
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => toggleExpandido(g.codigo)}
+                    className={`cursor-pointer transition-colors ${
+                      isSelected ? 'bg-accent/10 ring-1 ring-inset ring-accent/25' : 'hover:bg-gray-50'
+                    }`}
+                    onClick={() => onFilaRegistroClick(g.codigo)}
                   >
                     <td className="px-2 py-2 text-center text-muted">
                       <svg
@@ -1005,11 +921,41 @@ export default function AuditarPage() {
                         {g.eventos.length}
                       </span>
                     </td>
+                    <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+                          timelineVisible
+                            ? 'bg-accent text-white hover:bg-accent-hover'
+                            : 'border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20'
+                        }`}
+                        onClick={(e) => toggleTimeline(g.codigo, e)}
+                      >
+                        {lineaLoading && timelineVisible ? '…' : timelineVisible ? 'Ocultar línea' : 'Línea de tiempo'}
+                      </button>
+                    </td>
                   </tr>
+
+                  {timelineVisible && (
+                    <tr className="bg-accent/5">
+                      <td colSpan={8} className="border-t border-accent/15 px-4 py-1">
+                        <LineaTiempoStrip
+                          registroId={g.codigo}
+                          acciones={lineaTiempo?.clienteId === g.codigo ? lineaTiempo.acciones : []}
+                          selectedIdx={selectedAccionIdx}
+                          onSelect={setSelectedAccionIdx}
+                          compact
+                          loading={lineaLoading}
+                          error={lineaError}
+                          onClose={cerrarTimeline}
+                        />
+                      </td>
+                    </tr>
+                  )}
 
                   {isOpen && (
                     <tr className="bg-gray-50">
-                      <td colSpan={7} className="px-0 py-0">
+                      <td colSpan={8} className="px-0 py-0">
                         <div className="overflow-hidden border-t border-line">
                           <table className="w-full text-left text-xs">
                             <thead className="bg-gray-50 text-[10px] uppercase text-muted">
@@ -1029,14 +975,24 @@ export default function AuditarPage() {
                                 .map((ev, idxEnGrupo) => {
                                   const r = ev.fila
                                   const i = ev.idxPlano
-                                  const etiquetaCambio = idxEnGrupo === 0 ? 'Creado' : `Edición #${idxEnGrupo}`
+                                  const accionTimeline =
+                                    lineaTiempo?.clienteId === g.codigo
+                                      ? lineaTiempo.acciones.find((a) => a.txId === r.firma)
+                                      : null
+                                  const etiquetaCambio =
+                                    accionTimeline?.etiqueta ?? (idxEnGrupo === 0 ? 'Creado' : `Edición #${idxEnGrupo}`)
+                                  const estilo = accionTimeline
+                                    ? estiloAccionLineaTiempo(accionTimeline.tipo)
+                                    : null
                                   return (
                                     <tr
                                       key={r.id}
                                       className={`hover:bg-gray-50 ${selectedIdx === i ? 'bg-accent/10' : ''}`}
                                     >
                                       <td className="whitespace-nowrap px-3 py-1.5 text-muted">
-                                        <span className="mr-2 inline-block rounded bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold text-accent">
+                                        <span className={`mr-2 inline-block rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                                          estilo ? `${estilo.icon} ${estilo.text}` : 'bg-accent/10 text-accent'
+                                        }`}>
                                           {etiquetaCambio}
                                         </span>
                                         {formatDemoDateTime(r.fecha)}
@@ -1100,6 +1056,7 @@ export default function AuditarPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Modal de Detalle (Tarjeta Flotante con DIFF) */}

@@ -105,7 +105,7 @@ export function ActivityFeed({
       {showHistorialLink ? (
         <div className="shrink-0 border-t border-line p-3 sm:px-4">
           <Link
-            to="/historial"
+            to="/app/historial"
             className="admin-btn-secondary block w-full py-2 text-center text-xs"
           >
             Ver historial completo

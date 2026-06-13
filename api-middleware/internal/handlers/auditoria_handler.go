@@ -39,7 +39,11 @@ func ListarAuditoriaHTTP(c *gin.Context) {
 func ListarAuditoriaCombinada(c *gin.Context) {
 	limite, desde, hasta := parseAuditoriaQuery(c)
 	httpLines := bitacora.ObtenerLineasAuditoriaMemoria(limite, desde, hasta)
-	eventos := fabric.GlobalEventBroker.GetHistorialPorTenant(middleware.TenantFromContext(c))
+	eventos := filtrarEventosPorTiempo(
+		fabric.GlobalEventBroker.GetHistorialPorTenant(middleware.TenantFromContext(c)),
+		desde,
+		hasta,
+	)
 	c.JSON(http.StatusOK, models.RespuestaLectura{
 		Ok:      true,
 		Codigo:  "CONSULTA_EXITOSA",
@@ -68,6 +72,24 @@ func parseAuditoriaQuery(c *gin.Context) (limite int, desde, hasta *time.Time) {
 		hasta = &t
 	}
 	return limite, desde, hasta
+}
+
+func filtrarEventosPorTiempo(eventos []fabric.EventoNormalizado, desde, hasta *time.Time) []fabric.EventoNormalizado {
+	if desde == nil && hasta == nil {
+		return eventos
+	}
+	out := make([]fabric.EventoNormalizado, 0, len(eventos))
+	for _, ev := range eventos {
+		t := ev.Timestamp.UTC()
+		if desde != nil && t.Before(desde.UTC()) {
+			continue
+		}
+		if hasta != nil && t.After(hasta.UTC()) {
+			continue
+		}
+		out = append(out, ev)
+	}
+	return out
 }
 
 func parseTimeQuery(s string, endOfDayIfDateOnly bool) (time.Time, bool) {

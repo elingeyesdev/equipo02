@@ -70,4 +70,20 @@
   .admin-badge-neutral {
     @apply inline-flex rounded-full border border-line bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-ink-secondary;
   }
+
+  .landing-hero {
+    background: linear-gradient(135deg, #0b1628 0%, #132238 48%, #0f1d32 100%);
+  }
+
+  .landing-highlight {
+    background: linear-gradient(180deg, transparent 62%, rgba(240, 180, 41, 0.42) 62%, rgba(240, 180, 41, 0.42) 88%, transparent 88%);
+  }
+
+  .landing-arch {
+    clip-path: ellipse(50% 50% at 50% 50%);
+  }
+
+  .landing-blob {
+    background: radial-gradient(circle at 30% 30%, rgba(240, 180, 41, 0.35), transparent 55%);
+  }
 }

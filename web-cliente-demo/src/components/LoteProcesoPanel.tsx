@@ -33,19 +33,19 @@ function fechaCorta(v: unknown): string {
 export function extraerPayloadLote(datos: unknown): Dict | null {
   const o = asDict(datos)
   if (!o) return null
-  const inner = asDict(o.payload)
+  let payloadRaw: unknown = o.payload
+  if (typeof payloadRaw === 'string') {
+    try {
+      payloadRaw = JSON.parse(payloadRaw)
+    } catch {
+      payloadRaw = null
+    }
+  }
+  const inner = asDict(payloadRaw)
   if (inner) return inner
   // Ya nos pasaron el payload directo (tiene campos del lote).
   if ('actividades' in o || 'producciones' in o || 'codigo_trazabilidad' in o || 'cultivo' in o) return o
   return null
-}
-
-function colorPrioridad(p: string): string {
-  const v = p.toLowerCase()
-  if (v.includes('alta')) return 'bg-danger-soft text-danger-ink border-danger/30'
-  if (v.includes('media')) return 'bg-warning-soft text-warning-ink border-warning/30'
-  if (v.includes('baja')) return 'bg-accent-soft text-accent border-accent/30'
-  return 'bg-gray-100 text-ink-secondary border-line'
 }
 
 function ResumenItem({ label, value }: { label: string; value: string }) {
@@ -85,10 +85,7 @@ export default function LoteProcesoPanel({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-success-soft text-success">🌱</span>
-        <h3 className="text-sm font-semibold text-ink">{titulo}</h3>
-      </div>
+      <h3 className="text-sm font-semibold text-ink">{titulo}</h3>
 
       {!compacto && (
         <dl className="grid gap-3 rounded-xl border border-line/60 bg-gray-50 p-4 text-sm sm:grid-cols-3">
@@ -107,10 +104,10 @@ export default function LoteProcesoPanel({
       )}
 
       {/* Actividades */}
-      <div className="overflow-hidden rounded-xl border border-line bg-surface/20">
+      <div className="overflow-hidden rounded-xl border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line bg-gray-50 px-4 py-2">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-secondary">Actividades</h4>
-          <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">
+          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold text-[#374151]">
             {actividades.length}
           </span>
         </div>
@@ -131,32 +128,17 @@ export default function LoteProcesoPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
-                {actividades.map((a, i) => {
-                  const prioridad = str(a.prioridad)
-                  return (
-                    <tr key={str(a.actividadid) || i} className="hover:bg-gray-50">
-                      <td className="px-3 py-2">
-                        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-medium text-emerald-300">
-                          {str(a.tipo) || '—'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-ink-secondary">{str(a.descripcion) || '—'}</td>
-                      <td className="px-3 py-2">
-                        {prioridad ? (
-                          <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${colorPrioridad(prioridad)}`}>
-                            {prioridad}
-                          </span>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-muted">{fecha(a.fechainicio)}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-muted">{fecha(a.fechafin)}</td>
-                      <td className="px-3 py-2 text-ink-secondary">{str(a.usuario) || '—'}</td>
-                      <td className="px-3 py-2 text-muted">{str(a.observaciones) || '—'}</td>
-                    </tr>
-                  )
-                })}
+                {actividades.map((a, i) => (
+                  <tr key={str(a.actividadid) || i} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 font-medium text-ink-secondary">{str(a.tipo) || '—'}</td>
+                    <td className="px-3 py-2 text-ink-secondary">{str(a.descripcion) || '—'}</td>
+                    <td className="px-3 py-2 text-ink-secondary">{str(a.prioridad) || '—'}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-muted">{fecha(a.fechainicio)}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-muted">{fecha(a.fechafin)}</td>
+                    <td className="px-3 py-2 text-ink-secondary">{str(a.usuario) || '—'}</td>
+                    <td className="px-3 py-2 text-muted">{str(a.observaciones) || '—'}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -164,10 +146,10 @@ export default function LoteProcesoPanel({
       </div>
 
       {/* Producciones */}
-      <div className="overflow-hidden rounded-xl border border-line bg-surface/20">
+      <div className="overflow-hidden rounded-xl border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line bg-gray-50 px-4 py-2">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-secondary">Producciones</h4>
-          <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">
+          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold text-[#374151]">
             {producciones.length}
           </span>
         </div>

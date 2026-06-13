@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
 import { describeApiError } from '../lib/apiErrorMessage'
 import { formatDemoDateTime } from '../lib/format'
 import { clienteFilasLegibles, displayClienteField } from '../lib/clienteDisplay'
-import { fetchHistorialCliente, fetchLineaTiempoCliente, operacionesAVista } from '../services/apiHistorialCliente'
+import { fetchHistorialCliente, operacionesAVista } from '../services/apiHistorialCliente'
 import { fetchHistorialDato } from '../services/apiDatos'
+import { parseDatoDatos } from '../lib/datoApiAdapter'
 import LoteProcesoPanel, { extraerPayloadLote } from '../components/LoteProcesoPanel'
+import LineaTiempoStrip from '../components/LineaTiempoStrip'
 import type { HistorialFilaVista, AccionLineaTiempo } from '../services/apiHistorialCliente'
+import { buildAccionesFromHistorial } from '../lib/lineaTiempoAcciones'
 
 const btn =
   'admin-btn-primary shadow-sm transition-colors hover:bg-accent-hover disabled:opacity-50'
@@ -20,6 +23,7 @@ export default function ClienteHistorialPage() {
   const [rows, setRows] = useState<HistorialFilaVista[]>([])
   const [lotePayloads, setLotePayloads] = useState<Array<Record<string, unknown> | null>>([])
   const [timeline, setTimeline] = useState<AccionLineaTiempo[]>([])
+  const [timelineVisible, setTimelineVisible] = useState(false)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,35 +37,34 @@ export default function ClienteHistorialPage() {
         const r = await fetchHistorialDato(clienteId)
         const datos = Array.isArray(r.datos) ? r.datos : []
         const mapped = datos
-          .map((op: any) => ({
+          .map((op: any) => {
+            const rec = parseDatoDatos(op?.record)
+            return {
             fila: {
               txId: String(op?.txId ?? ''),
               timestamp: String(op?.timestamp ?? ''),
               isDelete: Boolean(op?.isDelete),
-              resumen: String(op?.record?.payload?.nombre ?? op?.record?.datoId ?? 'Sin registro'),
-              cliente: op?.record
-                ? {
-                    clienteId: String(op.record.datoId ?? ''),
-                    nombre: String(op.record.payload?.nombre ?? op.record.datoId ?? ''),
-                    tipoDocumento: 'LOTE',
-                    numeroDocumento: String(op.record.payload?.codigo_trazabilidad ?? ''),
-                    fechaAlta: String(op.record.fechaCreacion ?? op.timestamp ?? ''),
-                    estado: String(op.record.payload?.estado ?? op.record.tipo ?? 'ACTIVO'),
-                  }
-                : null,
+              resumen: rec
+                ? `${rec.nombre} (${rec.estado})`
+                : String(op?.record?.datoId ?? 'Sin registro'),
+              cliente: op?.record ?? null,
+              record: op?.record ?? null,
+              restauradoDesdeTxId:
+                typeof op?.restauradoDesdeTxId === 'string' ? op.restauradoDesdeTxId.trim() : undefined,
             } as HistorialFilaVista,
             payload: extraerPayloadLote(op?.record),
-          }))
+          }})
           .filter((x) => x.fila.txId)
           .sort((a, b) => new Date(a.fila.timestamp).getTime() - new Date(b.fila.timestamp).getTime())
         setRows(mapped.map((x) => x.fila))
         setLotePayloads(mapped.map((x) => x.payload))
-        setTimeline([])
+        setTimeline(buildAccionesFromHistorial(mapped.map((x) => x.fila)))
       } else {
-        const [h, t] = await Promise.all([fetchHistorialCliente(clienteId), fetchLineaTiempoCliente(clienteId)])
-        setRows(operacionesAVista(h))
+        const h = await fetchHistorialCliente(clienteId)
+        const ops = operacionesAVista(h)
+        setRows(ops)
         setLotePayloads([])
-        setTimeline(t.acciones)
+        setTimeline(buildAccionesFromHistorial(ops))
       }
     } catch (e) {
       setError(describeApiError(e))
@@ -80,7 +83,7 @@ export default function ClienteHistorialPage() {
     return (
       <div className="p-6 text-sm text-muted">
         clienteId no válido.{' '}
-        <Link className="text-accent hover:underline" to="/clientes-registrados">
+        <Link className="text-accent hover:underline" to="/app/clientes-registrados">
           Volver al listado
         </Link>
       </div>
@@ -88,80 +91,57 @@ export default function ClienteHistorialPage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-ink">Historial en cadena</h1>
-          <p className="mt-1 text-sm text-muted">
-            Origen:{' '}
-            <code className="rounded bg-surface px-1 font-mono text-xs">
-              {isAgricultura ? `GET /datos/${clienteId}/historial` : `GET /clientes/historial/${clienteId}`}
-            </code>
-          </p>
+          <p className="mt-0.5 text-xs text-muted font-mono">{clienteId}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={loading || timeline.length === 0}
+            onClick={() => setTimelineVisible((v) => !v)}
+            className={`inline-flex items-center justify-center rounded-md border px-4 py-2.5 text-sm transition-colors disabled:opacity-50 ${
+              timelineVisible
+                ? 'border-accent bg-accent text-white hover:bg-accent-hover'
+                : 'border-accent/30 bg-accent/10 text-accent hover:bg-accent/20'
+            }`}
+          >
+            {timelineVisible ? 'Ocultar línea' : 'Línea de tiempo'}
+          </button>
           <button type="button" className={btn} disabled={loading} onClick={() => void load()}>
             {loading ? 'Cargando…' : 'Refrescar'}
           </button>
           <Link
-            to="/consultas"
+            to="/app/consultas"
             state={{ clienteId }}
             className="inline-flex items-center justify-center rounded-md border border-line bg-gray-50 px-4 py-2.5 text-sm text-ink-secondary hover:bg-gray-100"
           >
             Ver detalle
           </Link>
-          <Link to="/clientes-registrados" className="inline-flex items-center justify-center rounded-xl border border-line px-4 py-2.5 text-sm text-muted hover:text-ink-secondary">
+          <Link to="/app/clientes-registrados" className="inline-flex items-center justify-center rounded-xl border border-line px-4 py-2.5 text-sm text-muted hover:text-ink-secondary">
             Listado
           </Link>
         </div>
       </div>
 
-      {error ? <p className="text-sm text-danger/90">{error}</p> : null}
+      {error ? <p className="shrink-0 text-sm text-danger/90">{error}</p> : null}
 
-      {!loading && timeline.length > 0 && (
-        <div className="rounded-2xl border border-line bg-gray-50 p-5 shadow-sm">
-          <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted">Auditoría de Negocio (Línea de Tiempo)</h2>
-          <div className="flex flex-wrap gap-4">
-            {timeline.map((acc, i) => (
-              <div 
-                key={`${acc.txId}-${i}`} 
-                onClick={() => setSelectedIdx(selectedIdx === i ? null : i)}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 shadow-sm transition-all hover:scale-105 ${
-                  selectedIdx === i 
-                    ? 'border-accent bg-accent/10 ring-1 ring-accent' 
-                    : 'border-line/40 bg-elevated/40 hover:border-accent/40'
-                }`}
-              >
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                  acc.tipo === 'creado' ? 'bg-emerald-500/20 text-emerald-400' :
-                  acc.tipo === 'baja' ? 'bg-rose-500/20 text-rose-400' :
-                  'bg-sky-500/20 text-sky-400'
-                }`}>
-                  {acc.tipo === 'creado' ? '★' : acc.tipo === 'baja' ? '✖' : '✎'}
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-ink">
-                    {rows[i]?.cliente?.clienteId} - {rows[i]?.cliente?.nombre}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-bold uppercase ${
-                      acc.tipo === 'creado' ? 'text-emerald-400' :
-                      acc.tipo === 'baja' ? 'text-rose-400' :
-                      'text-sky-400'
-                    }`}>
-                      {acc.etiqueta}
-                    </span>
-                    <span className="text-[10px] text-muted">•</span>
-                    <span className="text-[10px] text-muted">{formatDemoDateTime(acc.fecha)}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+      {timelineVisible && timeline.length > 0 ? (
+        <div className="shrink-0 rounded-xl border border-accent/20 bg-accent/5 px-4 shadow-sm">
+          <LineaTiempoStrip
+            registroId={clienteId}
+            acciones={timeline}
+            selectedIdx={selectedIdx}
+            onSelect={setSelectedIdx}
+            onClose={() => setTimelineVisible(false)}
+          />
         </div>
-      )}
+      ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto admin-card shadow-card">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden admin-card shadow-card">
+        <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full text-left text-sm">
           <thead className="sticky top-0 z-10 border-b border-line bg-gray-50 text-xs uppercase text-muted backdrop-blur-sm">
             <tr>
@@ -179,16 +159,27 @@ export default function ClienteHistorialPage() {
                 </td>
               </tr>
             ) : null}
-            {rows.map((r, i) => (
+            {rows.map((r, i) => {
+              const acc = timeline[i]
+              const isSelected = selectedIdx === i
+              return (
+              <Fragment key={`${r.txId}-${r.timestamp}`}>
               <tr 
-                key={`${r.txId}-${r.timestamp}`} 
-                className={`cursor-pointer transition-colors ${selectedIdx === i ? 'bg-accent/10' : 'hover:bg-gray-50'}`}
-                onClick={() => setSelectedIdx(selectedIdx === i ? null : i)}
+                className={`cursor-pointer transition-colors ${isSelected ? 'bg-accent/10 ring-1 ring-inset ring-accent/25' : 'hover:bg-gray-50'}`}
+                onClick={() => setSelectedIdx(isSelected ? null : i)}
               >
                 <td className="px-4 py-2 font-mono text-xs text-ink-secondary">{r.txId.slice(0, 8)}...</td>
                 <td className="whitespace-nowrap px-4 py-2 text-xs text-muted">{formatDemoDateTime(r.timestamp)}</td>
                 <td className="px-4 py-2 text-xs">
-                  {r.isDelete ? <span className="text-rose-300">Baja</span> : <span className="text-ink-secondary">Cambio</span>}
+                  {acc?.tipo === 'restaurado' ? (
+                    <span className="text-amber-600 font-semibold">Restauración</span>
+                  ) : r.isDelete ? (
+                    <span className="text-rose-300">Baja</span>
+                  ) : i === 0 ? (
+                    <span className="text-emerald-400">Creación</span>
+                  ) : (
+                    <span className="text-ink-secondary">Cambio</span>
+                  )}
                 </td>
                 <td className="max-w-md px-4 py-2 text-ink-secondary">
                   <div className="flex items-center justify-between">
@@ -197,9 +188,12 @@ export default function ClienteHistorialPage() {
                   </div>
                 </td>
               </tr>
-            ))}
+              </Fragment>
+              )
+            })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Panel de Comparación (Tipo GitHub Mejorado) */}

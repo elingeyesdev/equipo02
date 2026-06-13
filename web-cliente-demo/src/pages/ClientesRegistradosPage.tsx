@@ -56,7 +56,7 @@ export default function ClientesRegistradosPage() {
       {clientesLedgerAccessDenied ? (
         <div className="admin-alert-warning">
           <p>{clientesLedgerError}</p>
-          <Link className="mt-2 inline-block text-xs font-medium text-accent hover:underline" to="/credenciales">
+          <Link className="mt-2 inline-block text-xs font-medium text-accent hover:underline" to="/app/credenciales">
             Abrir Credenciales
           </Link>
         </div>
@@ -103,17 +103,17 @@ export default function ClientesRegistradosPage() {
                   <td className="px-4 py-2 text-right text-xs">
                     <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:gap-2">
                       {isAgricultura ? (
-                        <Link className="font-medium text-accent hover:underline" to="/auditoria" state={{ recursoId: r.clienteId }}>
+                        <Link className="font-medium text-accent hover:underline" to="/app/auditoria" state={{ recursoId: r.clienteId }}>
                           Auditar
                         </Link>
                       ) : (
                         <>
-                          <Link className="font-medium text-accent hover:underline" to="/consultas" state={{ clienteId: r.clienteId }}>
+                          <Link className="font-medium text-accent hover:underline" to="/app/consultas" state={{ clienteId: r.clienteId }}>
                             Detalle
                           </Link>
                           <Link
                             className="text-muted hover:text-accent hover:underline"
-                            to={`/historial-cliente/${encodeURIComponent(r.clienteId)}`}
+                            to={`/app/historial-cliente/${encodeURIComponent(r.clienteId)}`}
                           >
                             Historial
                           </Link>
