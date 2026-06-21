@@ -18,6 +18,7 @@ package handlers
 //   }
 
 import (
+	"api-middleware/internal/aprobaciones"
 	"api-middleware/internal/fabric"
 	"api-middleware/internal/middleware"
 	"api-middleware/internal/notificador"
@@ -31,6 +32,87 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// opError es un error de negocio con código y estado HTTP públicos, usado por
+// las funciones de ejecución para que tanto la vía directa (admin) como la vía
+// de aprobación devuelvan el mismo mensaje.
+type opError struct {
+	HTTP    int
+	Codigo  string
+	Mensaje string
+}
+
+func (e *opError) Error() string { return e.Mensaje }
+
+// esIntegrador indica si el actor de la petición tiene rol integrador (debe
+// pasar por aprobación). El admin escribe directo; solo_lectura ni llega aquí.
+func esIntegrador(c *gin.Context) bool {
+	return middleware.RolFromContext(c) == middleware.RoleIntegrador
+}
+
+// actorDesdeContexto extrae usuario y nombre del actor desde las cabeceras que
+// inyecta el BFF (X-Actor-*).
+func actorDesdeContexto(c *gin.Context) (usuario, nombre string) {
+	usuario = strings.TrimSpace(c.GetHeader("X-Actor-Username"))
+	if usuario == "" {
+		usuario = strings.TrimSpace(c.GetHeader("X-Actor-Id"))
+	}
+	if usuario == "" {
+		usuario = "integrador"
+	}
+	nombre = strings.TrimSpace(c.GetHeader("X-Actor-Name"))
+	return usuario, nombre
+}
+
+// crearSolicitudPendiente registra una propuesta de cambio y avisa al admin.
+func crearSolicitudPendiente(c *gin.Context, op aprobaciones.Operacion, datoID, tipoDato string, payload json.RawMessage, txOrigen string) aprobaciones.Solicitud {
+	usuario, nombre := actorDesdeContexto(c)
+	sol := aprobaciones.Default.Crear(aprobaciones.Solicitud{
+		Tenant:            middleware.TenantFromContext(c),
+		Operacion:         op,
+		DatoID:            datoID,
+		TipoDato:          tipoDato,
+		Payload:           payload,
+		TxIDOrigen:        txOrigen,
+		Solicitante:       usuario,
+		SolicitanteNombre: nombre,
+	})
+	publicarNotificacion(c,
+		notificador.EventoSolicitudCreada,
+		datoID,
+		"",
+		fmt.Sprintf("Solicitud %s (op=%s) sobre %q pendiente de aprobación, creada por %q", sol.ID, op, datoID, usuario),
+	)
+	return sol
+}
+
+// responderSolicitudPendiente devuelve 202 indicando que el cambio quedó en cola.
+func responderSolicitudPendiente(c *gin.Context, sol aprobaciones.Solicitud, accion string) {
+	c.JSON(http.StatusAccepted, gin.H{
+		"ok":          true,
+		"estado":      "pendiente",
+		"solicitudId": sol.ID,
+		"operacion":   sol.Operacion,
+		"mensaje":     accion + " recibida. Queda PENDIENTE de aprobación por un administrador del tenant.",
+	})
+}
+
+// ejecutarCrearDato escribe un alta en la cadena (CreateDato).
+func ejecutarCrearDato(tenantID, datoID, tipo string, payload json.RawMessage) (*fabric.SubmitResult, error) {
+	return fabric.InvokeTransactionWithTxIDTenant(tenantID, "", "", "CreateDato",
+		strings.TrimSpace(datoID), strings.TrimSpace(tipo), string(payload))
+}
+
+// ejecutarActualizarDato escribe una edición en la cadena (UpdateDato).
+func ejecutarActualizarDato(tenantID, datoID, tipo string, payload json.RawMessage) (*fabric.SubmitResult, error) {
+	return fabric.InvokeTransactionWithTxIDTenant(tenantID, "", "", "UpdateDato",
+		strings.TrimSpace(datoID), strings.TrimSpace(tipo), string(payload))
+}
+
+// ejecutarEliminarDato borra del world state (DeleteDato). La historia persiste.
+func ejecutarEliminarDato(tenantID, datoID string) (*fabric.SubmitResult, error) {
+	return fabric.InvokeTransactionWithTxIDTenant(tenantID, "", "", "DeleteDato", strings.TrimSpace(datoID))
+}
 
 type entradaDato struct {
 	DatoID  string          `json:"datoId"`
@@ -104,12 +186,18 @@ func CrearDato(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, models.RespuestaError{Ok: false, Codigo: "VALIDACION", Mensaje: err.Error()})
 		return
 	}
+	datoID := strings.TrimSpace(in.DatoID)
+	tipo := strings.TrimSpace(in.Tipo)
+
+	// Flujo de aprobación: el integrador propone; no escribe en la cadena.
+	if esIntegrador(c) {
+		sol := crearSolicitudPendiente(c, aprobaciones.OpCrear, datoID, tipo, in.Payload, "")
+		responderSolicitudPendiente(c, sol, "Alta")
+		return
+	}
+
 	tenantID := middleware.TenantFromContext(c)
-	res, err := fabric.InvokeTransactionWithTxIDTenant(tenantID, "", "", "CreateDato",
-		strings.TrimSpace(in.DatoID),
-		strings.TrimSpace(in.Tipo),
-		string(in.Payload),
-	)
+	res, err := ejecutarCrearDato(tenantID, datoID, tipo, in.Payload)
 	if err != nil {
 		st, cod, pub := clasificarErrorFabric(err)
 		c.JSON(st, models.RespuestaError{Ok: false, Codigo: cod, Mensaje: pub})
@@ -117,9 +205,9 @@ func CrearDato(c *gin.Context) {
 	}
 	publicarNotificacion(c,
 		notificador.EventoDatoCreado,
-		strings.TrimSpace(in.DatoID),
+		datoID,
 		res.TxID,
-		fmt.Sprintf("Dato %q (tipo=%s) registrado", strings.TrimSpace(in.DatoID), strings.TrimSpace(in.Tipo)),
+		fmt.Sprintf("Dato %q (tipo=%s) registrado", datoID, tipo),
 	)
 
 	c.JSON(http.StatusCreated, models.RespuestaExitoTx{
@@ -181,12 +269,16 @@ func ActualizarDato(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, models.RespuestaError{Ok: false, Codigo: "VALIDACION", Mensaje: err.Error()})
 		return
 	}
+	tipo := strings.TrimSpace(in.Tipo)
+
+	if esIntegrador(c) {
+		sol := crearSolicitudPendiente(c, aprobaciones.OpActualizar, id, tipo, in.Payload, "")
+		responderSolicitudPendiente(c, sol, "Edición")
+		return
+	}
+
 	tenantID := middleware.TenantFromContext(c)
-	res, err := fabric.InvokeTransactionWithTxIDTenant(tenantID, "", "", "UpdateDato",
-		id,
-		strings.TrimSpace(in.Tipo),
-		string(in.Payload),
-	)
+	res, err := ejecutarActualizarDato(tenantID, id, tipo, in.Payload)
 	if err != nil {
 		st, cod, pub := clasificarErrorFabric(err)
 		c.JSON(st, models.RespuestaError{Ok: false, Codigo: cod, Mensaje: pub})
@@ -196,7 +288,7 @@ func ActualizarDato(c *gin.Context) {
 		notificador.EventoDatoEditado,
 		id,
 		res.TxID,
-		fmt.Sprintf("Dato %q (tipo=%s) editado", id, strings.TrimSpace(in.Tipo)),
+		fmt.Sprintf("Dato %q (tipo=%s) editado", id, tipo),
 	)
 
 	c.JSON(http.StatusOK, models.RespuestaExitoTx{
@@ -206,15 +298,23 @@ func ActualizarDato(c *gin.Context) {
 	})
 }
 
-// EliminarDato borra un dato (DeleteDato). Solo admin del tenant.
+// EliminarDato da de baja un dato (DeleteDato). El integrador lo propone; el
+// admin lo confirma (directo o aprobando la solicitud).
 func EliminarDato(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("datoId"))
 	if id == "" {
 		c.JSON(http.StatusBadRequest, models.RespuestaError{Ok: false, Codigo: "VALIDACION", Mensaje: "datoId vacío"})
 		return
 	}
+
+	if esIntegrador(c) {
+		sol := crearSolicitudPendiente(c, aprobaciones.OpEliminar, id, "", nil, "")
+		responderSolicitudPendiente(c, sol, "Baja")
+		return
+	}
+
 	tenantID := middleware.TenantFromContext(c)
-	res, err := fabric.InvokeTransactionWithTxIDTenant(tenantID, "", "", "DeleteDato", id)
+	res, err := ejecutarEliminarDato(tenantID, id)
 	if err != nil {
 		st, cod, pub := clasificarErrorFabric(err)
 		c.JSON(st, models.RespuestaError{Ok: false, Codigo: cod, Mensaje: pub})
@@ -259,104 +359,16 @@ func RestaurarDato(c *gin.Context) {
 		return
 	}
 
+	if esIntegrador(c) {
+		sol := crearSolicitudPendiente(c, aprobaciones.OpRestaurar, id, "", nil, in.TxID)
+		responderSolicitudPendiente(c, sol, "Restauración")
+		return
+	}
+
 	tenantID := middleware.TenantFromContext(c)
-	rawHist, err := fabric.EvaluateTransactionTenant(tenantID, "", "", "GetDatoHistory", id)
+	res, desde, err := ejecutarRestaurarDato(tenantID, id, in.TxID)
 	if err != nil {
-		st, cod, pub := clasificarErrorFabric(err)
-		c.JSON(st, models.RespuestaError{Ok: false, Codigo: cod, Mensaje: pub})
-		return
-	}
-
-	var historial []historialDatoEntry
-	if err := json.Unmarshal(rawHist, &historial); err != nil {
-		c.JSON(http.StatusInternalServerError, models.RespuestaError{
-			Ok:      false,
-			Codigo:  "ERROR_FORMATO",
-			Mensaje: "No se pudo interpretar el historial del dato",
-		})
-		return
-	}
-
-	rev := buscarRevisionHistorial(historial, in.TxID)
-	if rev == nil {
-		c.JSON(http.StatusNotFound, models.RespuestaError{
-			Ok:      false,
-			Codigo:  "REVISION_NO_ENCONTRADA",
-			Mensaje: "No existe una revisión con ese txId para este dato",
-		})
-		return
-	}
-	if rev.IsDelete || len(rev.Record) == 0 {
-		c.JSON(http.StatusBadRequest, models.RespuestaError{
-			Ok:      false,
-			Codigo:  "REVISION_NO_RESTAURABLE",
-			Mensaje: "La revisión seleccionada corresponde a una eliminación y no puede restaurarse",
-		})
-		return
-	}
-
-	var dato entradaDato
-	if err := json.Unmarshal(rev.Record, &dato); err != nil {
-		c.JSON(http.StatusInternalServerError, models.RespuestaError{
-			Ok:      false,
-			Codigo:  "ERROR_FORMATO",
-			Mensaje: "El bloque histórico no contiene un dato válido para restaurar",
-		})
-		return
-	}
-	if strings.TrimSpace(dato.DatoID) == "" {
-		dato.DatoID = id
-	}
-	if strings.TrimSpace(dato.DatoID) != id {
-		c.JSON(http.StatusBadRequest, models.RespuestaError{
-			Ok:      false,
-			Codigo:  "VALIDACION",
-			Mensaje: "La revisión seleccionada no pertenece al dato indicado en la ruta",
-		})
-		return
-	}
-	if err := validarEntradaDato(dato); err != nil {
-		c.JSON(http.StatusBadRequest, models.RespuestaError{Ok: false, Codigo: "VALIDACION", Mensaje: "Revisión no restaurable: " + err.Error()})
-		return
-	}
-
-	payloadConMeta, err := inyectarMetaRestauracion(dato.Payload, in.TxID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.RespuestaError{
-			Ok:      false,
-			Codigo:  "ERROR_FORMATO",
-			Mensaje: "No se pudo marcar la restauración en el payload",
-		})
-		return
-	}
-	dato.Payload = payloadConMeta
-
-	// Si el registro existe en world-state: Update. Si no existe: Create.
-	_, err = fabric.EvaluateTransactionTenant(tenantID, "", "", "ReadDato", id)
-	existeActual := err == nil
-	if err != nil && !esErrorLedgerNoEncontrado(err) {
-		st, cod, pub := clasificarErrorFabric(err)
-		c.JSON(st, models.RespuestaError{Ok: false, Codigo: cod, Mensaje: pub})
-		return
-	}
-
-	var res *fabric.SubmitResult
-	if existeActual {
-		res, err = fabric.InvokeTransactionWithTxIDTenant(tenantID, "", "", "UpdateDato",
-			id,
-			strings.TrimSpace(dato.Tipo),
-			string(dato.Payload),
-		)
-	} else {
-		res, err = fabric.InvokeTransactionWithTxIDTenant(tenantID, "", "", "CreateDato",
-			id,
-			strings.TrimSpace(dato.Tipo),
-			string(dato.Payload),
-		)
-	}
-	if err != nil {
-		st, cod, pub := clasificarErrorFabric(err)
-		c.JSON(st, models.RespuestaError{Ok: false, Codigo: cod, Mensaje: pub})
+		renderErrorOperacion(c, err)
 		return
 	}
 
@@ -364,15 +376,90 @@ func RestaurarDato(c *gin.Context) {
 		notificador.EventoDatoRestaurado,
 		id,
 		res.TxID,
-		fmt.Sprintf("Dato %q restaurado desde txId=%s", id, in.TxID),
+		fmt.Sprintf("Dato %q restaurado desde txId=%s", id, desde),
 	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"ok":                  true,
 		"txId":                res.TxID,
 		"mensaje":             "Dato restaurado correctamente como una nueva revisión",
-		"restauradoDesdeTxId": in.TxID,
+		"restauradoDesdeTxId": desde,
 	})
+}
+
+// renderErrorOperacion traduce un error de ejecución a respuesta HTTP. Si es un
+// opError usa su código/estado; en otro caso lo clasifica como error de Fabric.
+func renderErrorOperacion(c *gin.Context, err error) {
+	var oe *opError
+	if errors.As(err, &oe) {
+		c.JSON(oe.HTTP, models.RespuestaError{Ok: false, Codigo: oe.Codigo, Mensaje: oe.Mensaje})
+		return
+	}
+	st, cod, pub := clasificarErrorFabric(err)
+	c.JSON(st, models.RespuestaError{Ok: false, Codigo: cod, Mensaje: pub})
+}
+
+// ejecutarRestaurarDato implementa el rollback inmutable: lee el historial,
+// localiza la revisión por txId y la re-escribe como un NUEVO bloque
+// (Update si el dato existe, Create si fue eliminado). No altera la cadena.
+// Devuelve el resultado de la tx, el txId de origen y, en errores de negocio,
+// un *opError con código/estado público.
+func ejecutarRestaurarDato(tenantID, id, txOrigen string) (*fabric.SubmitResult, string, error) {
+	rawHist, err := fabric.EvaluateTransactionTenant(tenantID, "", "", "GetDatoHistory", id)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var historial []historialDatoEntry
+	if err := json.Unmarshal(rawHist, &historial); err != nil {
+		return nil, "", &opError{HTTP: http.StatusInternalServerError, Codigo: "ERROR_FORMATO", Mensaje: "No se pudo interpretar el historial del dato"}
+	}
+
+	rev := buscarRevisionHistorial(historial, txOrigen)
+	if rev == nil {
+		return nil, "", &opError{HTTP: http.StatusNotFound, Codigo: "REVISION_NO_ENCONTRADA", Mensaje: "No existe una revisión con ese txId para este dato"}
+	}
+	if rev.IsDelete || len(rev.Record) == 0 {
+		return nil, "", &opError{HTTP: http.StatusBadRequest, Codigo: "REVISION_NO_RESTAURABLE", Mensaje: "La revisión seleccionada corresponde a una eliminación y no puede restaurarse"}
+	}
+
+	var dato entradaDato
+	if err := json.Unmarshal(rev.Record, &dato); err != nil {
+		return nil, "", &opError{HTTP: http.StatusInternalServerError, Codigo: "ERROR_FORMATO", Mensaje: "El bloque histórico no contiene un dato válido para restaurar"}
+	}
+	if strings.TrimSpace(dato.DatoID) == "" {
+		dato.DatoID = id
+	}
+	if strings.TrimSpace(dato.DatoID) != id {
+		return nil, "", &opError{HTTP: http.StatusBadRequest, Codigo: "VALIDACION", Mensaje: "La revisión seleccionada no pertenece al dato indicado en la ruta"}
+	}
+	if err := validarEntradaDato(dato); err != nil {
+		return nil, "", &opError{HTTP: http.StatusBadRequest, Codigo: "VALIDACION", Mensaje: "Revisión no restaurable: " + err.Error()}
+	}
+
+	payloadConMeta, err := inyectarMetaRestauracion(dato.Payload, txOrigen)
+	if err != nil {
+		return nil, "", &opError{HTTP: http.StatusInternalServerError, Codigo: "ERROR_FORMATO", Mensaje: "No se pudo marcar la restauración en el payload"}
+	}
+	dato.Payload = payloadConMeta
+
+	// Si el registro existe en world-state: Update. Si no existe: Create.
+	_, err = fabric.EvaluateTransactionTenant(tenantID, "", "", "ReadDato", id)
+	existeActual := err == nil
+	if err != nil && !esErrorLedgerNoEncontrado(err) {
+		return nil, "", err
+	}
+
+	var res *fabric.SubmitResult
+	if existeActual {
+		res, err = ejecutarActualizarDato(tenantID, id, dato.Tipo, dato.Payload)
+	} else {
+		res, err = ejecutarCrearDato(tenantID, id, dato.Tipo, dato.Payload)
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	return res, txOrigen, nil
 }
 
 func metaRestauracionDesdeRecord(record interface{}) string {

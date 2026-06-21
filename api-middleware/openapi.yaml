@@ -1,1121 +1,133 @@
 openapi: 3.0.3
 info:
-  title: API Middleware Blockchain
-  version: 1.0.0
+  title: API Middleware BaaS Universal
+  version: 2.0.0
   description: >-
-    Contrato base para registrar clientes (Asset) y operaciones de valor (Token)
-    sobre la red Hyperledger Fabric del proyecto.
+    Contrato de la API de Blockchain como Servicio (BaaS) universal sobre
+    Hyperledger Fabric. Modelo de datos GENÉRICO: cualquier sistema externo
+    registra, consulta, versiona, audita y restaura activos arbitrarios como
+    `{datoId, tipo, payload JSON}` en el chaincode `dato_cc`, sin conocer Fabric.
 
-    Autenticación de consumo (hito 2.6): cabecera obligatoria `X-API-Key` en las rutas del contrato.
-    El rol efectivo lo determina el servidor según qué variable de entorno coincide con la clave
-    (`API_KEY_ADMIN`, `API_KEY_INTEGRADOR`, `API_KEY_SOLO_LECTURA`). Las rutas bajo `/admin/` siguen
-    usando `X-Admin-Api-Key` y no forman parte de este esquema.
+    Autenticación: cabecera obligatoria `X-API-Key`. El servidor resuelve el
+    TENANT (empresa = canal Fabric) y el ROL (admin | integrador | solo_lectura)
+    a partir de la clave. Las rutas bajo `/admin/` usan `X-Admin-Api-Key` y no
+    forman parte de este esquema público.
 
-    Auditoría (hito 2.8): cada respuesta incluye la cabecera `X-Operacion-Id` (identificador de operación).
-    Opcionalmente el cliente puede enviar `X-Correlation-Id` (ASCII alfanumérico, guiones, puntos y
-    subrayado, máx. 128 caracteres) para reutilizar ese valor como id de operación en bitácora.
+    Flujo de aprobación: las escrituras de un `integrador` NO se confirman en la
+    cadena; crean una SOLICITUD pendiente que un `admin` aprueba o rechaza.
+
+    NOTA: las familias `/datos/*` y `/solicitudes/*` aceptan payload JSON libre,
+    por lo que su validación se realiza en el handler (no en este contrato);
+    aquí se documentan para referencia de integradores.
 
 servers:
-  # Solo URL relativa: el router kin-openapi/gorillamux empareja cualquier Host (127.0.0.1, localhost, IP LAN, etc.).
-  # Entradas absolutas adicionales duplicaban rutas y podían provocar "no matching operation was found" según el Host de la petición.
   - url: /
     description: Base relativa — validación OpenAPI compatible con cualquier host/puerto
 
 tags:
-  - name: clientes
-    description: Registro y consulta de clientes (Asset)
-  - name: tokens
-    description: Emisión, transferencia, saldo e historial (Token)
+  - name: datos
+    description: CRUD genérico de activos universales (dato_cc), historial y restauración
+  - name: aprobaciones
+    description: Flujo de aprobación de cambios propuestos por integradores
   - name: chaincode
     description: Invocación controlada de chaincode (lista blanca, evaluate o submit)
   - name: eventos
-    description: Monitoreo de eventos emitidos por chaincode (SSE e historial en memoria)
+    description: Monitoreo de eventos de chaincode (SSE e historial en memoria)
   - name: auditoria
-    description: >-
-      Bitácora del puente HTTP (BITACORA_SOLICITUD / BITACORA_RESULTADO) y líneas chaincode/evento retenidas en memoria.
-      Complementario a GET /eventos/historial (solo ledger). Correlación: `operacionId` en solicitud y resultado coincide con la cabecera `X-Operacion-Id`.
+    description: Bitácora HTTP del puente y notificaciones administrativas
 
 paths:
-  /clientes:
-    post:
-      security:
-        - ApiKeyAuth: []
-      tags: [clientes]
-      summary: Registrar cliente
-      description: Registra un nuevo cliente como Asset dentro del sistema.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Cliente'
-            example:
-              clienteId: CLI001
-              nombre: Juan Perez
-              tipoDocumento: CI
-              numeroDocumento: "1234567"
-              fechaAlta: "2026-04-01"
-              estado: ACTIVO
-              telefono: "70000000"
-              email: juan@gmail.com
-              notas: Cliente de prueba
-      responses:
-        '201':
-          description: Cliente registrado correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-              example:
-                ok: true
-                txId: TX001
-                mensaje: Cliente registrado correctamente
-        '400':
-          description: Error de validación
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: VALIDACION
-                mensaje: Faltan campos obligatorios
-        '409':
-          description: El identificador de cliente ya existe en el ledger
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: CLIENTE_EXISTENTE
-                mensaje: El código de cliente ya está en uso
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (solo integrador o admin pueden registrar)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [clientes]
-      summary: Listar clientes registrados
-      description: >-
-        Consulta evaluate GetAllAssets sobre cliente_cc. Cualquier rol con API key válida.
-        El chaincode puede devolver un arreglo JSON, un string JSON, un envoltorio u objeto único;
-        el middleware normaliza a `datos: []` cuando no hay activos.
-      responses:
-        '200':
-          description: Lista de clientes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /clientes/{clienteId}:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [clientes]
-      summary: Consultar cliente
-      description: Consulta un cliente registrado en el sistema.
-      parameters:
-        - name: clienteId
-          in: path
-          required: true
-          schema:
-            type: string
-          example: CLI001
-      responses:
-        '200':
-          description: Cliente encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLecturaCliente'
-              example:
-                ok: true
-                codigo: CONSULTA_EXITOSA
-                mensaje: Cliente consultado correctamente
-                datos:
-                  clienteId: CLI001
-                  nombre: Juan Perez
-                  tipoDocumento: CI
-                  numeroDocumento: "1234567"
-                  fechaAlta: "2026-04-01"
-                  estado: ACTIVO
-                  telefono: "70000000"
-                  email: juan@gmail.com
-                  notas: Cliente de prueba
-        '404':
-          description: Cliente no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: NO_ENCONTRADO
-                mensaje: Cliente no registrado
-        '500':
-          description: Error interno al consultar cliente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: ERROR_FABRIC
-                mensaje: Error interno al consultar cliente en Blockchain
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-    patch:
-      security:
-        - ApiKeyAuth: []
-      tags: [clientes]
-      summary: Actualizar cliente (campos editables)
-      description: >-
-        Actualización parcial vía chaincode UpdateAsset. No modifica `clienteId` ni `fechaAlta`
-        (se conservan los valores del ledger). El estado `DADO_DE_BAJA` solo se aplica con
-        `POST /clientes/{clienteId}/baja`. Un cliente ya dado de baja no admite edición.
-      parameters:
-        - name: clienteId
-          in: path
-          required: true
-          schema:
-            type: string
-          example: CLI001
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ClientePatch'
-            example:
-              nombre: Juan Perez Actualizado
-              telefono: "70000001"
-              notas: Actualizado desde portal
-      responses:
-        '200':
-          description: Cliente actualizado en el ledger
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Validación o cuerpo vacío
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (solo integrador o admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '404':
-          description: Cliente no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '409':
-          description: Cliente dado de baja; no editable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: CLIENTE_NO_EDITABLE
-                mensaje: El cliente fue dado de baja y no admite modificaciones
-        '500':
-          description: Error interno al invocar la blockchain
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /clientes/{clienteId}/baja:
-    post:
-      security:
-        - ApiKeyAuth: []
-      tags: [clientes]
-      summary: Dar de baja lógica a un cliente
-      description: >-
-        Baja lógica sin borrar el asset: el middleware lee el cliente, añade auditoría en `notas` e invoca
-        `UpdateAsset` (mismo flujo que PATCH). Intenta estado `DADO_DE_BAJA`; si el chaincode desplegado no lo
-        permite, aplica `INACTIVO` con marca `[baja-logica-api]` en notas. Historial MVCC intacto.
-        Requiere rol integrador o admin.
-      parameters:
-        - name: clienteId
-          in: path
-          required: true
-          schema:
-            type: string
-          example: CLI001
-      responses:
-        '200':
-          description: Baja registrada en el ledger
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '404':
-          description: Cliente no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '409':
-          description: El cliente ya estaba dado de baja
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: CLIENTE_YA_DADO_DE_BAJA
-                mensaje: El cliente ya fue dado de baja
-        '500':
-          description: Error interno al invocar la blockchain
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  # (Endpoints /clientes/{id}/draft, /commit, /rollback/{rev} y /versiones
-  # eliminados. Hyperledger Fabric ya provee historial inmutable por activo
-  # vía GET /clientes/historial/{clienteId}.)
-
-  /clientes/historial/{clienteId}:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [clientes]
-      summary: Consultar historial de cambios
-      description: Devuelve el historial de todas las modificaciones de un Asset (cliente).
-      parameters:
-        - name: clienteId
-          in: path
-          required: true
-          schema:
-            type: string
-          example: CLI001
-      responses:
-        '200':
-          description: Historial obtenido correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HistorialCliente'
-        '404':
-          description: Cliente o historial no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /clientes/historial-resumido/{clienteId}:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [clientes]
-      summary: Consultar línea de tiempo (auditoría de negocio)
-      description: >-
-        Devuelve una versión simplificada y procesada del historial del ledger,
-        ideal para renderizar una línea de tiempo (Timeline). Clasifica cambios
-        automáticamente en "creado", "editado" o "baja".
-      parameters:
-        - name: clienteId
-          in: path
-          required: true
-          schema:
-            type: string
-          example: CLI001
-      responses:
-        '200':
-          description: Línea de tiempo obtenida correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LineaTiempoCliente'
-        '404':
-          description: Cliente no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /operar:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [clientes, tokens]
-      summary: Operación unificada (consulta — hito 2.4)
-      description: >-
-        Clasificación por query: con codigoToken se enruta a consulta de saldo; con solo clienteId
-        (p. ej. prefijo CLI-) a consulta de cliente. El middleware solo exige que exista al menos
-        un query param; la lógica del gateway valida el resto.
-      parameters:
-        - name: clienteId
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: codigoToken
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Respuesta del handler enrutado (cliente o saldo)
-          content:
-            application/json:
-              schema:
-                type: object
-        '400':
-          description: Solicitud incompleta o error de validación
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '404':
-          description: Recurso no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '500':
-          description: Error interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-    post:
-      security:
-        - ApiKeyAuth: []
-      tags: [clientes, tokens]
-      summary: Operación unificada (escritura — hito 2.4)
-      description: >-
-        Clasificación por cuerpo JSON hacia registro de cliente (asset) o emisión/transferencia de
-        token. Cuerpo flexible según el tipo detectado.
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        '200':
-          description: Operación de token completada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '201':
-          description: Cliente registrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Validación, ambigüedad o solicitud incompleta
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '500':
-          description: Error interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (escritura solo integrador o admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /chaincode/invocar:
-    post:
-      security:
-        - ApiKeyAuth: []
-      tags: [chaincode]
-      summary: Invocar chaincode (integrador, lista blanca)
-      description: >-
-        Ejecuta evaluate o submit solo para combinaciones (canal, contrato, función, modo, número de
-        argumentos) permitidas por la política embebida o por CHAINCODE_POLITICAS_FILE. No existe
-        invoke genérico: cualquier otra combinación responde 403. Cabecera opcional X-Actor-Id para
-        bitácora de auditoría.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SolicitudInvocacionChaincode'
-            example:
-              canal: clientes
-              contrato: cliente_cc
-              funcion: ReadAsset
-              parametros: ["CLI001"]
-              modo: evaluate
-      responses:
-        '200':
-          description: Evaluate exitoso (RespuestaLectura) o submit confirmado (RespuestaExitoTx)
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: '#/components/schemas/RespuestaLectura'
-                  - $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Validación de cuerpo o modo inválido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: >-
-            Combinación no permitida por política de chaincode, API key inválida, o rol sin permiso
-            (solo integrador o admin vía X-API-Key). Revisar campo `codigo` en el cuerpo JSON.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '404':
-          description: Recurso no encontrado en ledger (evaluate/submit)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '500':
-          description: Error interno Fabric genérico
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '502':
-          description: Endoso o confirmación rechazada en Fabric
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '503':
-          description: Gateway no conectado, timeout o red no disponible
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /eventos/stream:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [eventos]
-      summary: Stream en vivo de eventos de chaincode (SSE)
-      description: >-
-        Server-Sent Events (text/event-stream): eventos normalizados emitidos por los chaincodes
-        configurados (p. ej. CreateAsset). Requiere rol administrador o integrador. La respuesta no
-        es un único JSON: son fragmentos SSE (`data:`) con objetos EventoNormalizado.
-      responses:
-        '200':
-          description: Flujo continuo text/event-stream
-          content:
-            text/event-stream:
-              schema:
-                type: string
-                description: Fragmentos SSE (líneas `data:` con JSON por evento, comentarios `:` para keep-alive)
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (solo admin o integrador)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /eventos/historial:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [eventos]
-      summary: Últimos eventos de chaincode en memoria
-      description: >-
-        Devuelve los últimos eventos retenidos en el middleware (tamaño acotado, p. ej. 100). Cualquier
-        rol con API key válida (incl. solo lectura).
-      responses:
-        '200':
-          description: Historial reciente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /auditoria/http:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [auditoria]
-      summary: Bitácora del puente en memoria
-      description: >-
-        Devuelve las últimas líneas de bitácora retenidas en RAM (solicitud HTTP, resultado HTTP, invocaciones chaincode
-        auditadas, fallos de eventos, conexión Fabric). Filtros opcionales `desde` y `hasta` (RFC3339 o fecha) aplican al
-        campo `timestamp` de cada registro JSON. `limite` por defecto 100 (máx. 500). No sustituye archivo opcional
-        `CHAINCODE_BITACORA_FILE`: para exportación durable tail ese archivo o logs del proceso.
-      parameters:
-        - in: query
-          name: limite
-          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
-        - in: query
-          name: desde
-          schema: { type: string, example: '2026-05-01T00:00:00Z' }
-          description: Inclusive — conserva registros con timestamp >= desde
-        - in: query
-          name: hasta
-          schema: { type: string, example: '2026-05-14T23:59:59Z' }
-          description: Inclusive — conserva registros con timestamp <= hasta
-      responses:
-        '200':
-          description: Líneas de auditoría
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /auditoria/combinada:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [auditoria]
-      summary: Bitácora del puente + eventos de chaincode recientes
-      description: >-
-        Combina GET /auditoria/http (misma semántica de query) con el historial en memoria de GET /eventos/historial
-        (`eventosCadena`). Útil para pantallas de auditoría que contrastan tráfico API vs emisiones en ledger.
-      parameters:
-        - in: query
-          name: limite
-          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
-        - in: query
-          name: desde
-          schema: { type: string }
-        - in: query
-          name: hasta
-          schema: { type: string }
-      responses:
-        '200':
-          description: Objeto combinado en `datos`
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  # Misma semántica que /auditoria/* — útil cuando el cliente o un proxy dejan el prefijo /api en la ruta hacia :3000.
-  /api/auditoria/http:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [auditoria]
-      summary: Bitácora del puente en memoria (prefijo /api)
-      description: Alias de GET /auditoria/http para despliegues sin strip de /api.
-      parameters:
-        - in: query
-          name: limite
-          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
-        - in: query
-          name: desde
-          schema: { type: string, example: '2026-05-01T00:00:00Z' }
-          description: Inclusive — conserva registros con timestamp >= desde
-        - in: query
-          name: hasta
-          schema: { type: string, example: '2026-05-14T23:59:59Z' }
-          description: Inclusive — conserva registros con timestamp <= hasta
-      responses:
-        '200':
-          description: Líneas de auditoría
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /api/auditoria/combinada:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [auditoria]
-      summary: Bitácora del puente + eventos de chaincode (prefijo /api)
-      description: Alias de GET /auditoria/combinada para despliegues sin strip de /api.
-      parameters:
-        - in: query
-          name: limite
-          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
-        - in: query
-          name: desde
-          schema: { type: string }
-        - in: query
-          name: hasta
-          schema: { type: string }
-      responses:
-        '200':
-          description: Objeto combinado en `datos`
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
   /datos:
     get:
-      security:
-        - ApiKeyAuth: []
-      tags: [chaincode]
-      summary: Listar datos genéricos del tenant
-      description: >-
-        Consulta `GetAllDatos` sobre `dato_cc` usando el tenant deducido por `X-API-Key`.
-        Disponible para cualquier rol del tenant.
+      security: [{ ApiKeyAuth: [] }]
+      tags: [datos]
+      summary: Listar datos del tenant
+      description: Consulta GetAllDatos sobre dato_cc del tenant deducido por X-API-Key. Cualquier rol.
       responses:
-        '200':
-          description: Listado obtenido correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
+        '200': { description: Listado, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaLectura' } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
     post:
-      security:
-        - ApiKeyAuth: []
-      tags: [chaincode]
-      summary: Crear dato genérico en blockchain
+      security: [{ ApiKeyAuth: [] }]
+      tags: [datos]
+      summary: Registrar dato (admin confirma; integrador propone)
       description: >-
-        Invoca `CreateDato` en `dato_cc` del tenant actual.
-        Requiere rol integrador o admin.
+        Admin: escribe directo (201). Integrador: crea solicitud pendiente (202).
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [datoId, tipo, payload]
-              properties:
-                datoId:
-                  type: string
-                  minLength: 1
-                  example: AGRO-TEST-001
-                tipo:
-                  type: string
-                  minLength: 1
-                  example: lote
-                payload:
-                  description: JSON libre de negocio.
-                  oneOf:
-                    - type: object
-                    - type: array
-                      items: { type: object }
+            schema: { $ref: '#/components/schemas/EntradaDato' }
+            example: { datoId: PARCELA-001, tipo: parcela, payload: { cultivo: maiz, hectareas: 12 } }
       responses:
-        '201':
-          description: Dato registrado correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Error de validación o JSON inválido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (solo integrador o admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '409':
-          description: datoId ya existe
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
+        '201': { description: Dato confirmado en cadena (admin), content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaExitoTx' } } } }
+        '202': { description: Cambio pendiente de aprobación (integrador), content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaPendiente' } } } }
+        '400': { $ref: '#/components/responses/Validacion' }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
 
   /datos/{datoId}:
+    parameters:
+      - { name: datoId, in: path, required: true, schema: { type: string } }
     get:
-      security:
-        - ApiKeyAuth: []
-      tags: [chaincode]
+      security: [{ ApiKeyAuth: [] }]
+      tags: [datos]
       summary: Consultar dato por ID
-      parameters:
-        - name: datoId
-          in: path
-          required: true
-          schema:
-            type: string
       responses:
-        '200':
-          description: Dato consultado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '400':
-          description: datoId inválido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '404':
-          description: Dato no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
+        '200': { description: Dato, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaLectura' } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
     put:
-      security:
-        - ApiKeyAuth: []
-      tags: [chaincode]
-      summary: Actualizar dato genérico
-      description: >-
-        Invoca `UpdateDato` en `dato_cc` del tenant actual.
-        Requiere rol integrador o admin.
-      parameters:
-        - name: datoId
-          in: path
-          required: true
-          schema:
-            type: string
+      security: [{ ApiKeyAuth: [] }]
+      tags: [datos]
+      summary: Actualizar dato (admin confirma; integrador propone)
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [tipo, payload]
-              properties:
-                datoId:
-                  type: string
-                  description: Debe coincidir con el datoId del path (si se envía).
-                tipo:
-                  type: string
-                  minLength: 1
-                payload:
-                  oneOf:
-                    - type: object
-                    - type: array
-                      items: { type: object }
+            schema: { $ref: '#/components/schemas/EntradaDato' }
       responses:
-        '200':
-          description: Dato actualizado correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Error de validación
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '404':
-          description: Dato no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
+        '200': { description: Confirmado (admin), content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaExitoTx' } } } }
+        '202': { description: Pendiente (integrador), content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaPendiente' } } } }
+        '400': { $ref: '#/components/responses/Validacion' }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
     delete:
-      security:
-        - ApiKeyAuth: []
-      tags: [chaincode]
-      summary: Eliminar dato del world state
-      description: Invoca `DeleteDato`. Solo rol admin.
-      parameters:
-        - name: datoId
-          in: path
-          required: true
-          schema:
-            type: string
+      security: [{ ApiKeyAuth: [] }]
+      tags: [datos]
+      summary: Dar de baja un dato (admin confirma; integrador propone)
       responses:
-        '200':
-          description: Dato eliminado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: datoId inválido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (solo admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '404':
-          description: Dato no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
+        '200': { description: Confirmado (admin), content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaExitoTx' } } } }
+        '202': { description: Pendiente (integrador), content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaPendiente' } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
 
   /datos/{datoId}/historial:
+    parameters:
+      - { name: datoId, in: path, required: true, schema: { type: string } }
     get:
-      security:
-        - ApiKeyAuth: []
-      tags: [chaincode]
+      security: [{ ApiKeyAuth: [] }]
+      tags: [datos]
       summary: Historial inmutable de un dato
-      description: Consulta `GetDatoHistory` de `dato_cc`.
-      parameters:
-        - name: datoId
-          in: path
-          required: true
-          schema:
-            type: string
+      description: Consulta GetDatoHistory de dato_cc.
       responses:
-        '200':
-          description: Historial consultado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '400':
-          description: datoId inválido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '404':
-          description: Dato no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
+        '200': { description: Historial, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaLectura' } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
 
   /datos/{datoId}/restaurar:
+    parameters:
+      - { name: datoId, in: path, required: true, schema: { type: string } }
     post:
-      security:
-        - ApiKeyAuth: []
-      tags: [chaincode]
-      summary: Restaurar una revisión histórica como nuevo bloque
+      security: [{ ApiKeyAuth: [] }]
+      tags: [datos]
+      summary: Restaurar una revisión histórica como NUEVO bloque
       description: >-
-        Endpoint de rollback lógico (inmutable): toma una revisión histórica por `txId`
-        y la vuelve a escribir en el world state como una NUEVA transacción.
-        Solo rol admin.
-      parameters:
-        - name: datoId
-          in: path
-          required: true
-          schema:
-            type: string
+        Rollback inmutable: toma una revisión por txId y la re-escribe como nueva
+        transacción (la cadena nunca se altera). Admin confirma; integrador propone.
       requestBody:
         required: true
         content:
@@ -1124,12 +136,10 @@ paths:
               type: object
               required: [txId]
               properties:
-                txId:
-                  type: string
-                  description: TxID de la revisión histórica que se desea restaurar.
+                txId: { type: string, description: TxID de la revisión a restaurar }
       responses:
         '200':
-          description: Restauración aplicada como nueva revisión
+          description: Restaurado como nueva revisión (admin)
           content:
             application/json:
               schema:
@@ -1139,38 +149,226 @@ paths:
                   txId: { type: string }
                   mensaje: { type: string }
                   restauradoDesdeTxId: { type: string }
-        '400':
-          description: Error de validación o revisión no restaurable
+        '202': { description: Pendiente (integrador), content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaPendiente' } } } }
+        '400': { $ref: '#/components/responses/Validacion' }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /solicitudes:
+    get:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [aprobaciones]
+      summary: Listar solicitudes del tenant
+      description: Filtro opcional ?estado=pendiente|aprobada|rechazada. Cualquier rol.
+      parameters:
+        - { name: estado, in: query, required: false, schema: { type: string, enum: [pendiente, aprobada, rechazada] } }
+      responses:
+        '200':
+          description: Solicitudes del tenant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  solicitudes:
+                    type: array
+                    items: { $ref: '#/components/schemas/Solicitud' }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /solicitudes/{solicitudId}:
+    parameters:
+      - { name: solicitudId, in: path, required: true, schema: { type: string } }
+    get:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [aprobaciones]
+      summary: Consultar una solicitud
+      responses:
+        '200':
+          description: Solicitud
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (solo admin)
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  solicitud: { $ref: '#/components/schemas/Solicitud' }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /solicitudes/{solicitudId}/aprobar:
+    parameters:
+      - { name: solicitudId, in: path, required: true, schema: { type: string } }
+    post:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [aprobaciones]
+      summary: Aprobar una solicitud (solo admin)
+      description: Ejecuta el cambio en la cadena y marca la solicitud como aprobada.
+      responses:
+        '200':
+          description: Aprobada y confirmada en cadena
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '404':
-          description: Revisión (txId) no encontrada para el dato
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  estado: { type: string, example: aprobada }
+                  txId: { type: string }
+                  mensaje: { type: string }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { description: La solicitud ya fue resuelta, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaError' } } } }
+
+  /solicitudes/{solicitudId}/rechazar:
+    parameters:
+      - { name: solicitudId, in: path, required: true, schema: { type: string } }
+    post:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [aprobaciones]
+      summary: Rechazar una solicitud (solo admin)
+      description: Descarta el cambio sin escribir nada en la cadena.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motivo: { type: string }
+      responses:
+        '200':
+          description: Rechazada
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RespuestaError'
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  estado: { type: string, example: rechazada }
+                  mensaje: { type: string }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { description: La solicitud ya fue resuelta, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaError' } } } }
+
+  /chaincode/invocar:
+    post:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [chaincode]
+      summary: Invocar chaincode (lista blanca)
+      description: >-
+        Ejecuta evaluate o submit solo para combinaciones (contrato, función, modo,
+        número de argumentos) permitidas por la política. El canal es opcional: si
+        se omite se usa el canal por defecto del tenant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SolicitudInvocacionChaincode' }
+            example: { contrato: dato_cc, funcion: ReadDato, parametros: [DATO-001], modo: evaluate }
+      responses:
+        '200':
+          description: Evaluate exitoso o submit confirmado
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RespuestaLectura'
+                  - $ref: '#/components/schemas/RespuestaExitoTx'
+        '400': { $ref: '#/components/responses/Validacion' }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '500': { description: Error interno Fabric, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaError' } } } }
+        '502': { description: Endoso o confirmación rechazada, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaError' } } } }
+        '503': { description: Gateway no conectado / timeout, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaError' } } } }
+
+  /eventos/stream:
+    get:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [eventos]
+      summary: Stream en vivo de eventos de chaincode (SSE)
+      responses:
+        '200': { description: Flujo text/event-stream, content: { text/event-stream: { schema: { type: string } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /eventos/historial:
+    get:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [eventos]
+      summary: Últimos eventos de chaincode en memoria
+      responses:
+        '200': { description: Historial reciente, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaLectura' } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /auditoria/http:
+    get:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [auditoria]
+      summary: Bitácora del puente en memoria
+      parameters:
+        - { in: query, name: limite, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { in: query, name: desde, schema: { type: string } }
+        - { in: query, name: hasta, schema: { type: string } }
+      responses:
+        '200': { description: Líneas de auditoría, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaLectura' } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /auditoria/combinada:
+    get:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [auditoria]
+      summary: Bitácora del puente + eventos de chaincode recientes
+      parameters:
+        - { in: query, name: limite, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { in: query, name: desde, schema: { type: string } }
+        - { in: query, name: hasta, schema: { type: string } }
+      responses:
+        '200': { description: Objeto combinado, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaLectura' } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /api/auditoria/http:
+    get:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [auditoria]
+      summary: Alias de /auditoria/http (prefijo /api)
+      parameters:
+        - { in: query, name: limite, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { in: query, name: desde, schema: { type: string } }
+        - { in: query, name: hasta, schema: { type: string } }
+      responses:
+        '200': { description: Líneas de auditoría, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaLectura' } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /api/auditoria/combinada:
+    get:
+      security: [{ ApiKeyAuth: [] }]
+      tags: [auditoria]
+      summary: Alias de /auditoria/combinada (prefijo /api)
+      parameters:
+        - { in: query, name: limite, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { in: query, name: desde, schema: { type: string } }
+        - { in: query, name: hasta, schema: { type: string } }
+      responses:
+        '200': { description: Objeto combinado, content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaLectura' } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
 
   /admin/notificaciones:
     get:
-      security:
-        - ApiKeyAuth: []
+      security: [{ ApiKeyAuth: [] }]
       tags: [auditoria]
-      summary: Historial de notificaciones admin por tenant
-      description: Devuelve notificaciones recientes del tenant del solicitante.
+      summary: Historial de notificaciones admin del tenant
       responses:
         '200':
           description: Historial de notificaciones
@@ -1182,563 +380,19 @@ paths:
                   ok: { type: boolean }
                   tenant: { type: string }
                   total: { type: integer }
-                  items:
-                    type: array
-                    items:
-                      type: object
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (solo admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-    delete:
-      security:
-        - ApiKeyAuth: []
-      tags: [auditoria]
-      summary: Limpiar historial de notificaciones del tenant
-      responses:
-        '200':
-          description: Historial limpiado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok: { type: boolean }
-                  tenant: { type: string }
-                  eliminadas: { type: integer }
-                  mensaje: { type: string }
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (solo admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
+                  items: { type: array, items: { type: object } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
 
   /admin/notificaciones/stream:
     get:
-      security:
-        - ApiKeyAuth: []
+      security: [{ ApiKeyAuth: [] }]
       tags: [auditoria]
       summary: Stream SSE de notificaciones admin del tenant
       responses:
-        '200':
-          description: Flujo continuo text/event-stream
-          content:
-            text/event-stream:
-              schema:
-                type: string
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (solo admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /tokens/cuentas:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Listar cuentas token visibles
-      description: Evaluate ListarCuentasToken (alias VTBAL/VTMETA en token_erc20).
-      responses:
-        '200':
-          description: Lista de cuentas visibles
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-    post:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Crear cuenta token visible
-      description: Submit CrearCuentaToken. Integrador o admin.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CrearCuentaTokenBody'
-      responses:
-        '201':
-          description: Cuenta creada en ledger
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Validación
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: Rol sin permiso (solo integrador o admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '409':
-          description: Alias ya registrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '500':
-          description: Error de Fabric u otro fallo de ejecución (mensaje detallado en `mensaje`)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /tokens/cuentas/emitir:
-    post:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Emitir token a cuenta visible
-      description: Submit EmitirACuentaToken (Mint + transferencia a VTBAL del alias). Solo admin.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EmitirCuentaTokenBody'
-      responses:
-        '200':
-          description: Emisión confirmada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Cuenta inexistente u otro error de negocio
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: Solo rol admin para emitir
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /tokens/cuentas/transferir:
-    post:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Transferir entre cuentas visibles
-      description: Submit TransferirEntreCuentasToken. Solo admin.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TransferirCuentaTokenBody'
-      responses:
-        '200':
-          description: Transferencia confirmada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Validación o saldo insuficiente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: Solo rol admin
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /tokens/cuentas/{alias}/saldo:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Saldo de cuenta visible
-      parameters:
-        - name: alias
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: codigoToken
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Saldo
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLecturaSaldoToken'
-        '404':
-          description: Cuenta no existe
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /tokens/cuentas/{alias}:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Detalle cuenta visible
-      parameters:
-        - name: alias
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Detalle
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLectura'
-        '404':
-          description: No existe
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /tokens/emitir:
-    post:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Emitir token
-      description: >-
-        Emisión real en chaincode token_erc20: Mint a la cuenta del minter (identidad del gateway)
-        y Transfer al destinatario. Los campos txId y txIdMint (si aplica) son identificadores de
-        transacción confirmados en Fabric. destinatario debe ser una cuenta válida en el contrato
-        (p. ej. ClientAccountID / identidad de cliente en Fabric), no necesariamente el clienteId
-        del asset cliente_cc. codigoToken no se envía al chaincode (contrato ERC-20 único).
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EmitirToken'
-            example:
-              destinatario: eDUwOTo6Q049cmVjaXBpZW50LE9VPWNsaWVudCxPPUh5cGVybGVkZ2VyLFNUPU5vcnRoIENhcm9saW5hLEM9VVM6OkNOPWNhLm9yZzIuZXhhbXBsZS5jb20sTz1vcmcyLmV4YW1wbGUuY29tLEw9SHVyc2xleSxTVD1IYW1wc2hpcmUsQz1VSw==
-              monto: 1000
-              codigoToken: TOK001
-      responses:
-        '200':
-          description: Token emitido correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Error de validación
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: VALIDACION
-                mensaje: El monto debe ser mayor que cero
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (emisión solo rol admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /tokens/transferir:
-    post:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Transferir token
-      description: >-
-        Transferencia real en token_erc20: el origen del débito en ledger es la identidad que firma
-        (gateway), no el campo origen del JSON (origen es informativo para trazabilidad de negocio).
-        destino debe ser cuenta válida en el contrato. codigoToken no se envía al chaincode.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TransferirToken'
-            example:
-              origen: CLI001
-              destino: eDUwOTo6Q049cmVjaXBpZW50LE9VPWNsaWVudCxPPUh5cGVybGVkZ2VyLFNUPU5vcnRoIENhcm9saW5hLEM9VVM6OkNOPWNhLm9yZzIuZXhhbXBsZS5jb20sTz1vcmcyLmV4YW1wbGUuY29tLEw9SHVyc2xleSxTVD1IYW1wc2hpcmUsQz1VSw==
-              monto: 250
-              codigoToken: TOK001
-      responses:
-        '200':
-          description: Transferencia realizada correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaExitoTx'
-        '400':
-          description: Error de validación
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: SALDO_INVALIDO
-                mensaje: El monto debe ser mayor que cero
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso (transferencia solo rol admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /tokens/saldo/{clienteId}:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Consultar saldo
-      description: >-
-        Consulta el saldo de un token para una cuenta del contrato ERC-20.
-        El parámetro clienteId aquí representa accountId en ledger (p. ej. ClientAccountID).
-        Requiere el código de token como parámetro de consulta (alineado al modelo de datos 1.2).
-      parameters:
-        - name: clienteId
-          in: path
-          required: true
-          schema:
-            type: string
-          example: CLI001
-        - name: codigoToken
-          in: query
-          required: true
-          description: Código del token cuyo saldo se consulta
-          schema:
-            type: string
-          example: TOK001
-      responses:
-        '200':
-          description: Saldo obtenido correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaLecturaSaldoToken'
-              example:
-                ok: true
-                codigo: CONSULTA_EXITOSA
-                mensaje: Saldo consultado correctamente
-                datos:
-                  clienteId: CLI001
-                  codigoToken: TOK001
-                  saldo: 750
-        '404':
-          description: Cliente o saldo no encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: NO_ENCONTRADO
-                mensaje: Cliente no registrado o sin saldo para ese token
-        '500':
-          description: Error interno al consultar saldo
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: ERROR_FABRIC
-                mensaje: Error interno al consultar saldo en Blockchain
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-
-  /tokens/historial/{clienteId}:
-    get:
-      security:
-        - ApiKeyAuth: []
-      tags: [tokens]
-      summary: Consultar historial
-      description: >-
-        Endpoint reservado para historial por cuenta/token.
-        En la versión actual de token_erc20 (sample oficial) no existe función GetHistory por cuenta,
-        por lo que este endpoint puede devolver 501 hasta que el chaincode se extienda.
-      parameters:
-        - name: clienteId
-          in: path
-          required: true
-          schema:
-            type: string
-          example: CLI001
-        - name: codigoToken
-          in: query
-          required: true
-          description: Filtra operaciones solo para este código de token
-          schema:
-            type: string
-          example: TOK001
-      responses:
-        '200':
-          description: Historial obtenido correctamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HistorialToken'
-              example:
-                clienteId: CLI001
-                codigoToken: TOK001
-                operaciones:
-                  - txId: TX100
-                    tipo: EMISION
-                    monto: 1000
-                    codigoToken: TOK001
-                  - txId: TX101
-                    tipo: TRANSFERENCIA
-                    monto: 250
-                    codigoToken: TOK001
-        '404':
-          description: Sin historial para ese cliente y token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: NO_ENCONTRADO
-                mensaje: No existe historial para el cliente y token indicados
-        '501':
-          description: Funcionalidad no implementada en el chaincode actual
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-              example:
-                ok: false
-                codigo: NO_IMPLEMENTADO_CHAINCODE
-                mensaje: El chaincode token_erc20 actual no expone historial por cuenta
-        '401':
-          description: Falta la cabecera X-API-Key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
-        '403':
-          description: API key inválida o rol sin permiso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RespuestaError'
+        '200': { description: Flujo text/event-stream, content: { text/event-stream: { schema: { type: string } } } }
+        '401': { $ref: '#/components/responses/SinCredencial' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
 
 components:
   securitySchemes:
@@ -1747,420 +401,108 @@ components:
       in: header
       name: X-API-Key
       description: >-
-        Credencial del consumidor de la API. El servidor asocia la clave a un rol según
-        API_KEY_ADMIN, API_KEY_INTEGRADOR o API_KEY_SOLO_LECTURA (solo una coincide).
+        Credencial del consumidor. El servidor resuelve tenant + rol a partir de
+        la clave (config/tenants.yaml o variables legacy).
+
+  responses:
+    SinCredencial:
+      description: Falta la cabecera X-API-Key
+      content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaError' } } }
+    SinPermiso:
+      description: API key inválida o rol sin permiso
+      content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaError' } } }
+    NoEncontrado:
+      description: Recurso no encontrado
+      content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaError' } } }
+    Validacion:
+      description: Error de validación o JSON inválido
+      content: { application/json: { schema: { $ref: '#/components/schemas/RespuestaError' } } }
 
   schemas:
-    SolicitudInvocacionChaincode:
+    EntradaDato:
       type: object
-      required:
-        - canal
-        - contrato
-        - funcion
-        - modo
+      required: [datoId, tipo, payload]
       properties:
-        canal:
-          type: string
-          description: Nombre del canal Fabric
-          minLength: 1
-        contrato:
-          type: string
-          description: Nombre del chaincode desplegado en el canal
-          minLength: 1
-        funcion:
-          type: string
-          description: Nombre de la función del contrato a invocar
-          minLength: 1
-        parametros:
-          type: array
-          description: Argumentos posicionales como cadenas (coincidir con número esperado por política)
-          items:
-            type: string
-        modo:
-          type: string
-          description: evaluate (solo lectura) o submit (escritura confirmada)
-          enum: [evaluate, submit]
-
-    Cliente:
-      type: object
-      required:
-        - clienteId
-        - nombre
-        - tipoDocumento
-        - numeroDocumento
-        - fechaAlta
-        - estado
-      properties:
-        clienteId:
-          type: string
-          description: Identificador único del cliente
-          minLength: 1
-        nombre:
-          type: string
-          description: Nombre completo del cliente
-          minLength: 1
-        tipoDocumento:
-          type: string
-          description: Tipo de documento del cliente
-          enum: [CI, NIT, PASAPORTE]
-        numeroDocumento:
-          type: string
-          description: Número de documento del cliente
-          minLength: 1
-        fechaAlta:
-          type: string
-          format: date
-          description: Fecha de registro del cliente (ISO 8601 fecha)
-        estado:
-          type: string
-          description: >-
-            Estado en ledger. En el alta solo ACTIVO o INACTIVO; tras baja lógica puede ser DADO_DE_BAJA
-            en lecturas.
-          enum: [ACTIVO, INACTIVO, DADO_DE_BAJA]
-        telefono:
-          type: string
-          description: Teléfono del cliente
-        email:
-          type: string
-          format: email
-          description: Correo electrónico del cliente
-        notas:
-          type: string
-          description: Información adicional del cliente
-
-    ClientePatch:
-      type: object
-      description: >-
-        Campos opcionales para PATCH. Debe incluirse al menos uno. No use este cuerpo para
-        `DADO_DE_BAJA` (use POST /clientes/{clienteId}/baja).
-      properties:
-        nombre:
-          type: string
-          minLength: 1
-        tipoDocumento:
-          type: string
-          enum: [CI, NIT, PASAPORTE]
-        numeroDocumento:
-          type: string
-          minLength: 1
-        telefono:
-          type: string
-        email:
-          type: string
-          format: email
-        notas:
-          type: string
-        estado:
-          type: string
-          enum: [ACTIVO, INACTIVO]
-
-    EmitirToken:
-      type: object
-      required:
-        - destinatario
-        - monto
-        - codigoToken
-      properties:
-        destinatario:
-          type: string
-          description: Cuenta destino en el contrato (p. ej. ClientAccountID en Fabric)
-          minLength: 1
-        monto:
-          type: integer
-          format: int64
-          description: Cantidad de valor a emitir (unidades mínimas acordadas por el equipo)
-          minimum: 1
-        codigoToken:
-          type: string
-          description: Etiqueta lógica en la API; el chaincode token_erc20 no recibe este parámetro
-          minLength: 1
-
-    TransferirToken:
-      type: object
-      required:
-        - origen
-        - destino
-        - monto
-        - codigoToken
-      properties:
-        origen:
-          type: string
-          description: Informativo; el contrato transfiere desde la identidad del gateway
-          minLength: 1
-        destino:
-          type: string
-          description: Cuenta destino en el contrato (p. ej. ClientAccountID en Fabric)
-          minLength: 1
-        monto:
-          type: integer
-          format: int64
-          description: Cantidad de valor a transferir
-          minimum: 1
-        codigoToken:
-          type: string
-          description: Etiqueta lógica en la API; el chaincode token_erc20 no recibe este parámetro
-          minLength: 1
-
-    CrearCuentaTokenBody:
-      type: object
-      required:
-        - alias
-      properties:
-        alias:
-          type: string
-          description: Nombre corto visible (se normaliza a minúsculas en ledger)
-          minLength: 1
-          example: alex
-
-    EmitirCuentaTokenBody:
-      type: object
-      required:
-        - destinatario
-        - monto
-        - codigoToken
-      properties:
-        destinatario:
-          type: string
-          minLength: 1
-          description: Alias de cuenta visible existente
-        monto:
-          type: integer
-          format: int64
-          minimum: 1
-        codigoToken:
-          type: string
-          minLength: 1
-          example: TOK001
-
-    TransferirCuentaTokenBody:
-      type: object
-      required:
-        - origen
-        - destino
-        - monto
-        - codigoToken
-      properties:
-        origen:
-          type: string
-          minLength: 1
-        destino:
-          type: string
-          minLength: 1
-        monto:
-          type: integer
-          format: int64
-          minimum: 1
-        codigoToken:
-          type: string
-          minLength: 1
-
-    SaldoToken:
-      type: object
-      required:
-        - clienteId
-        - codigoToken
-        - saldo
-      properties:
-        clienteId:
-          type: string
-        codigoToken:
-          type: string
-        saldo:
-          type: integer
-          format: int64
-
-    RespuestaLecturaCliente:
-      type: object
-      required:
-        - ok
-        - codigo
-        - mensaje
-        - datos
-      properties:
-        ok:
-          type: boolean
-          example: true
-        codigo:
-          type: string
-          example: CONSULTA_EXITOSA
-        mensaje:
-          type: string
-          example: Cliente consultado correctamente
-        datos:
-          $ref: '#/components/schemas/Cliente'
-
-    RespuestaLecturaSaldoToken:
-      type: object
-      required:
-        - ok
-        - codigo
-        - mensaje
-        - datos
-      properties:
-        ok:
-          type: boolean
-          example: true
-        codigo:
-          type: string
-          example: CONSULTA_EXITOSA
-        mensaje:
-          type: string
-          example: Saldo consultado correctamente
-        datos:
-          $ref: '#/components/schemas/SaldoToken'
-
-    RespuestaLectura:
-      type: object
-      required:
-        - ok
-        - codigo
-        - mensaje
-        - datos
-      properties:
-        ok:
-          type: boolean
-          example: true
-        codigo:
-          type: string
-          example: CONSULTA_EXITOSA
-        mensaje:
-          type: string
-          example: Consulta realizada correctamente
-        datos:
-          description: Payload dinámico de lecturas evaluate (depende de contrato y función).
+        datoId: { type: string, minLength: 1, example: PARCELA-001 }
+        tipo: { type: string, minLength: 1, example: parcela }
+        payload:
+          description: JSON libre de negocio (cualquier estructura).
           oneOf:
             - type: object
             - type: array
-              items:
-                type: object
+              items: { type: object }
+
+    Solicitud:
+      type: object
+      properties:
+        id: { type: string }
+        tenant: { type: string }
+        operacion: { type: string, enum: [crear, actualizar, eliminar, restaurar] }
+        datoId: { type: string }
+        tipoDato: { type: string }
+        payload: {}
+        txIdOrigen: { type: string }
+        solicitante: { type: string }
+        solicitanteNombre: { type: string }
+        estado: { type: string, enum: [pendiente, aprobada, rechazada] }
+        creadaEn: { type: string, format: date-time }
+        resueltaEn: { type: string, format: date-time }
+        resueltaPor: { type: string }
+        motivo: { type: string }
+        txIdResultado: { type: string }
+
+    SolicitudInvocacionChaincode:
+      type: object
+      required: [contrato, funcion, modo]
+      properties:
+        canal: { type: string, description: Opcional; por defecto el canal del tenant }
+        contrato: { type: string, minLength: 1 }
+        funcion: { type: string, minLength: 1 }
+        parametros: { type: array, items: { type: string } }
+        modo: { type: string, enum: [evaluate, submit] }
+
+    RespuestaLectura:
+      type: object
+      required: [ok, codigo, mensaje, datos]
+      properties:
+        ok: { type: boolean, example: true }
+        codigo: { type: string, example: CONSULTA_EXITOSA }
+        mensaje: { type: string }
+        datos:
+          oneOf:
+            - type: object
+            - type: array
+              items: { type: object }
             - type: string
             - type: number
             - type: integer
             - type: boolean
         payloadDecodificado:
-          description: >-
-            Si el payload de Fabric era JSON válido, replica el valor tipado de `datos` para clientes que lean solo este campo.
-            Ausente cuando `datos` es texto opaco (no JSON).
           nullable: true
-        payloadRaw:
-          type: string
-          description: >-
-            Cuerpo UTF-8 devuelto por el peer antes del parseo. Solo se envía si se solicita `?incluirPayloadRaw=1` o cabecera `X-Debug-Payload: 1`.
-
-    OperacionHistorial:
-      type: object
-      required:
-        - txId
-        - tipo
-        - monto
-        - codigoToken
-      properties:
-        txId:
-          type: string
-        tipo:
-          type: string
-          enum: [EMISION, TRANSFERENCIA]
-        monto:
-          type: integer
-          format: int64
-        codigoToken:
-          type: string
-
-    HistorialToken:
-      type: object
-      required:
-        - clienteId
-        - codigoToken
-        - operaciones
-      properties:
-        clienteId:
-          type: string
-        codigoToken:
-          type: string
-        operaciones:
-          type: array
-          items:
-            $ref: '#/components/schemas/OperacionHistorial'
-
-    RegistroHistorialCliente:
-      type: object
-      required:
-        - txId
-        - timestamp
-        - isDelete
-      properties:
-        txId:
-          type: string
-        timestamp:
-          type: string
-          format: date-time
-        isDelete:
-          type: boolean
-        record:
-          $ref: '#/components/schemas/Cliente'
-
-    HistorialCliente:
-      type: object
-      required:
-        - clienteId
-        - operaciones
-      properties:
-        clienteId:
-          type: string
-        operaciones:
-          type: array
-          items:
-            $ref: '#/components/schemas/RegistroHistorialCliente'
-
-    LineaTiempoCliente:
-      type: object
-      properties:
-        ok: { type: boolean }
-        clienteId: { type: string }
-        acciones:
-          type: array
-          items:
-            $ref: '#/components/schemas/AccionLineaTiempo'
-
-    AccionLineaTiempo:
-      type: object
-      properties:
-        tipo:
-          type: string
-          enum: [creado, editado, baja]
-        etiqueta: { type: string }
-        fecha: { type: string }
-        txId: { type: string }
+        payloadRaw: { type: string }
 
     RespuestaExitoTx:
       type: object
-      required:
-        - ok
-        - txId
-        - mensaje
+      required: [ok, txId, mensaje]
       properties:
-        ok:
-          type: boolean
-          example: true
-        txId:
-          type: string
-        txIdMint:
-          type: string
-          description: Presente en emisión cuando hubo Mint previo a Transfer
-        mensaje:
-          type: string
+        ok: { type: boolean, example: true }
+        txId: { type: string }
+        mensaje: { type: string }
+
+    RespuestaPendiente:
+      type: object
+      required: [ok, estado, solicitudId]
+      properties:
+        ok: { type: boolean, example: true }
+        estado: { type: string, example: pendiente }
+        solicitudId: { type: string }
+        operacion: { type: string }
+        mensaje: { type: string }
 
     RespuestaError:
       type: object
-      required:
-        - ok
-        - codigo
-        - mensaje
+      required: [ok, codigo, mensaje]
       properties:
-        ok:
-          type: boolean
-          example: false
-        codigo:
-          type: string
-        mensaje:
-          type: string
+        ok: { type: boolean, example: false }
+        codigo: { type: string }
+        mensaje: { type: string }

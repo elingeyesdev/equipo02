@@ -59,7 +59,9 @@ func BuscarRegla(reglas []Regla, canal, contrato, funcion, modo string, nArgs in
 	modo = strings.ToLower(strings.TrimSpace(modo))
 	for i := range reglas {
 		r := &reglas[i]
-		if !strings.EqualFold(r.Canal, canal) {
+		// Canal vacío en la regla = comodín (la política es agnóstica del
+		// canal porque cada tenant del BaaS tiene su propio canal Fabric).
+		if r.Canal != "" && !strings.EqualFold(r.Canal, canal) {
 			continue
 		}
 		if !strings.EqualFold(r.Contrato, contrato) {

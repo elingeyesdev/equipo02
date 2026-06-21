@@ -1,5 +1,4 @@
 import { apiJson } from './apiClient'
-import { parseClienteDatos } from '../lib/apiClienteAdapter'
 import { parseDatoDatos } from '../lib/datoApiAdapter'
 import type { ClienteApi } from '../types/api'
 
@@ -8,15 +7,16 @@ interface ListaBody {
   datos?: unknown
 }
 
-/** Obtiene filas de ledger para el tenant activo (clientes/agricultura). */
-export async function listarClientesApi(tenant: string): Promise<ClienteApi[]> {
-  const endpoint = tenant.trim().toLowerCase() === 'agricultura' ? '/datos' : '/clientes'
-  const j = await apiJson<ListaBody>(endpoint)
+/**
+ * Obtiene filas del ledger para el tenant activo. Modelo UNIVERSAL: todos los
+ * tenants usan el recurso genérico `/datos` (dato_cc). El parámetro `tenant`
+ * se mantiene por compatibilidad de firma pero ya no altera el endpoint.
+ */
+export async function listarClientesApi(_tenant?: string): Promise<ClienteApi[]> {
+  const j = await apiJson<ListaBody>('/datos')
   const d = j.datos
-  if (d == null) return []
-  if (!Array.isArray(d)) return []
-  const parser = endpoint === '/datos' ? parseDatoDatos : parseClienteDatos
+  if (d == null || !Array.isArray(d)) return []
   return d
-    .map((row) => parser(row))
+    .map((row) => parseDatoDatos(row))
     .filter((x): x is ClienteApi => x !== null)
 }

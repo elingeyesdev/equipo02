@@ -32,13 +32,14 @@ import (
 // Tipos de evento conocidos. No es una lista cerrada; cualquier string puede
 // llegar a Publicar, pero estas constantes ayudan a evitar typos en los hooks.
 const (
-	EventoClienteCreado     = "cliente.creado"
-	EventoClienteEditado    = "cliente.editado"
-	EventoClienteDadoDeBaja = "cliente.dado_de_baja"
-	EventoDatoCreado        = "dato.creado"
-	EventoDatoEditado       = "dato.editado"
-	EventoDatoEliminado     = "dato.eliminado"
-	EventoDatoRestaurado    = "dato.restaurado"
+	EventoDatoCreado     = "dato.creado"
+	EventoDatoEditado    = "dato.editado"
+	EventoDatoEliminado  = "dato.eliminado"
+	EventoDatoRestaurado = "dato.restaurado"
+	// Flujo de aprobación: un integrador propone un cambio (pendiente) o un
+	// admin lo resuelve.
+	EventoSolicitudCreada   = "solicitud.creada"
+	EventoSolicitudResuelta = "solicitud.resuelta"
 )
 
 // EventoNotificacion representa un cambio detectado que debe avisarse a los

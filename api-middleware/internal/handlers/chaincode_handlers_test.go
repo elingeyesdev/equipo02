@@ -15,7 +15,7 @@ func TestInvocarChaincodeIntegrador_modoInvalido(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	body := `{"canal":"clientes","contrato":"cliente_cc","funcion":"ReadAsset","parametros":["x"],"modo":"lectura"}`
+	body := `{"contrato":"dato_cc","funcion":"ReadDato","parametros":["x"],"modo":"lectura"}`
 	c.Request, _ = http.NewRequest(http.MethodPost, "/chaincode/invocar", bytes.NewBufferString(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -29,7 +29,8 @@ func TestInvocarChaincodeIntegrador_politicaNoPermitida(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	body := `{"canal":"clientes","contrato":"token_erc20","funcion":"Mint","parametros":["1"],"modo":"submit"}`
+	// DeleteDato (submit) no está permitido para el perfil integrador.
+	body := `{"contrato":"dato_cc","funcion":"DeleteDato","parametros":["x"],"modo":"submit"}`
 	c.Request, _ = http.NewRequest(http.MethodPost, "/chaincode/invocar", bytes.NewBufferString(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -43,7 +44,8 @@ func TestInvocarChaincodeIntegrador_argsIncorrectos(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	body := `{"canal":"clientes","contrato":"cliente_cc","funcion":"ReadAsset","parametros":[],"modo":"evaluate"}`
+	// ReadDato requiere 1 argumento; con 0 debe rechazarse por política.
+	body := `{"contrato":"dato_cc","funcion":"ReadDato","parametros":[],"modo":"evaluate"}`
 	c.Request, _ = http.NewRequest(http.MethodPost, "/chaincode/invocar", bytes.NewBufferString(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -57,7 +59,8 @@ func TestInvocarChaincodeIntegrador_gatewayNoDisponible(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	body := `{"canal":"clientes","contrato":"cliente_cc","funcion":"ReadAsset","parametros":["CLI001"],"modo":"evaluate"}`
+	// Combinación permitida; sin gateway Fabric debe responder 503.
+	body := `{"contrato":"dato_cc","funcion":"ReadDato","parametros":["DATO-001"],"modo":"evaluate"}`
 	c.Request, _ = http.NewRequest(http.MethodPost, "/chaincode/invocar", bytes.NewBufferString(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -76,7 +79,7 @@ func TestAdminChaincode_sinApiKey(t *testing.T) {
 	r.POST("/admin/chaincode/invocar", InvocarChaincodeAdmin)
 
 	w := httptest.NewRecorder()
-	body := `{"canal":"clientes","contrato":"cliente_cc","funcion":"ReadAsset","parametros":["CLI001"],"modo":"evaluate"}`
+	body := `{"contrato":"dato_cc","funcion":"ReadDato","parametros":["DATO-001"],"modo":"evaluate"}`
 	req, _ := http.NewRequest(http.MethodPost, "/admin/chaincode/invocar", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
@@ -95,7 +98,7 @@ func TestAdminChaincode_conApiKey_sinFabric(t *testing.T) {
 	r.POST("/admin/chaincode/invocar", InvocarChaincodeAdmin)
 
 	w := httptest.NewRecorder()
-	body := `{"canal":"clientes","contrato":"cliente_cc","funcion":"ReadAsset","parametros":["CLI001"],"modo":"evaluate"}`
+	body := `{"contrato":"dato_cc","funcion":"ReadDato","parametros":["DATO-001"],"modo":"evaluate"}`
 	req, _ := http.NewRequest(http.MethodPost, "/admin/chaincode/invocar", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Admin-Api-Key", "clave-secreta-prueba-2")

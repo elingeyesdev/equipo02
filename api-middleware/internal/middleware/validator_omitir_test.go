@@ -13,8 +13,10 @@ func TestOmitirValidacionOpenAPI(t *testing.T) {
 		{"/api/auditoria/combinada", true},
 		{"/api/auditoria/http", true},
 		{"/admin/foo", true},
-		{"/clientes", false},
-		{"/api/clientes", false},
+		{"/datos", true},
+		{"/datos/PARCELA-1", true},
+		{"/solicitudes", true},
+		{"/solicitudes/SOL-1/aprobar", true},
 		{"/foo/auditoria/x", false},
 		{"/eventos/historial", false},
 	}

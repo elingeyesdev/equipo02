@@ -3,6 +3,13 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import LoginPage from "./LoginPage";
 import { useAuth } from "../context/AuthContext";
 
+vi.mock("lucide-react", () => ({
+  ArrowLeft: () => <span data-testid="icon-arrow-left" />,
+  Lock: () => <span data-testid="icon-lock" />,
+  ShieldCheck: () => <span data-testid="icon-shield" />,
+  User: () => <span data-testid="icon-user" />,
+}));
+
 vi.mock("../context/AuthContext", () => ({
   useAuth: vi.fn(),
 }));

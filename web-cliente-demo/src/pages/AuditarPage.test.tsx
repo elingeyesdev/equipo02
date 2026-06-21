@@ -13,9 +13,18 @@ vi.mock("../services/apiAuditoria", () => ({
 }));
 
 vi.mock("../services/apiHistorialCliente", () => ({
-  fetchHistorialCliente: vi.fn(),
+  fetchHistorialCliente: vi.fn().mockResolvedValue({ operaciones: [] }),
   fetchLineaTiempoCliente: vi.fn(),
   operacionesAVista: vi.fn(() => []),
+}));
+
+vi.mock("../services/apiClientesLista", () => ({
+  listarClientesApi: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("../services/apiDatos", () => ({
+  fetchHistorialDato: vi.fn(),
+  restaurarDatoRevision: vi.fn(),
 }));
 
 const useSettingsMock = vi.mocked(useSettings);
@@ -47,6 +56,6 @@ describe("AuditarPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Consultar" }));
 
     await waitFor(() => expect(fetchAuditoriaCombinadaMock).toHaveBeenCalled());
-    expect(screen.getByText(/HTTP: 0 filas/)).toBeInTheDocument();
+    expect(await screen.findByText(/HTTP 0 · cadena 0/)).toBeInTheDocument();
   });
 });

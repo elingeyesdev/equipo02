@@ -1,4 +1,4 @@
-/** Alineado a web-portal-cliente (`formatDisplayDate`): YYYY-MM-DD se interpreta al mediodía local para no adelantar/retroceder el día. */
+/** YYYY-MM-DD se interpreta al mediodía local para no adelantar/retroceder el día. */
 function parseFechaLedger(iso: string): Date {
   const t = iso.trim()
   if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return new Date(`${t}T12:00:00`)
@@ -21,7 +21,7 @@ export function formatDemoDateTime(iso: string): string {
   }
 }
 
-/** Misma convención visual que `formatDisplayDate` del portal (`dateStyle: 'medium'`, es-PE). */
+/** Convención visual de fecha media (`dateStyle: 'medium'`, es-PE). */
 export function formatShortDate(iso: string): string {
   try {
     const d = parseFechaLedger(iso)

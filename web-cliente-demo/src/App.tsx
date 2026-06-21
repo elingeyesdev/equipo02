@@ -9,15 +9,17 @@ import HistorialPage from './pages/HistorialPage'
 import AuditarPage from './pages/AuditarPage'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
+import DatosPage from './pages/DatosPage'
 import OnboardingTenantPage from './pages/OnboardingTenantPage'
 import PanelPage from './pages/PanelPage'
+import SolicitudesPage from './pages/SolicitudesPage'
 import TrazabilidadPage from './pages/TrazabilidadPage'
 
 /**
- * El web-cliente-demo es el "explorer" del puente: solo lectura.
- * Las altas/ediciones de clientes ocurren en el portal del cliente
- * (web-portal-cliente) o vía API directa al middleware. Aquí solo se
- * audita, consulta historial y se reciben notificaciones (rol admin).
+ * Consola BaaS: frontend ÚNICO del proyecto. Permite el CRUD genérico de
+ * /datos (modelo universal), la bandeja de aprobaciones, auditoría, historial,
+ * trazabilidad, restauración y onboarding. El rol del usuario (admin /
+ * integrador / solo_lectura) determina qué acciones puede ejecutar.
  */
 export default function App() {
   return (
@@ -34,7 +36,9 @@ export default function App() {
         }
       >
         <Route index element={<PanelPage />} />
+        <Route path="datos" element={<DatosPage />} />
         <Route path="consultas" element={<ConsultasPage />} />
+        <Route path="solicitudes" element={<SolicitudesPage />} />
         <Route path="clientes-registrados" element={<ClientesRegistradosPage />} />
         <Route path="historial-cliente/:clienteId" element={<ClienteHistorialPage />} />
         <Route path="historial" element={<HistorialPage />} />
