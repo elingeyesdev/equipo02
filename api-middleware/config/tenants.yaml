@@ -1,54 +1,19 @@
-# tenants.example.yaml — Configuración multi-tenant del api-middleware (BaaS)
+# tenants.yaml — Configuración multi-tenant REAL del api-middleware (BaaS universal)
 #
-# Copiar a `config/tenants.yaml` y rellenar valores. NO commitear `tenants.yaml`
-# con cert/llave reales: añadir al .gitignore.
+# MODELO UNIVERSAL: todos los tenants usan el chaincode genérico `dato_cc`.
+# Cada tenant = una empresa = un canal Fabric privado + API keys por rol.
 #
-# Activación: definir TENANTS_FILE=./config/tenants.yaml en el .env
-# Si TENANTS_FILE no está definido o el archivo no existe, el middleware
-# arranca en modo single-tenant legacy con las variables MSPID/CERT_PATH/...
-#
-# Cada tenant es una empresa con su propia cadena de bloques (canal Fabric)
-# y al menos una API key por rol.
-#
-# default: id del tenant utilizado cuando una key no apunta a ningún tenant
-# (compatibilidad con las claves legacy API_KEY_ADMIN / INTEGRADOR / SOLO_LECTURA).
+# NOTA: el canal "salud" debe existir en la red. Crearlo con:
+#   ./scripts/fabric-despliegue/agregar_tenant.sh salud Org1
+# (ver docs/onboarding-cliente-nuevo.md).
 
-default: clientes
+default: agricultura
 
 tenants:
-  clientes:
-    nombre: "Empresa Demo (clientes)"
-    descripcion: "Sistema base. Modelo tipado de Cliente sobre cliente_cc."
-    msp_id: "Org1MSP"
-    cert_path: "../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem"
-    key_path_dir: "../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"
-    tls_cert_path: "../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem"
-    peer_endpoint: "localhost:7051"
-    peer_host_alias: "peer0.org1.example.com"
-    canal: "clientes"
-    chaincode: "cliente_cc"
-    token_chaincode: "token_erc20"
-    api_keys:
-      "sec-admin": admin
-      "sec-int": integrador
-      "sec-lect": solo_lectura
-    notificaciones:
-      activado: true
-      eventos:
-        - cliente.creado
-        - cliente.editado
-        - cliente.dado_de_baja
-      roles_actor:
-        - integrador
-      destinos:
-        - tipo: email
-          asunto: "[CampusChain] {tipo} en {tenant} (recurso={recurso})"
-          destinatarios:
-            - admin-clientes@empresa.com
-
+  # Tenant que ya opera sobre la test-network (Org2, canal agricultura).
   agricultura:
     nombre: "Administradora de Agricultura"
-    descripcion: "Empresa externa. Modelo genérico (JSON libre) sobre dato_cc."
+    descripcion: "Empresa cliente (dominio agro). Modelo genérico dato_cc."
     msp_id: "Org2MSP"
     cert_path: "../red-hyperledger/test-network/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/signcerts/cert.pem"
     key_path_dir: "../red-hyperledger/test-network/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/keystore"
@@ -68,18 +33,44 @@ tenants:
         - dato.editado
         - dato.eliminado
         - dato.restaurado
+        - solicitud.creada
       roles_actor:
         - integrador
-        - admin
       destinos:
         - tipo: email
           asunto: "[Agricultura] {tipo} → {recurso}"
           destinatarios:
             - admin-agri@empresa.com
-        - tipo: webhook
-          url: "http://127.0.0.1:8000/api/blockchain/notificacion"
-          token: "agro-webhook-local"
-          eventos:
-            - dato.editado
-            - dato.restaurado
-          roles_actor: []
+
+  # Segundo tenant de dominio distinto (Org1, canal salud) para demostrar
+  # universalidad + aislamiento en vivo. Requiere crear el canal "salud".
+  salud:
+    nombre: "Centro de Salud Demo"
+    descripcion: "Empresa cliente (dominio salud). Mismo modelo genérico dato_cc."
+    msp_id: "Org1MSP"
+    cert_path: "../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem"
+    key_path_dir: "../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"
+    tls_cert_path: "../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem"
+    peer_endpoint: "localhost:7051"
+    peer_host_alias: "peer0.org1.example.com"
+    canal: "salud"
+    chaincode: "dato_cc"
+    api_keys:
+      "salud-admin-2026": admin
+      "salud-int-2026": integrador
+      "salud-lect-2026": solo_lectura
+    notificaciones:
+      activado: true
+      eventos:
+        - dato.creado
+        - dato.editado
+        - dato.eliminado
+        - dato.restaurado
+        - solicitud.creada
+      roles_actor:
+        - integrador
+      destinos:
+        - tipo: email
+          asunto: "[Salud] {tipo} → {recurso}"
+          destinatarios:
+            - admin-salud@empresa.com

@@ -128,6 +128,17 @@ func RequireAPIRoles(allowed ...string) gin.HandlerFunc {
 	}
 }
 
+// RolFromContext devuelve el rol resuelto por XAPIKeyAuth (admin | integrador |
+// solo_lectura). Cadena vacía si no se resolvió.
+func RolFromContext(c *gin.Context) string {
+	if v, ok := c.Get(ContextAPIRole); ok {
+		if s, ok2 := v.(string); ok2 {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
+}
+
 // TenantFromContext devuelve el tenant resuelto por XAPIKeyAuth. Si no se
 // encuentra, devuelve el tenant por defecto del registro o "clientes" como
 // último recurso.

@@ -59,9 +59,6 @@ func main() {
 			if cc := strings.TrimSpace(t.Chaincode); cc != "" {
 				go fabric.StartEventListeningTenant(ctx, t.ID, t.Canal, cc)
 			}
-			if cc := strings.TrimSpace(t.TokenChaincode); cc != "" && cc != t.Chaincode {
-				go fabric.StartEventListeningTenant(ctx, t.ID, t.Canal, cc)
-			}
 		}
 	} else {
 		log.Println("Sin configuración de tenants; el API correrá en modo degradado.")

@@ -45,7 +45,6 @@ type Tenant struct {
 	PeerHostAlias   string                 `yaml:"peer_host_alias"`
 	Canal           string                 `yaml:"canal"`
 	Chaincode       string                 `yaml:"chaincode"`
-	TokenChaincode  string                 `yaml:"token_chaincode"`
 	APIKeys         map[string]string      `yaml:"api_keys"`
 	Notificaciones  *NotificacionesTenant  `yaml:"notificaciones,omitempty"`
 }
@@ -181,9 +180,8 @@ func LoadFromEnvLegacy() (*Registry, error) {
 		TLSCertPath:    os.Getenv("TLS_CERT_PATH"),
 		PeerEndpoint:   os.Getenv("PEER_ENDPOINT"),
 		PeerHostAlias:  os.Getenv("PEER_HOST_ALIAS"),
-		Canal:          envOr("CHANNEL_NAME", "clientes"),
-		Chaincode:      envOr("CHAINCODE_NAME", "cliente_cc"),
-		TokenChaincode: os.Getenv("TOKEN_CHAINCODE_NAME"),
+		Canal:          envOr("CHANNEL_NAME", "datos"),
+		Chaincode:      envOr("CHAINCODE_NAME", "dato_cc"),
 		APIKeys:        map[string]string{},
 	}
 	addLegacyKey(t.APIKeys, "API_KEY_ADMIN", RoleAdmin)

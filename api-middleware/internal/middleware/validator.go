@@ -112,5 +112,10 @@ func omitirValidacionOpenAPI(raw string) bool {
 	if low == "/datos" || strings.HasPrefix(low, "/datos/") {
 		return true
 	}
+	// /solicitudes/* es el flujo de aprobación (modelo genérico). Se valida en
+	// el handler, igual que /datos.
+	if low == "/solicitudes" || strings.HasPrefix(low, "/solicitudes/") {
+		return true
+	}
 	return false
 }

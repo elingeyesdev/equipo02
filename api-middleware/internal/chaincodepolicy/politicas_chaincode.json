@@ -1,209 +1,48 @@
 {
   "integrador": [
     {
-      "canal": "clientes",
-      "contrato": "cliente_cc",
-      "funcion": "ReadAsset",
+      "contrato": "dato_cc",
+      "funcion": "ReadDato",
       "modos": ["evaluate"],
       "numeroArgumentos": 1
     },
     {
-      "canal": "clientes",
-      "contrato": "cliente_cc",
-      "funcion": "AssetExists",
+      "contrato": "dato_cc",
+      "funcion": "DatoExists",
       "modos": ["evaluate"],
       "numeroArgumentos": 1
     },
     {
-      "canal": "clientes",
-      "contrato": "cliente_cc",
-      "funcion": "GetAllAssets",
+      "contrato": "dato_cc",
+      "funcion": "GetAllDatos",
       "modos": ["evaluate"],
       "numeroArgumentos": 0
     },
     {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "BalanceOf",
+      "contrato": "dato_cc",
+      "funcion": "GetDatoHistory",
       "modos": ["evaluate"],
-      "numeroArgumentos": 1
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "ClientAccountID",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 0
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "ClientAccountBalance",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 0
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "TotalSupply",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 0
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "Name",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 0
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "Symbol",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 0
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "Allowance",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 2
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "ListarCuentasToken",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 0
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "ObtenerCuentaToken",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 1
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "ConsultarSaldoCuentaToken",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 1
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "CuentaTokenExiste",
-      "modos": ["evaluate"],
-      "numeroArgumentos": 1
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "CrearCuentaToken",
-      "modos": ["submit"],
       "numeroArgumentos": 1
     }
   ],
   "administracion": [
     {
-      "canal": "clientes",
-      "contrato": "cliente_cc",
-      "funcion": "InitLedger",
-      "modos": ["submit"],
-      "numeroArgumentos": 0
-    },
-    {
-      "canal": "clientes",
-      "contrato": "cliente_cc",
-      "funcion": "CreateAsset",
-      "modos": ["submit"],
-      "numeroArgumentos": 9
-    },
-    {
-      "canal": "clientes",
-      "contrato": "cliente_cc",
-      "funcion": "UpdateAsset",
-      "modos": ["submit"],
-      "numeroArgumentos": 9
-    },
-    {
-      "canal": "clientes",
-      "contrato": "cliente_cc",
-      "funcion": "DeleteAsset",
-      "modos": ["submit"],
-      "numeroArgumentos": 1
-    },
-    {
-      "canal": "clientes",
-      "contrato": "cliente_cc",
-      "funcion": "TransferAsset",
-      "modos": ["submit"],
-      "numeroArgumentos": 2
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "Mint",
-      "modos": ["submit"],
-      "numeroArgumentos": 1
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "Burn",
-      "modos": ["submit"],
-      "numeroArgumentos": 1
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "Transfer",
-      "modos": ["submit"],
-      "numeroArgumentos": 2
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "Approve",
-      "modos": ["submit"],
-      "numeroArgumentos": 2
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "TransferFrom",
+      "contrato": "dato_cc",
+      "funcion": "CreateDato",
       "modos": ["submit"],
       "numeroArgumentos": 3
     },
     {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "Initialize",
+      "contrato": "dato_cc",
+      "funcion": "UpdateDato",
       "modos": ["submit"],
       "numeroArgumentos": 3
     },
     {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "CrearCuentaToken",
+      "contrato": "dato_cc",
+      "funcion": "DeleteDato",
       "modos": ["submit"],
       "numeroArgumentos": 1
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "EmitirACuentaToken",
-      "modos": ["submit"],
-      "numeroArgumentos": 3
-    },
-    {
-      "canal": "clientes",
-      "contrato": "token_erc20",
-      "funcion": "TransferirEntreCuentasToken",
-      "modos": ["submit"],
-      "numeroArgumentos": 4
     }
   ]
 }
