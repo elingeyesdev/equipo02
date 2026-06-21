@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildAccionesFromHistorial, metaRestauracionDesdeRecord } from './lineaTiempoAcciones'
-import type { HistorialFilaVista } from '../services/apiHistorialCliente'
+import type { HistorialFilaVista } from './historialDato'
 
 describe('lineaTiempoAcciones', () => {
   it('detecta restauración desde _baasMeta en payload string', () => {

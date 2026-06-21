@@ -1,7 +1,6 @@
 import type { ComponentType } from 'react'
 import { NavLink } from 'react-router-dom'
 import type { AppRoutePath } from '../lib/roles'
-import { useSettings } from '../context/SettingsContext'
 
 interface SidebarProps {
   mobileOpen: boolean
@@ -15,20 +14,19 @@ type NavItem = {
   end?: boolean
 }
 
+const items: NavItem[] = [
+  { to: '/app', label: 'Panel', icon: IconGrid, end: true },
+  { to: '/app/datos', label: 'Datos (CRUD)', icon: IconPencil },
+  { to: '/app/datos-registrados', label: 'Datos en red', icon: IconList },
+  { to: '/app/consultas', label: 'Detalle de dato', icon: IconSearch },
+  { to: '/app/solicitudes', label: 'Aprobaciones', icon: IconInbox },
+  { to: '/app/auditoria', label: 'Auditar', icon: IconShield },
+  { to: '/app/historial', label: 'Historial', icon: IconClock },
+  { to: '/app/trazabilidad', label: 'Trazabilidad', icon: IconFlow },
+  { to: '/app/credenciales', label: 'Perfil', icon: IconKey },
+]
+
 export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
-  const { tenant } = useSettings()
-  const isAgricultura = tenant.trim().toLowerCase() === 'agricultura'
-  const items: NavItem[] = [
-    { to: '/app', label: 'Panel', icon: IconGrid, end: true },
-    { to: '/app/datos', label: 'Datos', icon: IconList },
-    { to: '/app/clientes-registrados', label: isAgricultura ? 'Registros en red' : 'Explorador', icon: IconList },
-    { to: '/app/consultas', label: isAgricultura ? 'Detalle de registro' : 'Consultas', icon: IconSearch },
-    { to: '/app/solicitudes', label: 'Aprobaciones', icon: IconInbox },
-    { to: '/app/auditoria', label: 'Auditar', icon: IconShield },
-    { to: '/app/historial', label: 'Historial', icon: IconClock },
-    { to: '/app/trazabilidad', label: 'Trazabilidad', icon: IconFlow },
-    { to: '/app/credenciales', label: 'Perfil', icon: IconKey },
-  ]
   return (
     <>
       {mobileOpen ? (
@@ -91,6 +89,14 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         </div>
       </aside>
     </>
+  )
+}
+
+function IconPencil({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+    </svg>
   )
 }
 
@@ -165,4 +171,3 @@ function IconKey({ className }: { className?: string }) {
     </svg>
   )
 }
-

@@ -1,5 +1,6 @@
 import { apiJson } from './apiClient'
-import type { RespuestaExitoTx, RespuestaLectura } from '../types/api'
+import { parseDatoDatos } from '../lib/datoApiAdapter'
+import type { ClienteApi, RespuestaExitoTx, RespuestaLectura } from '../types/api'
 
 /** Activo genérico del modelo universal (dato_cc). */
 export interface DatoGenerico {
@@ -19,6 +20,13 @@ export interface RespuestaMutacionDato {
   solicitudId?: string
   txId?: string
   mensaje?: string
+}
+
+export async function listarDatosFilas(): Promise<ClienteApi[]> {
+  const j = await listarDatosApi()
+  const d = j.datos
+  if (d == null || !Array.isArray(d)) return []
+  return d.map((row) => parseDatoDatos(row)).filter((x): x is ClienteApi => x !== null)
 }
 
 export async function listarDatosApi(): Promise<RespuestaLectura> {

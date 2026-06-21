@@ -15,13 +15,21 @@ const SECTION_META: Record<string, { title: string; subtitle: string }> = {
     title: 'Panel del puente',
     subtitle: 'Resumen, accesos rápidos y actividad reciente',
   },
-  '/app/clientes-registrados': {
-    title: 'Clientes en red',
-    subtitle: 'Listado de solo lectura desde GET /clientes',
+  '/app/datos': {
+    title: 'Datos (CRUD)',
+    subtitle: 'POST/PUT/DELETE /datos — modelo universal',
+  },
+  '/app/datos-registrados': {
+    title: 'Datos en red',
+    subtitle: 'Listado de solo lectura desde GET /datos',
   },
   '/app/consultas': {
-    title: 'Consultas',
-    subtitle: 'Buscar cliente por clienteId exacto',
+    title: 'Detalle de dato',
+    subtitle: 'GET /api/datos/:datoId (proxy al middleware)',
+  },
+  '/app/solicitudes': {
+    title: 'Aprobaciones',
+    subtitle: 'Solicitudes pendientes de integradores',
   },
   '/app/auditoria': {
     title: 'Auditar',
@@ -52,35 +60,19 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { mode, role, roleLabel, tenant, nombreUsuario } = useSettings()
-  const isAgricultura = tenant.trim().toLowerCase() === 'agricultura'
   const { usuario, logout } = useAuth()
   const [menuAbierto, setMenuAbierto] = useState(false)
   const workspace = workspaceLabel(role)
   const nombre = nombreUsuario || usuario?.usuario || 'Sin sesión'
   const meta = useMemo(() => {
-    if (pathname.startsWith('/app/historial-cliente')) {
+    if (pathname.startsWith('/app/historial-dato')) {
       return {
         title: 'Historial en cadena',
-        subtitle: 'GET /api/clientes/historial/:clienteId',
+        subtitle: 'GET /api/datos/:datoId/historial',
       }
     }
-    const base = SECTION_META[pathname] ?? SECTION_META['/app']
-    if (pathname === '/app/clientes-registrados') {
-      return {
-        ...base,
-        subtitle: isAgricultura ? 'Listado de solo lectura desde GET /api/datos' : base.subtitle,
-      }
-    }
-    if (pathname === '/app/consultas') {
-      return {
-        ...base,
-        subtitle: isAgricultura
-          ? 'GET /api/datos/:datoId (proxy al middleware)'
-          : 'GET /api/clientes/:clienteId (proxy al middleware)',
-      }
-    }
-    return base
-  }, [isAgricultura, pathname])
+    return SECTION_META[pathname] ?? SECTION_META['/app']
+  }, [pathname])
 
   return (
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3 shadow-sm sm:gap-4 sm:px-6">
@@ -172,7 +164,3 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     </header>
   )
 }
-
-/* IconCopy eliminado: la consola ya no muestra X-API-Key, el botón
- * copiar de la barra superior fue retirado al introducir el login JWT.
- */

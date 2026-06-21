@@ -1,15 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import { NotificacionesAdminPanel } from "./NotificacionesAdminPanel";
 import { useSettings } from "../context/SettingsContext";
-import { useDemoStore } from "../context/DemoStoreContext";
+import { useAppStore } from "../context/AppStoreContext";
 import { useNotificacionesAdmin } from "../lib/notificacionesAdminHook";
 
 vi.mock("../context/SettingsContext", () => ({
   useSettings: vi.fn(),
 }));
 
-vi.mock("../context/DemoStoreContext", () => ({
-  useDemoStore: vi.fn(),
+vi.mock("../context/AppStoreContext", () => ({
+  useAppStore: vi.fn(),
 }));
 
 vi.mock("../lib/notificacionesAdminHook", () => ({
@@ -17,11 +17,11 @@ vi.mock("../lib/notificacionesAdminHook", () => ({
 }));
 
 const useSettingsMock = vi.mocked(useSettings);
-const useDemoStoreMock = vi.mocked(useDemoStore);
+const useAppStoreMock = vi.mocked(useAppStore);
 const useNotificacionesAdminMock = vi.mocked(useNotificacionesAdmin);
 
 function mockCommonDeps() {
-  useDemoStoreMock.mockReturnValue({
+  useAppStoreMock.mockReturnValue({
     showToast: vi.fn(),
   } as never);
   useNotificacionesAdminMock.mockReturnValue({

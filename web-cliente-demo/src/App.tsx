@@ -1,8 +1,8 @@
-import { Route, Routes } from 'react-router-dom'
+import { Route, Navigate, Routes, useParams } from 'react-router-dom'
 import { RequiereSesion } from './components/RequiereSesion'
 import { DashboardLayout } from './layouts/DashboardLayout'
-import ClienteHistorialPage from './pages/ClienteHistorialPage'
-import ClientesRegistradosPage from './pages/ClientesRegistradosPage'
+import DatoHistorialPage from './pages/DatoHistorialPage'
+import DatosRegistradosPage from './pages/DatosRegistradosPage'
 import CredencialesPage from './pages/CredencialesPage'
 import ConsultasPage from './pages/ConsultasPage'
 import HistorialPage from './pages/HistorialPage'
@@ -16,10 +16,8 @@ import SolicitudesPage from './pages/SolicitudesPage'
 import TrazabilidadPage from './pages/TrazabilidadPage'
 
 /**
- * Consola BaaS: frontend ÚNICO del proyecto. Permite el CRUD genérico de
- * /datos (modelo universal), la bandeja de aprobaciones, auditoría, historial,
- * trazabilidad, restauración y onboarding. El rol del usuario (admin /
- * integrador / solo_lectura) determina qué acciones puede ejecutar.
+ * Consola BaaS: frontend ÚNICO del proyecto. Modelo universal `/datos`,
+ * bandeja de aprobaciones, auditoría, historial, trazabilidad y onboarding.
  */
 export default function App() {
   return (
@@ -39,13 +37,22 @@ export default function App() {
         <Route path="datos" element={<DatosPage />} />
         <Route path="consultas" element={<ConsultasPage />} />
         <Route path="solicitudes" element={<SolicitudesPage />} />
-        <Route path="clientes-registrados" element={<ClientesRegistradosPage />} />
-        <Route path="historial-cliente/:clienteId" element={<ClienteHistorialPage />} />
+        <Route path="datos-registrados" element={<DatosRegistradosPage />} />
+        <Route path="historial-dato/:datoId" element={<DatoHistorialPage />} />
         <Route path="historial" element={<HistorialPage />} />
         <Route path="auditoria" element={<AuditarPage />} />
         <Route path="trazabilidad" element={<TrazabilidadPage />} />
         <Route path="credenciales" element={<CredencialesPage />} />
+        {/* Rutas legacy → redirigen al modelo universal */}
+        <Route path="clientes-registrados" element={<Navigate to="/app/datos-registrados" replace />} />
+        <Route path="historial-cliente/:clienteId" element={<RedirectHistorialLegacy />} />
       </Route>
     </Routes>
   )
+}
+
+function RedirectHistorialLegacy() {
+  const { clienteId } = useParams()
+  const id = encodeURIComponent(clienteId ?? '')
+  return <Navigate to={`/app/historial-dato/${id}`} replace />
 }

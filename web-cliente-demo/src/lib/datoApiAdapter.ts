@@ -20,12 +20,13 @@ export function parseDatoDatos(datos: unknown): ClienteApiCacheRow | null {
     (payload && typeof payload.estado === 'string' ? payload.estado : '') ||
     (typeof o.tipo === 'string' ? o.tipo : '') ||
     'ACTIVO'
+  const tipo = typeof o.tipo === 'string' ? o.tipo : 'dato'
   const codigo = payload && typeof payload.codigo_trazabilidad === 'string' ? payload.codigo_trazabilidad : ''
-  const notas = payload ? `tipo=${typeof o.tipo === 'string' ? o.tipo : 'dato'}${codigo ? ` · codigo=${codigo}` : ''}` : undefined
+  const notas = payload ? `tipo=${tipo}${codigo ? ` · codigo=${codigo}` : ''}` : undefined
   return {
     clienteId: datoId,
     nombre,
-    tipoDocumento: 'LOTE',
+    tipoDocumento: tipo,
     numeroDocumento: codigo,
     fechaAlta,
     estado,

@@ -1,10 +1,9 @@
 import { formatDemoDateTime, formatShortDate } from '../lib/format'
+import { extraerPayloadLote } from '../lib/datoPayload'
+
+export { extraerPayloadLote }
 
 type Dict = Record<string, unknown>
-
-function asDict(v: unknown): Dict | null {
-  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Dict) : null
-}
 
 function asArray(v: unknown): Dict[] {
   if (!Array.isArray(v)) return []
@@ -29,24 +28,6 @@ function fechaCorta(v: unknown): string {
   return formatShortDate(s) || s
 }
 
-/** Extrae el `payload` del lote ya sea que reciba el `dato` completo o el payload directo. */
-export function extraerPayloadLote(datos: unknown): Dict | null {
-  const o = asDict(datos)
-  if (!o) return null
-  let payloadRaw: unknown = o.payload
-  if (typeof payloadRaw === 'string') {
-    try {
-      payloadRaw = JSON.parse(payloadRaw)
-    } catch {
-      payloadRaw = null
-    }
-  }
-  const inner = asDict(payloadRaw)
-  if (inner) return inner
-  // Ya nos pasaron el payload directo (tiene campos del lote).
-  if ('actividades' in o || 'producciones' in o || 'codigo_trazabilidad' in o || 'cultivo' in o) return o
-  return null
-}
 
 function ResumenItem({ label, value }: { label: string; value: string }) {
   if (!value || value === '—') return null

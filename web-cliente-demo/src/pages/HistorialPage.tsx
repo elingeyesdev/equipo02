@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ActivityFeed } from '../components/ActivityFeed'
-import { useDemoStore } from '../context/DemoStoreContext'
+import { useAppStore } from '../context/AppStoreContext'
 import type { DemoEventType } from '../types/demo'
 
 // Filtros del historial: la consola del puente es audit-only y no maneja
@@ -18,7 +18,7 @@ function filtrosHistorial(): typeof filtrosHistorialLista {
 }
 
 export default function HistorialPage() {
-  const { eventos, limpiarEventos } = useDemoStore()
+  const { eventos, limpiarEventos } = useAppStore()
   const [tipo, setTipo] = useState<DemoEventType | 'all'>('all')
 
   const filtrados = useMemo(() => {

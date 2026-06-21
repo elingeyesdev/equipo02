@@ -1,6 +1,6 @@
 import { formatDemoDateTime } from '../lib/format'
 import { estiloAccionLineaTiempo, iconoAccionLineaTiempo } from '../lib/lineaTiempoAcciones'
-import type { AccionLineaTiempo } from '../services/apiHistorialCliente'
+import type { AccionLineaTiempo } from '../lib/historialDato'
 
 type Props = {
   registroId: string

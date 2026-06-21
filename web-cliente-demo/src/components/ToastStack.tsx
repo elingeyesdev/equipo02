@@ -1,7 +1,7 @@
-import { useDemoStore } from '../context/DemoStoreContext'
+import { useAppStore } from '../context/AppStoreContext'
 
 export function ToastStack() {
-  const { toasts, dismissToast } = useDemoStore()
+  const { toasts, dismissToast } = useAppStore()
   if (toasts.length === 0) return null
   return (
     <div

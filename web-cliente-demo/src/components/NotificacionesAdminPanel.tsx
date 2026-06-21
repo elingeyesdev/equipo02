@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useDemoStore } from '../context/DemoStoreContext'
+import { useAppStore } from '../context/AppStoreContext'
 import { useSettings } from '../context/SettingsContext'
 import { formatDemoDateTime } from '../lib/format'
 import { etiquetaOrganizacion } from '../lib/organizacion'
@@ -21,7 +21,7 @@ const DRAWER_Z = 9999
  */
 export function NotificacionesAdminPanel() {
   const { role, mode, apiKey, tenant } = useSettings()
-  const { showToast } = useDemoStore()
+  const { showToast } = useAppStore()
   const [abierto, setAbierto] = useState(false)
   const organizacion = etiquetaOrganizacion(tenant)
 

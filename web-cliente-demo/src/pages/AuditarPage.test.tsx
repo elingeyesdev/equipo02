@@ -12,18 +12,9 @@ vi.mock("../services/apiAuditoria", () => ({
   fetchAuditoriaCombinada: vi.fn(),
 }));
 
-vi.mock("../services/apiHistorialCliente", () => ({
-  fetchHistorialCliente: vi.fn().mockResolvedValue({ operaciones: [] }),
-  fetchLineaTiempoCliente: vi.fn(),
-  operacionesAVista: vi.fn(() => []),
-}));
-
-vi.mock("../services/apiClientesLista", () => ({
-  listarClientesApi: vi.fn().mockResolvedValue([]),
-}));
-
 vi.mock("../services/apiDatos", () => ({
   fetchHistorialDato: vi.fn(),
+  listarDatosFilas: vi.fn().mockResolvedValue([]),
   restaurarDatoRevision: vi.fn(),
 }));
 

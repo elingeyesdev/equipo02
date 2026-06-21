@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useDemoStore } from '../context/DemoStoreContext'
+import { useAppStore } from '../context/AppStoreContext'
 import { roleLabel } from '../lib/roles'
 import { formatDemoDateTime } from '../lib/format'
 import { etiquetaTokenDemo } from '../lib/tokenDemoLabel'
@@ -32,7 +32,7 @@ function traceEstadoLabel(state: TraceEntry['state']): string {
 }
 
 export default function TrazabilidadPage() {
-  const { traces, showToast } = useDemoStore()
+  const { traces, showToast } = useAppStore()
   const [tipo, setTipo] = useState<TraceOperationType | 'all'>('all')
 
   const list = useMemo(() => {

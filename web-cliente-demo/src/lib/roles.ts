@@ -18,11 +18,11 @@ export interface RolePermissions {
 export type AppRoutePath =
   | '/app'
   | '/app/datos'
-  | '/app/clientes-registrados'
+  | '/app/datos-registrados'
   | '/app/consultas'
   | '/app/solicitudes'
   | '/app/auditoria'
-  | '/app/historial-cliente'
+  | '/app/historial-dato'
   | '/app/historial'
   | '/app/trazabilidad'
   | '/app/credenciales'

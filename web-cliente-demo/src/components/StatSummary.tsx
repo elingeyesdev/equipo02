@@ -1,5 +1,5 @@
 interface StatSummaryProps {
-  /** Cantidad devuelta por GET /clientes o GET /datos (ledger). */
+  /** Cantidad devuelta por GET /datos (ledger). */
   totalClientesEnRed: number
   entityLabel?: string
   ledgerEndpointHint?: string
@@ -14,7 +14,7 @@ interface StatSummaryProps {
 export function StatSummary({
   totalClientesEnRed,
   entityLabel = 'Clientes registrados',
-  ledgerEndpointHint = 'Datos del ledger vía GET /clientes o GET /datos',
+  ledgerEndpointHint = 'Datos del ledger vía GET /datos',
   tokenOpsCount = 0,
   consultasCount = 0,
   eventosCount = 0,

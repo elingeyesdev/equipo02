@@ -1,41 +1,32 @@
 import { Link } from 'react-router-dom'
 import { ActivityFeed } from '../components/ActivityFeed'
 import { StatSummary } from '../components/StatSummary'
-import { useDemoStore } from '../context/DemoStoreContext'
-import { useSettings } from '../context/SettingsContext'
+import { useAppStore } from '../context/AppStoreContext'
 import { formatShortDate } from '../lib/format'
 import type { ClienteApi } from '../types/api'
 import { ClienteLedgerEstadoBadge } from '../components/ClienteLedgerEstadoBadge'
 
 export default function PanelPage() {
-  const { eventos, clientesLedger, clientesLedgerLoading, clientesLedgerError, clientesLedgerAccessDenied, limpiarEventos } =
-    useDemoStore()
-  const { tenant } = useSettings()
-  const isAgricultura = tenant.trim().toLowerCase() === 'agricultura'
-  const entityLabel = isAgricultura ? 'Lotes en red' : 'Clientes en red'
-  const listEndpoint = isAgricultura ? 'GET /datos' : 'GET /clientes'
+  const { eventos, datosLedger, datosLedgerLoading, datosLedgerError, datosLedgerAccessDenied, limpiarEventos } =
+    useAppStore()
   const consultasCount = eventos.filter((e) => e.tipo === 'consulta').length
-  const ultimos = [...clientesLedger].sort(
-    (a, b) => new Date(b.fechaAlta).getTime() - new Date(a.fechaAlta).getTime(),
-  ).slice(0, 8)
+  const ultimos = [...datosLedger]
+    .sort((a, b) => new Date(b.fechaAlta).getTime() - new Date(a.fechaAlta).getTime())
+    .slice(0, 8)
   const actividad = eventos.slice(0, 8)
 
   const conexion = (() => {
-    if (clientesLedgerLoading) {
-      return {
-        tono: 'neutral' as const,
-        mensaje: 'Verificando conexión con el puente…',
-        pulso: false,
-      }
+    if (datosLedgerLoading) {
+      return { tono: 'neutral' as const, mensaje: 'Verificando conexión con el puente…', pulso: false }
     }
-    if (clientesLedgerAccessDenied) {
+    if (datosLedgerAccessDenied) {
       return {
         tono: 'warn' as const,
-        mensaje: 'Conectado, pero tu sesión no puede listar registros en este momento.',
+        mensaje: 'Conectado, pero tu sesión no puede listar datos en este momento.',
         pulso: false,
       }
     }
-    if (clientesLedgerError) {
+    if (datosLedgerError) {
       return {
         tono: 'error' as const,
         mensaje: 'No se pudo conectar con el middleware. Comprueba que el servicio esté en ejecución.',
@@ -79,22 +70,21 @@ export default function PanelPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       <StatSummary
-        totalClientesEnRed={clientesLedger.length}
-        entityLabel={entityLabel}
-        ledgerEndpointHint={`Datos del ledger vía ${listEndpoint}`}
-        tokenOpsCount={0}
+        totalClientesEnRed={datosLedger.length}
+        entityLabel="Datos en red"
+        ledgerEndpointHint="Datos del ledger vía GET /datos"
         consultasCount={consultasCount}
         eventosCount={eventos.length}
         showTokenCard={false}
         dataSourceLabel="API / red"
       />
 
-      {clientesLedgerAccessDenied ? (
+      {datosLedgerAccessDenied ? (
         <div className="admin-alert-warning">
           <p>
-            {clientesLedgerError?.trim()
-              ? clientesLedgerError
-              : 'La sesión actual no tiene permiso para listar clientes. Verifique con un administrador.'}
+            {datosLedgerError?.trim()
+              ? datosLedgerError
+              : 'La sesión actual no tiene permiso para listar datos. Verifique con un administrador.'}
           </p>
           <Link className="mt-2 inline-block text-xs font-medium text-accent hover:underline" to="/app/credenciales">
             Ver perfil de sesión
@@ -106,9 +96,7 @@ export default function PanelPage() {
         <span className={`flex min-w-0 items-center gap-2 text-xs font-medium ${tonoClases.texto}`}>
           <span className="relative flex h-2 w-2 shrink-0">
             {conexion.pulso ? (
-              <span
-                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${tonoClases.pulso}`}
-              />
+              <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${tonoClases.pulso}`} />
             ) : null}
             <span className={`relative inline-flex h-2 w-2 rounded-full ${tonoClases.punto}`} />
           </span>
@@ -121,13 +109,11 @@ export default function PanelPage() {
           <div className="admin-card-header">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <h2 className="admin-card-title">{entityLabel}</h2>
-                <p className="mt-1 text-xs text-muted">
-                  Últimos registros en la red · {listEndpoint}
-                </p>
+                <h2 className="admin-card-title">Datos en red</h2>
+                <p className="mt-1 text-xs text-muted">Últimos activos · GET /datos</p>
               </div>
               <Link
-                to="/app/clientes-registrados"
+                to="/app/datos-registrados"
                 className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-secondary hover:bg-gray-50"
               >
                 Ver todos
@@ -135,36 +121,30 @@ export default function PanelPage() {
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
-            {clientesLedgerError && !clientesLedgerAccessDenied ? (
-              <p className="px-4 py-6 text-center text-sm text-danger/90">{clientesLedgerError}</p>
+            {datosLedgerError && !datosLedgerAccessDenied ? (
+              <p className="px-4 py-6 text-center text-sm text-danger/90">{datosLedgerError}</p>
             ) : null}
-            {!clientesLedgerLoading && clientesLedgerAccessDenied ? (
-              <p className="px-4 py-8 text-center text-sm text-muted">
-                No se pudieron cargar los últimos registros en esta vista.
-              </p>
+            {!datosLedgerLoading && datosLedgerAccessDenied ? (
+              <p className="px-4 py-8 text-center text-sm text-muted">No se pudieron cargar los datos en esta vista.</p>
             ) : null}
-            {!clientesLedgerLoading && !clientesLedgerError && ultimos.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-muted">No hay registros en red todavía.</p>
+            {!datosLedgerLoading && !datosLedgerError && ultimos.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-muted">No hay datos en red todavía.</p>
             ) : null}
-            {clientesLedgerLoading ? (
-              <p className="px-4 py-8 text-center text-sm text-muted">Cargando…</p>
-            ) : null}
+            {datosLedgerLoading ? <p className="px-4 py-8 text-center text-sm text-muted">Cargando…</p> : null}
             {ultimos.length > 0 ? (
               <table className="admin-table w-full text-left text-sm">
                 <thead className="sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-2.5 font-medium">{isAgricultura ? 'datoId' : 'clienteId'}</th>
-                    <th className="px-4 py-2.5 font-medium">Nombre</th>
-                    <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-                      {isAgricultura ? 'Código' : 'Documento'}
-                    </th>
+                    <th className="px-4 py-2.5 font-medium">datoId</th>
+                    <th className="px-4 py-2.5 font-medium">Resumen</th>
+                    <th className="hidden px-4 py-2.5 font-medium md:table-cell">tipo</th>
                     <th className="px-4 py-2.5 font-medium">Estado</th>
                     <th className="px-4 py-2.5 font-medium">Alta</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
                   {ultimos.map((c) => (
-                    <UltimaFilaCliente key={c.clienteId} c={c} isAgricultura={isAgricultura} />
+                    <UltimaFilaDato key={c.clienteId} c={c} />
                   ))}
                 </tbody>
               </table>
@@ -186,41 +166,35 @@ export default function PanelPage() {
   )
 }
 
-function UltimaFilaCliente({ c, isAgricultura }: { c: ClienteApi; isAgricultura: boolean }) {
+function UltimaFilaDato({ c }: { c: ClienteApi }) {
   return (
     <tr>
       <td className="px-4 py-2.5">
         <Link
-          to="/app/clientes-registrados"
+          to="/app/datos-registrados"
           state={{ focusId: c.clienteId }}
           className="font-mono text-xs font-medium text-accent hover:text-accent-hover"
         >
           {c.clienteId}
         </Link>
         <div className="mt-1 flex flex-wrap gap-x-2 text-[10px]">
-          {isAgricultura ? (
-            <Link className="text-muted hover:text-accent" to="/app/auditoria" state={{ recursoId: c.clienteId }}>
-              Auditar
-            </Link>
-          ) : (
-            <>
-              <Link className="text-muted hover:text-accent" to={`/app/historial-cliente/${encodeURIComponent(c.clienteId)}`}>
-                Historial
-              </Link>
-              <span className="text-line">·</span>
-              <Link className="text-muted hover:text-accent" to="/app/consultas" state={{ clienteId: c.clienteId }}>
-                Consulta
-              </Link>
-            </>
-          )}
+          <Link className="text-muted hover:text-accent" to={`/app/historial-dato/${encodeURIComponent(c.clienteId)}`}>
+            Historial
+          </Link>
+          <span className="text-line">·</span>
+          <Link className="text-muted hover:text-accent" to="/app/consultas" state={{ datoId: c.clienteId }}>
+            Detalle
+          </Link>
+          <span className="text-line">·</span>
+          <Link className="text-muted hover:text-accent" to="/app/auditoria" state={{ recursoId: c.clienteId }}>
+            Auditar
+          </Link>
         </div>
       </td>
       <td className="max-w-[160px] truncate px-4 py-2.5 text-muted">{c.nombre}</td>
-      <td className="hidden max-w-[160px] truncate px-4 py-2.5 text-muted md:table-cell">
-        {c.tipoDocumento} {c.numeroDocumento}
-      </td>
+      <td className="hidden max-w-[120px] truncate px-4 py-2.5 text-muted md:table-cell">{c.tipoDocumento}</td>
       <td className="px-4 py-2.5">
-        <ClienteLedgerEstadoBadge c={c} raw={isAgricultura} />
+        <ClienteLedgerEstadoBadge c={c} raw />
       </td>
       <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted">{formatShortDate(c.fechaAlta)}</td>
     </tr>

@@ -1,18 +1,18 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import HistorialPage from "./HistorialPage";
-import { useDemoStore } from "../context/DemoStoreContext";
+import { useAppStore } from "../context/AppStoreContext";
 
-vi.mock("../context/DemoStoreContext", () => ({
-  useDemoStore: vi.fn(),
+vi.mock("../context/AppStoreContext", () => ({
+  useAppStore: vi.fn(),
 }));
 
-const useDemoStoreMock = vi.mocked(useDemoStore);
+const useAppStoreMock = vi.mocked(useAppStore);
 
 describe("HistorialPage", () => {
   afterEach(() => vi.clearAllMocks());
 
   it("renderiza operaciones y permite filtrar por tipo", () => {
-    useDemoStoreMock.mockReturnValue({
+    useAppStoreMock.mockReturnValue({
       eventos: [
         {
           id: "1",

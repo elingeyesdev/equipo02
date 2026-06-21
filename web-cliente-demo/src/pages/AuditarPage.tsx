@@ -4,21 +4,18 @@ import { useSettings } from '../context/SettingsContext'
 import { describeApiError } from '../lib/apiErrorMessage'
 import { formatDemoDateTime } from '../lib/format'
 import { fetchAuditoriaCombinada, type AuditoriaCombinadaDatos } from '../services/apiAuditoria'
+import { fetchHistorialDato, listarDatosFilas, restaurarDatoRevision } from '../services/apiDatos'
 import {
-  fetchHistorialCliente,
-  operacionesAVista,
+  historialConPayloads,
   type HistorialFilaVista,
   type LineaTiempoRespuesta,
-} from '../services/apiHistorialCliente'
-import { fetchHistorialDato, restaurarDatoRevision } from '../services/apiDatos'
-import { listarClientesApi } from '../services/apiClientesLista'
+} from '../lib/historialDato'
 import { filaEnRangoFecha, filasDesdeHistorialOps, type FilaAuditoriaTabla } from '../lib/auditoriaFilas'
 import { buildAccionesFromHistorial, estiloAccionLineaTiempo, iconoAccionLineaTiempo } from '../lib/lineaTiempoAcciones'
 import LineaTiempoStrip from '../components/LineaTiempoStrip'
 import { parseDatoDatos } from '../lib/datoApiAdapter'
-import LoteProcesoPanel, { extraerPayloadLote } from '../components/LoteProcesoPanel'
-import { parseClienteDatos } from '../lib/apiClienteAdapter'
-import { clienteFilasLegibles, displayClienteField } from '../lib/clienteDisplay'
+import LoteProcesoPanel from '../components/LoteProcesoPanel'
+import { extraerPayloadDato } from '../lib/datoPayload'
 import { decodeIfBase64 } from '../lib/ledgerFieldDecode'
 import { autorRolDisplayDesdeNotas } from '../lib/notasLedger'
 
@@ -73,15 +70,13 @@ function valorGenericoLegible(v: unknown): string {
   return String(v)
 }
 
-function etiquetaCampo(campo: string, isAgricultura: boolean): string {
-  if (!isAgricultura) return campo
+function etiquetaCampo(campo: string): string {
   if (campo === 'clienteId' || campo === 'datoId' || campo === 'codigo_trazabilidad') return 'id'
   return campo
 }
 
-function datosComparablesRevision(raw: unknown, isAgricultura: boolean): Record<string, unknown> {
-  const origen = isAgricultura ? (extraerPayloadLote(raw) ?? asRecord(raw)) : asRecord(raw)
-  if (!isAgricultura) return origen
+function datosComparablesRevision(raw: unknown): Record<string, unknown> {
+  const origen = extraerPayloadDato(raw) ?? asRecord(raw)
   const omitidos = new Set(['actividades', 'producciones', 'notas', 'notasLedger', '_baasMeta'])
   return Object.fromEntries(Object.entries(origen).filter(([k]) => !omitidos.has(k)))
 }
@@ -97,42 +92,19 @@ function colorIndicadorAutor(autor: string): string {
   return 'bg-slate-400'
 }
 
-function obtenerCambios(viejo: any, nuevo: any) {
-  const cambios: Record<string, { anterior: any; nuevo: any }> = {}
-  const todosLosCampos = new Set([...Object.keys(viejo || {}), ...Object.keys(nuevo || {})])
 
-  todosLosCampos.forEach((campo) => {
-    const vVal = viejo?.[campo]
-    const nVal = nuevo?.[campo]
-    if (vVal !== nVal) {
-      cambios[campo] = { anterior: vVal, nuevo: nVal }
-    }
-  })
-  return cambios
-}
-
-function filasDesdeDatos(d: AuditoriaCombinadaDatos, tenant: string): FilaTabla[] {
+function filasDesdeDatos(d: AuditoriaCombinadaDatos): FilaTabla[] {
   const out: FilaTabla[] = []
   let n = 0
-  const isAgricultura = tenant.trim().toLowerCase() === 'agricultura'
 
-  // Procesamos ÚNICAMENTE eventos del Ledger (Blockchain)
   for (const ev of d.eventosCadena) {
     const payloadObj =
       ev.payload && typeof ev.payload === 'object' ? (ev.payload as Record<string, unknown>) : null
     const looksLikeDato =
       !!payloadObj &&
       (typeof payloadObj.datoId === 'string' ||
-        (payloadObj.payload &&
-          typeof payloadObj.payload === 'object' &&
-          typeof (payloadObj.payload as Record<string, unknown>).codigo_trazabilidad === 'string'))
-    const looksLikeCliente =
-      !!payloadObj &&
-      (typeof payloadObj.clienteId === 'string' ||
-        typeof payloadObj.numeroDocumento === 'string' ||
-        typeof payloadObj.tipoDocumento === 'string')
-    if (isAgricultura && !looksLikeDato) continue
-    if (!isAgricultura && !looksLikeCliente) continue
+        (payloadObj.payload && typeof payloadObj.payload === 'object'))
+    if (!looksLikeDato) continue
     n++
     let fullObj: any = {}
     let codigo = '—'
@@ -143,9 +115,8 @@ function filasDesdeDatos(d: AuditoriaCombinadaDatos, tenant: string): FilaTabla[
       if (ev.payload) {
         fullObj = typeof ev.payload === 'string' ? JSON.parse(ev.payload) : ev.payload
 
-        const parsed = parseClienteDatos(fullObj)
+        const parsed = parseDatoDatos(fullObj)
         if (parsed) {
-          fullObj = parsed
           codigo = parsed.clienteId
           nombre = parsed.nombre
           estado = parsed.estado
@@ -230,7 +201,6 @@ export default function AuditarPage() {
   const location = useLocation()
   const { mode, apiKey, tenant, role } = useSettings()
   const tenantId = (tenant ?? '').trim().toLowerCase()
-  const isAgricultura = tenantId === 'agricultura'
   const puedeConsultarApi = mode === 'api' && apiKey.trim().length > 0
   const [limite, setLimite] = useState(150)
   const [desdeDia, setDesdeDia] = useState('')
@@ -265,81 +235,36 @@ export default function AuditarPage() {
     setLotePayloadsLT([])
     setSelectedAccionIdx(null)
     try {
-      if (isAgricultura) {
-        const hist = await fetchHistorialDato(id)
-        const raw = Array.isArray(hist.datos) ? hist.datos : []
-        const combinado = raw
-          .map((op: any) => {
-            const rec = parseDatoDatos(op?.record)
-            return {
-              fila: {
-                txId: String(op?.txId ?? ''),
-                timestamp: String(op?.timestamp ?? ''),
-                isDelete: Boolean(op?.isDelete),
-                resumen: rec ? `${rec.nombre} (${rec.estado})` : op?.isDelete ? 'Baja / borrado lógico' : 'Sin registro',
-                cliente: op?.record ?? null,
-                record: op?.record ?? null,
-                restauradoDesdeTxId:
-                  typeof op?.restauradoDesdeTxId === 'string' ? op.restauradoDesdeTxId.trim() : undefined,
-              } satisfies HistorialFilaVista,
-              payload: extraerPayloadLote(op?.record),
-            }
-          })
-          .filter((x) => x.fila.txId)
-          .sort((a, b) => new Date(a.fila.timestamp).getTime() - new Date(b.fila.timestamp).getTime())
-        const ops: HistorialFilaVista[] = combinado.map((x) => x.fila)
-
-        setLineaTiempo({ ok: true, clienteId: trimmed, acciones: buildAccionesFromHistorial(ops) })
-        setHistorialOps(ops)
-        setLotePayloadsLT(combinado.map((x) => x.payload))
-      } else {
-        const hist = await fetchHistorialCliente(trimmed)
-        const ops = operacionesAVista(hist)
-        setLineaTiempo({ ok: true, clienteId: trimmed, acciones: buildAccionesFromHistorial(ops) })
-        setHistorialOps(ops)
-        setLotePayloadsLT([])
-      }
+      const hist = await fetchHistorialDato(id)
+      const { filas, payloads } = historialConPayloads(hist.datos)
+      setLineaTiempo({ ok: true, clienteId: trimmed, acciones: buildAccionesFromHistorial(filas) })
+      setHistorialOps(filas)
+      setLotePayloadsLT(payloads)
     } catch (e) {
       setLineaError(describeApiError(e))
     } finally {
       setLineaLoading(false)
     }
-  }, [isAgricultura])
+  }, [])
 
   const navegacionProcesada = useRef<string | null>(null)
 
   const cargarFilasLedger = useCallback(async () => {
-    const lista = await listarClientesApi(tenantId)
+    const lista = await listarDatosFilas()
     const ids = lista.map((c) => c.clienteId)
 
     const out: FilaTabla[] = []
     for (const id of ids.slice(0, 80)) {
       try {
-        if (isAgricultura) {
-          const hist = await fetchHistorialDato(id)
-          const raw = Array.isArray(hist.datos) ? hist.datos : []
-          const ops: HistorialFilaVista[] = raw
-            .map((op: any) => ({
-              txId: String(op?.txId ?? ''),
-              timestamp: String(op?.timestamp ?? ''),
-              isDelete: Boolean(op?.isDelete),
-              resumen: String(op?.record?.payload?.nombre ?? op?.record?.datoId ?? 'Sin registro'),
-              cliente: op?.record ?? null,
-            }))
-            .filter((x) => x.txId)
-            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-          out.push(...filasDesdeHistorialOps(id, ops, true))
-        } else {
-          const hist = await fetchHistorialCliente(id)
-          const ops = operacionesAVista(hist)
-          out.push(...filasDesdeHistorialOps(id, ops, false))
-        }
+        const hist = await fetchHistorialDato(id)
+        const { filas } = historialConPayloads(hist.datos)
+        out.push(...filasDesdeHistorialOps(id, filas))
       } catch {
         // omitir registros sin historial accesible
       }
     }
     return out
-  }, [isAgricultura, tenantId])
+  }, [tenantId])
 
   const load = useCallback(async () => {
     if (!puedeConsultarApi) {
@@ -405,7 +330,7 @@ export default function AuditarPage() {
   }, [buscarLineaTiempo, load])
 
   const filas = useMemo(() => {
-    const fromEventos = datos ? filasDesdeDatos(datos, tenantId) : []
+    const fromEventos = datos ? filasDesdeDatos(datos) : []
     const seenTx = new Set(fromEventos.map((r) => r.firma))
     let list = [...fromEventos]
     for (const f of filasLedger) {
@@ -610,11 +535,9 @@ export default function AuditarPage() {
         const selectedAcc = lineaTiempo.acciones[selectedAccionIdx]
         const opActual = historialOps[selectedAccionIdx]
         const opAnterior = selectedAccionIdx > 0 ? historialOps[selectedAccionIdx - 1] : null
-        const actualComparable = datosComparablesRevision(opActual?.cliente, isAgricultura)
-        const anteriorComparable = datosComparablesRevision(opAnterior?.cliente, isAgricultura)
-        const campos = isAgricultura
-          ? Array.from(new Set([...Object.keys(anteriorComparable), ...Object.keys(actualComparable)]))
-          : clienteFilasLegibles(opActual?.cliente).map((r) => r.key)
+        const actualComparable = datosComparablesRevision(opActual?.cliente)
+        const anteriorComparable = datosComparablesRevision(opAnterior?.cliente)
+        const campos = Array.from(new Set([...Object.keys(anteriorComparable), ...Object.keys(actualComparable)]))
 
         const selectedAutor = autorRolDisplayDesdeNotas(opActual?.cliente ?? undefined)
         const esRevisionEliminada = Boolean(opActual?.isDelete)
@@ -717,7 +640,7 @@ export default function AuditarPage() {
                       </div>
                     </div>
 
-                    {isAgricultura && role === 'admin' ? (
+                    {role === 'admin' ? (
                       <div className="mt-3 flex justify-end">
                         <button
                           type="button"
@@ -738,7 +661,7 @@ export default function AuditarPage() {
 
                   {/* Attributes Comparison Table */}
                   <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                    {isAgricultura && lotePayloadsLT[selectedAccionIdx] ? (
+                    {lotePayloadsLT[selectedAccionIdx] ? (
                       <div className="mb-4 rounded-xl border border-line/60 bg-white p-4">
                         <LoteProcesoPanel
                           datos={lotePayloadsLT[selectedAccionIdx]}
@@ -763,15 +686,10 @@ export default function AuditarPage() {
                           </tr>
                         ) : (
                           campos.map((campo) => {
-                            const valActual = isAgricultura ? actualComparable[campo] : opActual?.cliente?.[campo]
-                            const valAnterior = isAgricultura ? anteriorComparable[campo] : opAnterior?.cliente?.[campo]
-
-                            const actualStr = isAgricultura
-                              ? valorGenericoLegible(valActual)
-                              : displayClienteField(campo, valActual)
-                            const anteriorStr = isAgricultura
-                              ? valorGenericoLegible(valAnterior)
-                              : displayClienteField(campo, valAnterior)
+                            const valActual = actualComparable[campo]
+                            const valAnterior = anteriorComparable[campo]
+                            const actualStr = valorGenericoLegible(valActual)
+                            const anteriorStr = valorGenericoLegible(valAnterior)
 
                             const cambió =
                               opAnterior !== null && valorComparable(valAnterior) !== valorComparable(valActual)
@@ -779,7 +697,7 @@ export default function AuditarPage() {
                             return (
                               <tr key={campo} className={`transition-colors ${cambió ? 'bg-amber-50/80 hover:bg-amber-50' : 'hover:bg-gray-50'}`}>
                                 <td className={`py-3 font-semibold ${cambió ? 'text-[#1a2332]' : 'text-muted'}`}>
-                                  {etiquetaCampo(campo, isAgricultura)}
+                                  {etiquetaCampo(campo)}
                                 </td>
                                 <td className="py-3">
                                   {cambió ? (
@@ -1039,12 +957,9 @@ export default function AuditarPage() {
         const indexAnterior = filas.findIndex((r, idx) => idx > selectedIdx && r.codigo === row.codigo)
         const rowAnterior = indexAnterior !== -1 ? filas[indexAnterior] : null
 
-        const cambios = obtenerCambios(rowAnterior?.cliente, row.cliente)
-        const actualComparable = datosComparablesRevision(row.cliente, isAgricultura)
-        const anteriorComparable = datosComparablesRevision(rowAnterior?.cliente, isAgricultura)
-        const campos = isAgricultura
-          ? Array.from(new Set([...Object.keys(anteriorComparable), ...Object.keys(actualComparable)]))
-          : Object.keys(row.cliente || {})
+        const actualComparable = datosComparablesRevision(row.cliente)
+        const anteriorComparable = datosComparablesRevision(rowAnterior?.cliente)
+        const campos = Array.from(new Set([...Object.keys(anteriorComparable), ...Object.keys(actualComparable)]))
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1061,9 +976,9 @@ export default function AuditarPage() {
 
               <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                 <div className="space-y-4">
-                  {isAgricultura && extraerPayloadLote(row.cliente) ? (
+                  {extraerPayloadDato(row.cliente) ? (
                     <div className="rounded-xl border border-line/60 bg-surface/20 p-4">
-                      <LoteProcesoPanel datos={row.cliente} titulo="Proceso del lote en esta transacción" />
+                      <LoteProcesoPanel datos={row.cliente} titulo="Payload en esta transacción" />
                     </div>
                   ) : null}
                   <div className="overflow-hidden rounded-xl border border-line bg-surface/20">
@@ -1076,18 +991,15 @@ export default function AuditarPage() {
                       </thead>
                       <tbody className="divide-y divide-line">
                         {campos.map((campo) => {
-                          const cambio = isAgricultura
-                            ? {
-                                anterior: anteriorComparable[campo],
-                                nuevo: actualComparable[campo],
-                              }
-                            : cambios[campo]
-                          const huboCambio = isAgricultura
-                            ? valorComparable(anteriorComparable[campo]) !== valorComparable(actualComparable[campo])
-                            : Boolean(cambio)
+                          const cambio = {
+                            anterior: anteriorComparable[campo],
+                            nuevo: actualComparable[campo],
+                          }
+                          const huboCambio =
+                            valorComparable(anteriorComparable[campo]) !== valorComparable(actualComparable[campo])
                           return (
                             <tr key={campo} className="hover:bg-white/[0.02]">
-                              <td className="px-4 py-2.5 font-medium text-muted">{etiquetaCampo(campo, isAgricultura)}</td>
+                              <td className="px-4 py-2.5 font-medium text-muted">{etiquetaCampo(campo)}</td>
                               <td className="px-4 py-2.5">
                                 {huboCambio ? (
                                   <div className="flex flex-wrap items-center gap-2">
@@ -1101,9 +1013,7 @@ export default function AuditarPage() {
                                   </div>
                                 ) : (
                                   <span className="text-ink-secondary font-mono">
-                                    {isAgricultura
-                                      ? valorGenericoLegible(actualComparable[campo])
-                                      : valorGenericoLegible(row.cliente[campo])}
+                                    {valorGenericoLegible(actualComparable[campo])}
                                   </span>
                                 )}
                               </td>

@@ -1,21 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { useDemoStore } from '../context/DemoStoreContext'
+import { useAppStore } from '../context/AppStoreContext'
 import { useSettings } from '../context/SettingsContext'
-import { clienteApiToRegistro, parseClienteDesdeLectura } from '../lib/apiClienteAdapter'
 import { parseDatoDatos } from '../lib/datoApiAdapter'
 import { describeApiError } from '../lib/apiErrorMessage'
 import { buildAccionesFromHistorial } from '../lib/lineaTiempoAcciones'
-import { consultarClienteApi } from '../services/apiClientes'
-import { consultarDatoApi, fetchHistorialDato } from '../services/apiDatos'
-import { fetchHistorialCliente, operacionesAVista } from '../services/apiHistorialCliente'
-import { listarClientesApi } from '../services/apiClientesLista'
-import LoteProcesoPanel, { extraerPayloadLote } from '../components/LoteProcesoPanel'
+import { consultarDatoApi, fetchHistorialDato, listarDatosFilas } from '../services/apiDatos'
+import { operacionesHistorialDesdeRespuesta } from '../lib/historialDato'
+import LoteProcesoPanel from '../components/LoteProcesoPanel'
 import LineaTiempoStrip from '../components/LineaTiempoStrip'
+import { extraerPayloadDato } from '../lib/datoPayload'
 import { ApiHttpError } from '../services/apiClient'
-import type { AccionLineaTiempo } from '../services/apiHistorialCliente'
+import type { AccionLineaTiempo } from '../lib/historialDato'
 import type { ClienteApiCacheRow } from '../types/api'
-import type { Registro } from '../types/registro'
 import { formatShortDate } from '../lib/format'
 
 const input =
@@ -26,15 +23,12 @@ const btnPrimary =
 
 export default function ConsultasPage() {
   const location = useLocation()
-  const { mode, role, roleLabel, tenant } = useSettings()
-  const isAgricultura = tenant.trim().toLowerCase() === 'agricultura'
-  const idLabel = isAgricultura ? 'datoId' : 'clienteId'
-  const placeholder = isAgricultura ? 'LOTE-EVA' : 'CLI001'
-  const { mergeExternalEvent, upsertApiClienteRow, showToast, pushTrace, refreshClientesLedger } = useDemoStore()
-  const [clienteIdApi, setClienteIdApi] = useState('')
+  const { mode, role, roleLabel } = useSettings()
+  const { mergeExternalEvent, upsertDatoRowCache, showToast, pushTrace, refreshDatosLedger } = useAppStore()
+  const [datoIdApi, setDatoIdApi] = useState('')
   const [txIdBusqueda, setTxIdBusqueda] = useState('')
-  const [lastApiRow, setLastApiRow] = useState<ClienteApiCacheRow | null>(null)
-  const [lastLotePayload, setLastLotePayload] = useState<Record<string, unknown> | null>(null)
+  const [lastRow, setLastRow] = useState<ClienteApiCacheRow | null>(null)
+  const [lastPayload, setLastPayload] = useState<Record<string, unknown> | null>(null)
   const [timeline, setTimeline] = useState<AccionLineaTiempo[]>([])
   const [timelineLoading, setTimelineLoading] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
@@ -43,27 +37,8 @@ export default function ConsultasPage() {
   const cargarTimeline = async (id: string) => {
     setTimelineLoading(true)
     try {
-      if (isAgricultura) {
-        const r = await fetchHistorialDato(id)
-        const datos = Array.isArray(r.datos) ? r.datos : []
-        const ops = datos
-          .map((op: any) => ({
-            txId: String(op?.txId ?? ''),
-            timestamp: String(op?.timestamp ?? ''),
-            isDelete: Boolean(op?.isDelete),
-            resumen: String(op?.record?.payload?.nombre ?? op?.record?.datoId ?? ''),
-            cliente: op?.record ?? null,
-            record: op?.record ?? null,
-            restauradoDesdeTxId:
-              typeof op?.restauradoDesdeTxId === 'string' ? op.restauradoDesdeTxId.trim() : undefined,
-          }))
-          .filter((x) => x.txId)
-          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-        setTimeline(buildAccionesFromHistorial(ops))
-      } else {
-        const h = await fetchHistorialCliente(id)
-        setTimeline(buildAccionesFromHistorial(operacionesAVista(h)))
-      }
+      const r = await fetchHistorialDato(id)
+      setTimeline(buildAccionesFromHistorial(operacionesHistorialDesdeRespuesta(r.datos)))
     } catch {
       setTimeline([])
     } finally {
@@ -72,42 +47,40 @@ export default function ConsultasPage() {
   }
 
   useEffect(() => {
-    const st = location.state as { clienteId?: string } | null | undefined
-    const id = typeof st?.clienteId === 'string' ? st.clienteId.trim() : ''
-    if (id) setClienteIdApi(id)
+    const st = location.state as { datoId?: string; clienteId?: string } | null | undefined
+    const id = typeof st?.datoId === 'string' ? st.datoId.trim() : typeof st?.clienteId === 'string' ? st.clienteId.trim() : ''
+    if (id) setDatoIdApi(id)
   }, [location.state])
 
   const onSubmitApi = async (e: React.FormEvent) => {
     e.preventDefault()
     setLastError(null)
-    setLastApiRow(null)
-    setLastLotePayload(null)
-    const id = clienteIdApi.trim()
+    setLastRow(null)
+    setLastPayload(null)
+    const id = datoIdApi.trim()
     if (!id) {
-      showToast(`Indique el ${idLabel} exacto (ej. ${placeholder}).`, 'error')
+      showToast('Indique el datoId exacto (ej. PARCELA-001).', 'error')
       return
     }
     try {
-      const res = isAgricultura ? await consultarDatoApi(id) : await consultarClienteApi(id)
-      const parsed = isAgricultura ? parseDatoDatos(res.payloadDecodificado ?? res.datos) : parseClienteDesdeLectura(res)
+      const res = await consultarDatoApi(id)
+      const parsed = parseDatoDatos(res.payloadDecodificado ?? res.datos)
       if (parsed) {
-        upsertApiClienteRow(parsed)
-        setLastApiRow(parsed)
-        if (isAgricultura) {
-          setLastLotePayload(extraerPayloadLote(res.payloadDecodificado ?? res.datos))
-        }
+        upsertDatoRowCache(parsed)
+        setLastRow(parsed)
+        setLastPayload(extraerPayloadDato(res.payloadDecodificado ?? res.datos))
         void cargarTimeline(id)
       } else {
-        setLastError('Respuesta sin datos de cliente reconocibles.')
+        setLastError('Respuesta sin datos reconocibles.')
       }
       mergeExternalEvent({
         tipo: 'consulta',
         estado: 'exito',
-        titulo: 'Cliente consultado correctamente',
+        titulo: 'Dato consultado correctamente',
         mensaje: `${res.mensaje} · ${id}`,
       })
       showToast('Consulta completada.', 'success')
-      void refreshClientesLedger()
+      void refreshDatosLedger()
       pushTrace({
         operationType: 'CLIENTE_CONSULTADO',
         mode,
@@ -116,9 +89,9 @@ export default function ConsultasPage() {
         message: `Consulta completada para ${id}.`,
         clienteId: id,
         steps: [
-          { id: 'cap', label: 'Captura de clienteId', status: 'exitoso' },
+          { id: 'cap', label: 'Captura de datoId', status: 'exitoso' },
           { id: 'rol', label: 'Validación de rol', status: 'exitoso', detail: `${roleLabel} puede consultar.` },
-          { id: 'api', label: 'Solicitud al middleware/API', status: 'exitoso' },
+          { id: 'api', label: 'Solicitud GET /datos/:id', status: 'exitoso' },
           { id: 'res', label: 'Respuesta recibida', status: 'exitoso', detail: res.mensaje },
         ],
       })
@@ -129,7 +102,7 @@ export default function ConsultasPage() {
       mergeExternalEvent({
         tipo: 'consulta',
         estado: 'error',
-        titulo: 'Error al consultar cliente',
+        titulo: 'Error al consultar dato',
         mensaje: e instanceof ApiHttpError ? e.payload?.mensaje ?? msg : msg,
       })
       pushTrace({
@@ -137,14 +110,14 @@ export default function ConsultasPage() {
         mode,
         role,
         state: 'error',
-        message: `Error al consultar ${isAgricultura ? 'registro' : 'cliente'} ${id}.`,
+        message: `Error al consultar dato ${id}.`,
         clienteId: id,
         httpStatus: e instanceof ApiHttpError ? e.status : undefined,
         errorCode: e instanceof ApiHttpError ? e.payload?.codigo : undefined,
         errorMessage: e instanceof ApiHttpError ? e.payload?.mensaje ?? msg : msg,
         steps: [
-          { id: 'cap', label: 'Captura de clienteId', status: 'exitoso' },
-          { id: 'api', label: 'Solicitud al middleware/API', status: 'exitoso' },
+          { id: 'cap', label: 'Captura de datoId', status: 'exitoso' },
+          { id: 'api', label: 'Solicitud GET /datos/:id', status: 'exitoso' },
           { id: 'err', label: 'Error recibido', status: 'error', detail: msg },
         ],
       })
@@ -157,32 +130,27 @@ export default function ConsultasPage() {
     setBuscandoTx(true)
     setLastError(null)
     try {
-      const lista = await listarClientesApi(tenant)
+      const lista = await listarDatosFilas()
       for (const c of lista) {
-        let txIds: string[] = []
-        if (isAgricultura) {
-          const hist = await fetchHistorialDato(c.clienteId)
-          txIds = (Array.isArray(hist.datos) ? hist.datos : []).map((op: any) => String(op?.txId ?? ''))
-        } else {
-          txIds = operacionesAVista(await fetchHistorialCliente(c.clienteId)).map((op) => op.txId)
-        }
+        const hist = await fetchHistorialDato(c.clienteId)
+        const txIds = operacionesHistorialDesdeRespuesta(hist.datos).map((op) => op.txId)
         if (!txIds.some((t) => t.includes(tx))) continue
 
-        setClienteIdApi(c.clienteId)
-        const res = isAgricultura ? await consultarDatoApi(c.clienteId) : await consultarClienteApi(c.clienteId)
-        const parsed = isAgricultura ? parseDatoDatos(res.payloadDecodificado ?? res.datos) : parseClienteDesdeLectura(res)
+        setDatoIdApi(c.clienteId)
+        const res = await consultarDatoApi(c.clienteId)
+        const parsed = parseDatoDatos(res.payloadDecodificado ?? res.datos)
         if (!parsed) {
           showToast('Registro encontrado pero respuesta ilegible.', 'error')
           return
         }
-        upsertApiClienteRow(parsed)
-        setLastApiRow(parsed)
-        setLastLotePayload(isAgricultura ? extraerPayloadLote(res.payloadDecodificado ?? res.datos) : null)
+        upsertDatoRowCache(parsed)
+        setLastRow(parsed)
+        setLastPayload(extraerPayloadDato(res.payloadDecodificado ?? res.datos))
         await cargarTimeline(c.clienteId)
         showToast(`TxID encontrado en ${c.clienteId}`, 'success')
         return
       }
-      showToast('TxID no encontrado en los registros del tenant.', 'error')
+      showToast('TxID no encontrado en los datos del tenant.', 'error')
     } catch (err) {
       showToast(describeApiError(err), 'error')
     } finally {
@@ -190,24 +158,22 @@ export default function ConsultasPage() {
     }
   }
 
-  const apiRegistro: Registro | null = lastApiRow ? clienteApiToRegistro(lastApiRow) : null
-
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold text-ink">{isAgricultura ? 'Detalle de registro' : 'Consultas'}</h1>
-        <p className="mt-0.5 text-xs text-muted">Consulta por ID o TxID · historial y línea de tiempo del registro</p>
+        <h1 className="text-lg font-semibold text-ink">Detalle de dato</h1>
+        <p className="mt-0.5 text-xs text-muted">Consulta por datoId o TxID · historial y línea de tiempo</p>
       </div>
 
-      <form onSubmit={onSubmitApi} className="shrink-0 admin-card p-4 shadow-card">
+      <form onSubmit={onSubmitApi} className="admin-card shrink-0 p-4 shadow-card">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-muted">
-            ID del registro
+            datoId
             <input
               className={`${input} mt-1`}
-              value={clienteIdApi}
-              onChange={(e) => setClienteIdApi(e.target.value)}
-              placeholder={placeholder}
+              value={datoIdApi}
+              onChange={(e) => setDatoIdApi(e.target.value)}
+              placeholder="PARCELA-001"
               autoComplete="off"
               spellCheck={false}
             />
@@ -225,14 +191,21 @@ export default function ConsultasPage() {
           </label>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="submit" className={`${btnPrimary} !py-2 !text-xs`}>Consultar por ID</button>
-          <button type="button" className={`${btnPrimary} !py-2 !text-xs !bg-gray-700 hover:!bg-gray-800`} disabled={buscandoTx || !txIdBusqueda.trim()} onClick={() => void onBuscarTxId()}>
+          <button type="submit" className={`${btnPrimary} !py-2 !text-xs`}>
+            Consultar por ID
+          </button>
+          <button
+            type="button"
+            className={`${btnPrimary} !bg-gray-700 !py-2 !text-xs hover:!bg-gray-800`}
+            disabled={buscandoTx || !txIdBusqueda.trim()}
+            onClick={() => void onBuscarTxId()}
+          >
             {buscandoTx ? 'Buscando…' : 'Buscar por TxID'}
           </button>
-          {lastApiRow ? (
+          {lastRow ? (
             <Link
-              to="/app/auditar"
-              state={{ recursoId: lastApiRow.clienteId }}
+              to="/app/auditoria"
+              state={{ recursoId: lastRow.clienteId }}
               className="inline-flex items-center rounded-xl border border-line px-3 py-2 text-xs text-ink-secondary hover:bg-gray-50"
             >
               Abrir en Auditar
@@ -241,35 +214,35 @@ export default function ConsultasPage() {
         </div>
       </form>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden admin-card shadow-card">
+      <div className="admin-card flex min-h-0 flex-1 flex-col overflow-hidden shadow-card">
         <div className="shrink-0 border-b border-line px-5 py-3">
           <h2 className="text-sm font-semibold text-ink">Resultado</h2>
-          <p className="text-xs text-muted">Datos devueltos por el middleware</p>
+          <p className="text-xs text-muted">GET /datos/:datoId</p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          {lastError && !lastApiRow ? (
+          {lastError && !lastRow ? (
             <p className="text-sm text-danger/90">{lastError}</p>
-          ) : apiRegistro ? (
+          ) : lastRow ? (
             <div className="space-y-6">
-              <ApiResultView r={apiRegistro} informacionAuditoria={lastApiRow?.informacionAuditoria} isAgricultura={isAgricultura} />
+              <DatoResultView row={lastRow} informacionAuditoria={lastRow.informacionAuditoria} />
               {timeline.length > 0 || timelineLoading ? (
                 <div className="border-t border-line/60 pt-4">
                   <LineaTiempoStrip
-                    registroId={lastApiRow?.clienteId ?? clienteIdApi}
+                    registroId={lastRow.clienteId}
                     acciones={timeline}
                     loading={timelineLoading}
                     compact
                   />
                 </div>
               ) : null}
-              {isAgricultura && lastLotePayload ? (
+              {lastPayload ? (
                 <div className="border-t border-line/60 pt-5">
-                  <LoteProcesoPanel datos={lastLotePayload} titulo="Proceso del lote (estado actual)" />
+                  <LoteProcesoPanel datos={lastPayload} titulo="Payload de negocio (estado actual)" />
                 </div>
               ) : null}
             </div>
           ) : (
-            <p className="text-sm text-muted">Ejecute una consulta con un identificador válido.</p>
+            <p className="text-sm text-muted">Ejecute una consulta con un datoId válido.</p>
           )}
         </div>
       </div>
@@ -277,63 +250,39 @@ export default function ConsultasPage() {
   )
 }
 
-function ApiResultView({
-  r,
+function DatoResultView({
+  row,
   informacionAuditoria,
-  isAgricultura,
 }: {
-  r: Registro
+  row: ClienteApiCacheRow
   informacionAuditoria?: string | null
-  isAgricultura: boolean
 }) {
   return (
     <div className="space-y-4">
-      <div
-        className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase ${
-          r.estado === 'activo'
-            ? 'border-success/30 bg-success/15 text-success'
-            : r.estado === 'pendiente'
-              ? 'border-amber-500/25 bg-amber-500/10 text-amber-200'
-              : r.estado === 'baja'
-                ? 'border-danger/30 bg-danger-soft text-danger-ink'
-                : 'border-slate-500/25 bg-slate-500/10 text-muted'
-        }`}
-      >
-        Estado: {r.estado}
+      <div className="inline-flex rounded-full border border-accent/30 bg-accent-soft px-3 py-1 text-xs font-semibold uppercase text-accent">
+        {row.tipoDocumento}
       </div>
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
         <div>
-          <dt className="text-[11px] uppercase text-muted">{isAgricultura ? 'datoId' : 'clienteId'}</dt>
-          <dd className="mt-0.5 font-mono text-sm text-ink-secondary">{r.id}</dd>
+          <dt className="text-[11px] uppercase text-muted">datoId</dt>
+          <dd className="mt-0.5 font-mono text-sm text-ink-secondary">{row.clienteId}</dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase text-muted">Nombre</dt>
-          <dd className="mt-0.5 text-ink-secondary">{r.nombreCompleto}</dd>
+          <dt className="text-[11px] uppercase text-muted">Resumen</dt>
+          <dd className="mt-0.5 text-ink-secondary">{row.nombre}</dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase text-muted">{isAgricultura ? 'Código' : 'Documento'}</dt>
-          <dd className="mt-0.5 text-ink-secondary">
-            {r.tipoDocumento} {r.documento}
-          </dd>
+          <dt className="text-[11px] uppercase text-muted">Estado / tipo</dt>
+          <dd className="mt-0.5 text-ink-secondary">{row.estado}</dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase text-muted">Fecha alta</dt>
-          <dd className="mt-0.5 text-ink-secondary">{formatShortDate(r.fechaRegistro)}</dd>
+          <dt className="text-[11px] uppercase text-muted">Última actualización</dt>
+          <dd className="mt-0.5 text-ink-secondary">{formatShortDate(row.fechaAlta)}</dd>
         </div>
-        <div className="sm:col-span-2">
-          <dt className="text-[11px] uppercase text-muted">{isAgricultura ? 'metadata' : 'notas'}</dt>
-          <dd className="mt-0.5 text-ink-secondary">{r.facultad}</dd>
-        </div>
-        {r.email ? (
+        {row.notas ? (
           <div className="sm:col-span-2">
-            <dt className="text-[11px] uppercase text-muted">email</dt>
-            <dd className="mt-0.5 text-ink-secondary">{r.email}</dd>
-          </div>
-        ) : null}
-        {r.telefono ? (
-          <div>
-            <dt className="text-[11px] uppercase text-muted">telefono</dt>
-            <dd className="mt-0.5 text-ink-secondary">{r.telefono}</dd>
+            <dt className="text-[11px] uppercase text-muted">metadata</dt>
+            <dd className="mt-0.5 text-ink-secondary">{row.notas}</dd>
           </div>
         ) : null}
       </dl>

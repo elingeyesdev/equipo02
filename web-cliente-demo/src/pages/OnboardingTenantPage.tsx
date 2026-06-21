@@ -445,12 +445,12 @@ curl -X POST "${baseUrl.replace(/\/+$/, '')}/datos" \\
 curl -H "X-API-Key: ${apiKeyLectura}" \\
   "${baseUrl.replace(/\/+$/, '')}/datos/REG-ISOLATION-1/historial"
 
-# Prueba negativa: usar ruta que no corresponde al tenant
+# Prueba negativa: ruta legacy eliminada (debe responder 404)
 curl -X POST "${baseUrl.replace(/\/+$/, '')}/clientes" \\
   -H "X-API-Key: ${apiKeyIntegrador}" \\
   -H "Content-Type: application/json" \\
   -d '{"clienteId":"CLI-001","nombre":"No aplica"}'
-# Esperado: error TENANT_NO_AUTORIZADO`,
+# Esperado: 404 — el modelo universal usa POST /datos`,
     [baseUrl, apiKeyIntegrador, apiKeyLectura, entityType, schemaVersion],
   )
 
