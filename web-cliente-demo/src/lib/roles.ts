@@ -1,13 +1,11 @@
 import type { AppRole } from '../types/demo'
 
 /**
- * Permisos efectivos del rol en la CONSOLA del puente (audit-only).
+ * Permisos efectivos del rol en la Consola BaaS (frontend único).
  *
- * Importante: el `web-cliente-demo` es explorer; las altas y ediciones de
- * clientes se realizan en el portal del cliente (`web-portal-cliente`) o
- * directamente vía API. Los permisos de escritura del rol siguen
- * vigentes en el `api-middleware`, pero ya no se exponen botones de
- * escritura en esta UI.
+ * El rol del backend (admin / integrador / solo_lectura) determina las
+ * acciones disponibles: admin escribe y aprueba; integrador propone cambios
+ * (quedan pendientes de aprobación); solo_lectura solo consulta.
  */
 export interface RolePermissions {
   canConsultClients: boolean
@@ -19,8 +17,10 @@ export interface RolePermissions {
 
 export type AppRoutePath =
   | '/app'
+  | '/app/datos'
   | '/app/clientes-registrados'
   | '/app/consultas'
+  | '/app/solicitudes'
   | '/app/auditoria'
   | '/app/historial-cliente'
   | '/app/historial'

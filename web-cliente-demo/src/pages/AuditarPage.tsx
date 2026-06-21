@@ -22,37 +22,11 @@ import { clienteFilasLegibles, displayClienteField } from '../lib/clienteDisplay
 import { decodeIfBase64 } from '../lib/ledgerFieldDecode'
 import { autorRolDisplayDesdeNotas } from '../lib/notasLedger'
 
-// NUEVO: Datos de identidad para auditores (se inyectan por el backend) BORRAR DESPUES PARA ORG2
-const USUARIOS_DETALLE: Record<string, { nombre: string, cargo: string, depto: string, matricula: string, bio: string }> = {
-  "Encargado de Almacén": {
-    nombre: "Personal de Almacén",
-    cargo: "Responsable de Recepción y Registro",
-    depto: "Logística y Almacenamiento",
-    matricula: "USR-ALM-001",
-    bio: "Encargado de dar de alta la materia prima y registrar el ingreso inicial al sistema de trazabilidad."
-  },
-  "Operador de Planta": {
-    nombre: "Operador de Producción",
-    cargo: "Técnico de Procesamiento",
-    depto: "División de Manufactura",
-    matricula: "USR-PLN-012",
-    bio: "Responsable de iniciar el proceso de transformación y registrar el uso de maquinaria."
-  },
-  "Inspector de Calidad": {
-    nombre: "Inspector QA/QC",
-    cargo: "Analista de Control de Calidad",
-    depto: "Gestión de Calidad",
-    matricula: "USR-QA-055",
-    bio: "Verificador de estándares técnicos y aprobación de lotes para su salida al mercado."
-  },
-  "Supervisor General": {
-    nombre: "Director de Operaciones",
-    cargo: "Supervisor de Cierre y Sellado",
-    depto: "Alta Dirección / Supervisión",
-    matricula: "USR-SUP-999",
-    bio: "Autoridad máxima para el sellado criptográfico final y cierre inmutable del lote de producción."
-  }
-}
+// Detalle de identidad de los actores de auditoría. En el modelo universal NO
+// se hardcodean usuarios de un dominio concreto: el detalle proviene del
+// backend (cabeceras X-Actor-* / claims). Vacío = no se muestra ficha extra.
+type DetalleUsuario = { nombre: string; cargo: string; depto: string; matricula: string; bio: string }
+const USUARIOS_DETALLE: Record<string, DetalleUsuario> = {}
 
 const input =
   'w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink-secondary outline-none placeholder:text-muted focus:border-accent-soft focus:ring-2 focus:ring-accent/25'
