@@ -26,9 +26,6 @@ func main() {
 	if err := db.Migrate(conn); err != nil {
 		log.Fatalf("migración: %v", err)
 	}
-	if err := db.SeedDemoUsers(conn); err != nil {
-		log.Fatalf("seed: %v", err)
-	}
 
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
@@ -36,25 +33,9 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"ok": true, "servicio": "web-portal-api"})
 	})
 
-	authH := &handlers.AuthHandler{Cfg: cfg, DB: conn}
-	proxyH := &handlers.ProxyHandler{Cfg: cfg, DB: conn}
-	authMW := middleware.RequireAuth(cfg, conn)
-
-	r.POST("/auth/login", authH.Login)
-	r.POST("/auth/logout", authMW, authH.Logout)
-	r.GET("/auth/me", authMW, authH.Me)
-
-	r.GET("/clientes", authMW, proxyH.ProxyClientes)
-	r.POST("/clientes", authMW, middleware.RequireWriteRole(), proxyH.ProxyClientes)
-	r.GET("/clientes/*proxyPath", authMW, proxyH.ProxyClientes)
-	r.PATCH("/clientes/*proxyPath", authMW, middleware.RequireWriteRole(), proxyH.ProxyClientes)
-	r.POST("/clientes/*proxyPath", authMW, middleware.RequireWriteRole(), proxyH.ProxyClientes)
-
-	// ── Consola del puente (web-cliente-demo) ─────────────────────────────
-	// Tokens distintos a los del portal-cliente: scope=admin-console,
-	// claims llevan tenant. El proxy genérico /admin/api/* reenvía todo el
-	// catálogo de endpoints del api-middleware sin que el frontend vea la
-	// X-API-Key.
+	// Consola BaaS (web-cliente-demo): login JWT + proxy genérico al middleware.
+	// El frontend llama /admin/api/datos, /admin/api/solicitudes, /admin/api/auditoria/…
+	// El BFF inyecta X-API-Key real según tenant/rol (usuarios-admin.yaml).
 	registroAdmin := usuariosadmin.Nuevo()
 	if err := registroAdmin.LoadFromFile(cfg.UsuariosAdminFile); err != nil {
 		if errors.Is(err, usuariosadmin.ErrConfiguracionAusente) {
@@ -74,7 +55,6 @@ func main() {
 	r.POST("/admin/auth/login", adminAuthH.Login)
 	r.GET("/admin/auth/me", adminAuthMW, adminAuthH.Me)
 	r.POST("/admin/auth/logout", adminAuthMW, adminAuthH.Logout)
-	// Proxy genérico: cualquier método y subruta entra por aquí.
 	r.Any("/admin/api/*proxyPath", adminAuthMW, adminProxyH.Proxy)
 
 	log.Printf("web-portal-api escuchando en :%s (middleware=%s)", cfg.Port, cfg.MiddlewareURL)

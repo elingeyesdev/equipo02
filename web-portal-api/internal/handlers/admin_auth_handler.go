@@ -1,10 +1,7 @@
-// Handlers de autenticación para la consola del puente (web-cliente-demo).
-// A diferencia del login del portal-cliente final (basado en SQLite),
-// este flujo valida contra el registro YAML usuariosadmin.
+// Handlers de autenticación para la Consola BaaS (web-cliente-demo).
+// Valida contra el registro YAML usuariosadmin (multi-tenant).
 //
-// Los tokens emitidos llevan scope="admin-console" + tenant. El middleware
-// RequireAdminAuth los acepta; el RequireAuth tradicional NO acepta tokens
-// con este scope para evitar mezclar superficies.
+// Los tokens emitidos llevan scope="admin-console" + tenant.
 package handlers
 
 import (

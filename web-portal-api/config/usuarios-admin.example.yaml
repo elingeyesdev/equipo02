@@ -1,68 +1,62 @@
-# Configuración de usuarios de la CONSOLA del puente (web-cliente-demo).
-# Estas cuentas NO son las del portal del cliente final; son operadores
-# humanos a los que el dueño del BaaS les da acceso a explorar/auditar
-# o a registrar datos en nombre del tenant.
+# Configuración de usuarios de la Consola BaaS (web-cliente-demo).
+# Operadores humanos con acceso a explorar, auditar y (según rol) proponer
+# cambios sobre el modelo universal /datos del api-middleware.
 #
-# El archivo es leído al arrancar el BFF (web-portal-api). Para añadir,
-# editar o desactivar un usuario:
-#   1. Generar el hash bcrypt:
-#        cd web-portal-api
-#        go run ./cmd/bcrypt-gen "mi-contrasena"
-#   2. Pegar el hash en contrasena_hash.
-#   3. Reiniciar el BFF.
+# Generar hash bcrypt:
+#   cd web-portal-api && go run ./cmd/bcrypt-gen "mi-contrasena"
 #
-# El frontend NUNCA ve la X-API-Key real: el BFF la inyecta al reenviar
-# la petición al api-middleware en función de (tenant, rol).
+# El frontend NUNCA ve la X-API-Key: el BFF la inyecta en /admin/api/* según
+# (tenant, rol) definidos aquí. Deben coincidir con tenants.yaml del middleware.
 
-# Tenant que se asigna a usuarios que no especifiquen el campo `tenant`.
-default_tenant: clientes
+default_tenant: agricultura
 
-# Cada tenant declara las X-API-Key reales del api-middleware. Estos
-# valores DEBEN coincidir con los del campo `claves_api` del archivo
-# tenants.yaml del api-middleware. Puedes sobreescribirlos por env si
-# prefieres no commitearlos (no implementado todavía aquí).
 tenants:
-  clientes:
-    nombre: "Demostraciones / clientes"
-    api_keys:
-      admin: sec-admin
-      integrador: sec-int
-      lectura: sec-lect
   agricultura:
-    nombre: "Agricultura (canal aparte)"
+    nombre: "Administradora de Agricultura"
     api_keys:
       admin: agri-admin-2026
       integrador: agri-int-2026
       lectura: agri-lect-2026
+  salud:
+    nombre: "Centro de Salud Demo"
+    api_keys:
+      admin: salud-admin-2026
+      integrador: salud-int-2026
+      lectura: salud-lect-2026
 
-# Lista de cuentas humanas.
 usuarios:
-  # ---- Demo Clientes ----
-  - usuario: ana
-    nombre_completo: "Ana Pérez"
-    rol: integrador            # admin | integrador | lectura
-    tenant: clientes
-    # bcrypt de la contraseña "ana-clientes-2026"
-    contrasena_hash: "REEMPLAZAR_CON_BCRYPT"
-
-  - usuario: carlos
-    nombre_completo: "Carlos Mamani"
-    rol: admin
-    tenant: clientes
-    # bcrypt de "carlos-admin-2026"
-    contrasena_hash: "REEMPLAZAR_CON_BCRYPT"
-
-  - usuario: lucia
-    nombre_completo: "Lucía Auditora"
-    rol: lectura
-    tenant: clientes
-    # bcrypt de "lucia-lectura-2026"
-    contrasena_hash: "REEMPLAZAR_CON_BCRYPT"
-
-  # ---- Demo Agricultura ----
   - usuario: olga
     nombre_completo: "Olga Roque"
     rol: admin
     tenant: agricultura
-    # bcrypt de "olga-agri-2026"
+    contrasena_hash: "REEMPLAZAR_CON_BCRYPT"
+
+  - usuario: tomas
+    nombre_completo: "Tomás Quispe"
+    rol: integrador
+    tenant: agricultura
+    contrasena_hash: "REEMPLAZAR_CON_BCRYPT"
+
+  - usuario: rosa
+    nombre_completo: "Rosa Auditora"
+    rol: lectura
+    tenant: agricultura
+    contrasena_hash: "REEMPLAZAR_CON_BCRYPT"
+
+  - usuario: sara
+    nombre_completo: "Sara Admin Salud"
+    rol: admin
+    tenant: salud
+    contrasena_hash: "REEMPLAZAR_CON_BCRYPT"
+
+  - usuario: hugo
+    nombre_completo: "Hugo Integrador Salud"
+    rol: integrador
+    tenant: salud
+    contrasena_hash: "REEMPLAZAR_CON_BCRYPT"
+
+  - usuario: elsa
+    nombre_completo: "Elsa Auditora Salud"
+    rol: lectura
+    tenant: salud
     contrasena_hash: "REEMPLAZAR_CON_BCRYPT"

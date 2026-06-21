@@ -23,9 +23,7 @@ type Revocador interface {
 	Revocado(jti string) bool
 }
 
-// RequireAdminAuth valida el JWT de la consola del puente. Sólo acepta
-// tokens cuyo claim scope sea "admin-console". Rechaza tokens del
-// portal-cliente final aunque sean válidos.
+// RequireAdminAuth valida el JWT de la Consola BaaS (scope admin-console).
 func RequireAdminAuth(cfg config.Config, revoc Revocador) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := bearerToken(c.GetHeader("Authorization"))

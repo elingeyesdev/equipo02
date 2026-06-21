@@ -12,9 +12,6 @@ type Config struct {
 	JWTSecret         string
 	DatabasePath      string
 	MiddlewareURL     string
-	APIKeyAdmin       string
-	APIKeyIntegrador  string
-	APIKeyLectura     string
 	JWTExpiry         time.Duration
 	// UsuariosAdminFile apunta al YAML con las cuentas humanas de la
 	// consola del puente (web-cliente-demo). Si está vacío o no existe,
@@ -31,13 +28,10 @@ func Load() Config {
 		}
 	}
 	return Config{
-		Port:             envOr("PORT", "3001"),
-		JWTSecret:        envOr("JWT_SECRET", "dev-secret-cambiar-en-produccion"),
-		DatabasePath:     envOr("DATABASE_PATH", "./data/portal.db"),
-		MiddlewareURL:    strings.TrimRight(envOr("API_MIDDLEWARE_URL", "http://127.0.0.1:3000"), "/"),
-		APIKeyAdmin:      envOr("API_KEY_ADMIN", "sec-admin"),
-		APIKeyIntegrador: envOr("API_KEY_INTEGRADOR", "sec-int"),
-		APIKeyLectura:     envOr("API_KEY_LECTURA", "sec-lect"),
+		Port:              envOr("PORT", "3001"),
+		JWTSecret:         envOr("JWT_SECRET", "dev-secret-cambiar-en-produccion"),
+		DatabasePath:      envOr("DATABASE_PATH", "./data/portal.db"),
+		MiddlewareURL:     strings.TrimRight(envOr("API_MIDDLEWARE_URL", "http://127.0.0.1:3000"), "/"),
 		JWTExpiry:         time.Duration(expHours) * time.Hour,
 		UsuariosAdminFile: envOr("USUARIOS_ADMIN_FILE", "./config/usuarios-admin.yaml"),
 	}
@@ -55,17 +49,4 @@ func envOr(key, def string) string {
 		return v
 	}
 	return def
-}
-
-func (c Config) APIKeyForRole(rol string) string {
-	switch strings.ToLower(strings.TrimSpace(rol)) {
-	case "admin":
-		return c.APIKeyAdmin
-	case "integrador":
-		return c.APIKeyIntegrador
-	case "lectura":
-		return c.APIKeyLectura
-	default:
-		return ""
-	}
 }
