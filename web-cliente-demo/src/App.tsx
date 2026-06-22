@@ -10,7 +10,15 @@ import AuditarPage from './pages/AuditarPage'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import DatosPage from './pages/DatosPage'
+import OnboardingOperatorPage from './pages/OnboardingOperatorPage'
 import OnboardingTenantPage from './pages/OnboardingTenantPage'
+import DevPortalChatPage from './pages/DevPortalChatPage'
+import DevPortalStatusPage from './pages/DevPortalStatusPage'
+import DevLoginPage from './pages/DevLoginPage'
+import DevRegisterPage from './pages/DevRegisterPage'
+import DevMisSolicitudesPage from './pages/DevMisSolicitudesPage'
+import PlatformRequestsPage from './pages/PlatformRequestsPage'
+import PlatformRequestDetailPage from './pages/PlatformRequestDetailPage'
 import PanelPage from './pages/PanelPage'
 import SolicitudesPage from './pages/SolicitudesPage'
 import TrazabilidadPage from './pages/TrazabilidadPage'
@@ -24,6 +32,14 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/onboarding" element={<OnboardingTenantPage />} />
+      <Route path="/onboarding/operador" element={<OnboardingOperatorPage />} />
+      <Route path="/dev" element={<DevPortalChatPage />} />
+      <Route path="/dev/login" element={<DevLoginPage />} />
+      <Route path="/dev/registro" element={<DevRegisterPage />} />
+      <Route path="/dev/mis-solicitudes" element={<DevMisSolicitudesPage />} />
+      <Route path="/dev/estado/:id" element={<DevPortalStatusPage />} />
+      <Route path="/admin/solicitudes" element={<PlatformRequestsPage />} />
+      <Route path="/admin/solicitudes/:id" element={<PlatformRequestDetailPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/app"

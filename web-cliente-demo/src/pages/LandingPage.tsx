@@ -79,17 +79,17 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
-                to="/onboarding"
+                to="/dev"
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[#f0b429] px-7 py-3.5 text-sm font-bold text-[#1a2332] shadow-lg shadow-[#f0b429]/25 transition-transform hover:scale-[1.02] hover:bg-[#f5c24a]"
               >
-                Empezar onboarding
+                Solicitar alta BaaS
                 <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
               </Link>
               <Link
-                to="/login"
+                to="/onboarding"
                 className="inline-flex items-center justify-center rounded-full border border-white/25 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/50 hover:bg-white/10"
               >
-                Ir al panel privado
+                Ya tengo credenciales
               </Link>
             </div>
           </div>
