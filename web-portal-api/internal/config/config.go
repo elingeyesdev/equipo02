@@ -17,6 +17,12 @@ type Config struct {
 	// consola del puente (web-cliente-demo). Si está vacío o no existe,
 	// los endpoints /admin/* responderán 503 hasta que se configure.
 	UsuariosAdminFile string
+	TenantsYAMLFile   string
+	PlatformAdminUser string
+	PlatformAdminPass string
+	DeepSeekAPIKey    string
+	DeepSeekAPIURL    string
+	DeepSeekModel     string
 }
 
 func Load() Config {
@@ -34,6 +40,12 @@ func Load() Config {
 		MiddlewareURL:     strings.TrimRight(envOr("API_MIDDLEWARE_URL", "http://127.0.0.1:3000"), "/"),
 		JWTExpiry:         time.Duration(expHours) * time.Hour,
 		UsuariosAdminFile: envOr("USUARIOS_ADMIN_FILE", "./config/usuarios-admin.yaml"),
+		TenantsYAMLFile:   envOr("TENANTS_YAML_FILE", "../api-middleware/config/tenants.yaml"),
+		PlatformAdminUser: envOr("PLATFORM_ADMIN_USER", "platform-admin"),
+		PlatformAdminPass: envOr("PLATFORM_ADMIN_PASS", "platform-admin-2026"),
+		DeepSeekAPIKey:    envOr("DEEPSEEK_API_KEY", ""),
+		DeepSeekAPIURL:    envOr("DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions"),
+		DeepSeekModel:     envOr("DEEPSEEK_MODEL", "deepseek-chat"),
 	}
 }
 
