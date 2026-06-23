@@ -80,6 +80,24 @@ func normalizeDraft(raw string) *Draft {
 			PayloadExample:  pickString(integ, "payloadExample", "payload_example", "payload"),
 			Stack:           pickString(integ, "stack"),
 		}
+		if attrsRaw, ok := integ["attributes"].([]interface{}); ok {
+			for _, item := range attrsRaw {
+				am, ok := item.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				key := pickString(am, "key", "nombre", "name")
+				if key == "" {
+					continue
+				}
+				d.Integration.Attributes = append(d.Integration.Attributes, platform.AttributeDraft{
+					Key:      key,
+					Label:    pickString(am, "label", "etiqueta"),
+					Type:     pickString(am, "type", "tipo"),
+					Required: pickBool(am, "required", "requerido", "obligatorio"),
+				})
+			}
+		}
 	}
 	if d.Integration.SchemaVersion == "" {
 		d.Integration.SchemaVersion = "v1"

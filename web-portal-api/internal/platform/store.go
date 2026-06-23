@@ -247,6 +247,10 @@ func scanRequestRow(row rowScanner) (*TenantRequest, error) {
 	return &tr, nil
 }
 
+func (s *Store) GetRequestUsers(requestID string) ([]RequestUser, error) {
+	return s.listUsers(requestID)
+}
+
 func (s *Store) listUsers(requestID string) ([]RequestUser, error) {
 	rows, err := s.DB.Query(`
 		SELECT id, username, nombre_completo, rol, COALESCE(password_plain_temp,'')

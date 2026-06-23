@@ -73,6 +73,7 @@ type CredentialsResponse struct {
 	MiddlewareURL string            `json:"middlewareUrl"`
 	TenantID      string            `json:"tenantId"`
 	Keys          map[string]string `json:"keys"`
+	UserPasswords map[string]string `json:"userPasswords,omitempty"`
 }
 
 type ActivateResult struct {

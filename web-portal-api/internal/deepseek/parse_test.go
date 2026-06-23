@@ -32,6 +32,28 @@ func TestUserConfirmedSend(t *testing.T) {
 	}
 }
 
+func TestNormalizeDraftAttributes(t *testing.T) {
+	raw := `{
+		"orgName": "Acme",
+		"tenantId": "acme",
+		"contactEmail": "a@b.com",
+		"integration": {
+			"entityType": "lote",
+			"stack": "laravel",
+			"attributes": [
+				{"key": "codigo", "label": "Código", "type": "texto", "required": true}
+			]
+		}
+	}`
+	d := normalizeDraft(raw)
+	if d == nil || len(d.Integration.Attributes) != 1 {
+		t.Fatalf("expected attributes, got %+v", d)
+	}
+	if d.Integration.Attributes[0].Key != "codigo" || !d.Integration.Attributes[0].Required {
+		t.Fatalf("attribute parse failed: %+v", d.Integration.Attributes[0])
+	}
+}
+
 func TestCanSubmitWithoutReadyFlag(t *testing.T) {
 	d := &Draft{
 		OrgName: "Acme", TenantID: "acme", ContactEmail: "a@b.com",

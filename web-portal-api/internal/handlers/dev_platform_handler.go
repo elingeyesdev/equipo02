@@ -262,6 +262,19 @@ func (h *DevHandler) GetCredenciales(c *gin.Context) {
 		})
 		return
 	}
+	users, err := h.Store.GetRequestUsers(req.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Ok: false, Codigo: "ERROR_INTERNO", Mensaje: err.Error(),
+		})
+		return
+	}
+	userPasswords := map[string]string{}
+	for _, u := range users {
+		if u.PasswordPlainTemp != "" {
+			userPasswords[u.Username] = u.PasswordPlainTemp
+		}
+	}
 	// Cliente ve integrador y lectura; admin solo en panel operador
 	clientKeys := map[string]string{}
 	if k, ok := keys["integrador"]; ok {
@@ -276,6 +289,7 @@ func (h *DevHandler) GetCredenciales(c *gin.Context) {
 			MiddlewareURL: h.Cfg.MiddlewareURL,
 			TenantID:      req.TenantID,
 			Keys:          clientKeys,
+			UserPasswords: userPasswords,
 		},
 	})
 }
