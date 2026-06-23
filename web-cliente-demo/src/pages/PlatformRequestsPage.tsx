@@ -1,18 +1,29 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { inputClass } from '../components/onboarding/OnboardingUi'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  DevRequestStatusBadge,
+  formatDevRequestDate,
+  OPERATOR_NEXT_STEP,
+} from '../components/dev/DevRequestStatusUi'
 import {
   leerTokenPlataforma,
   listarSolicitudesPlataforma,
   loginPlataforma,
 } from '../services/platformApi'
-import type { DevTenantRequest } from '../services/devPortalApi'
+import type { DevRequestStatus, DevTenantRequest } from '../services/devPortalApi'
 
-const STATUS_BADGE: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-800',
-  provisioning: 'bg-blue-100 text-blue-800',
-  active: 'bg-emerald-100 text-emerald-800',
-  rejected: 'bg-red-100 text-red-800',
+type FiltroEstado = 'all' | DevRequestStatus
+
+const FILTROS: { id: FiltroEstado; label: string }[] = [
+  { id: 'all', label: 'Todas' },
+  { id: 'pending', label: 'En revisión' },
+  { id: 'provisioning', label: 'Provisioning' },
+  { id: 'active', label: 'Activas' },
+  { id: 'rejected', label: 'Rechazadas' },
+]
+
+function normalizarLista(items: DevTenantRequest[] | null | undefined): DevTenantRequest[] {
+  return Array.isArray(items) ? items : []
 }
 
 export default function PlatformRequestsPage() {
@@ -23,14 +34,16 @@ export default function PlatformRequestsPage() {
   const [loginError, setLoginError] = useState<string | null>(null)
   const [list, setList] = useState<DevTenantRequest[]>([])
   const [loading, setLoading] = useState(false)
+  const [filtro, setFiltro] = useState<FiltroEstado>('all')
 
   const load = async () => {
     setLoading(true)
     try {
       const items = await listarSolicitudesPlataforma()
-      setList(items)
+      setList(normalizarLista(items))
     } catch {
       setAuthed(false)
+      setList([])
     } finally {
       setLoading(false)
     }
@@ -51,94 +64,193 @@ export default function PlatformRequestsPage() {
     }
   }
 
+  const lista = useMemo(() => normalizarLista(list), [list])
+
+  const conteos = useMemo(
+    () => ({
+      total: lista.length,
+      pending: lista.filter((s) => s.status === 'pending').length,
+      provisioning: lista.filter((s) => s.status === 'provisioning').length,
+      active: lista.filter((s) => s.status === 'active').length,
+      rejected: lista.filter((s) => s.status === 'rejected').length,
+    }),
+    [lista],
+  )
+
+  const filtrada = useMemo(() => {
+    if (filtro === 'all') return lista
+    return lista.filter((s) => s.status === filtro)
+  }, [lista, filtro])
+
   if (!authed) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-[#f4f7fb] px-4">
-        <form onSubmit={onLogin} className="w-full max-w-sm rounded-2xl border border-line/60 bg-white p-8 shadow-sm">
-          <h1 className="text-xl font-bold text-[#1a2332]">Operador BaaS</h1>
-          <p className="mt-1 text-sm text-[#6b7280]">Cola de solicitudes del dev portal</p>
-          <label className="mt-6 block text-xs font-medium text-[#6b7280]">
-            Usuario
-            <input className={`${inputClass} mt-1`} value={user} onChange={(e) => setUser(e.target.value)} />
-          </label>
-          <label className="mt-4 block text-xs font-medium text-[#6b7280]">
-            Contraseña
-            <input type="password" className={`${inputClass} mt-1`} value={pass} onChange={(e) => setPass(e.target.value)} />
-          </label>
-          {loginError ? <p className="mt-3 text-sm text-red-600">{loginError}</p> : null}
-          <button type="submit" className="mt-6 w-full rounded-full bg-[#1a3a5c] py-2.5 text-sm font-semibold text-white">
-            Entrar
-          </button>
-          <Link to="/dev" className="mt-4 block text-center text-sm text-[#6b7280]">← Dev portal cliente</Link>
+      <div className="container-xl py-5 d-flex justify-content-center">
+        <form onSubmit={onLogin} className="card w-100" style={{ maxWidth: '24rem' }}>
+          <div className="card-body">
+            <h1 className="h3">Consola Operador BaaS</h1>
+            <p className="text-secondary small">Acceso para revisar solicitudes del Portal Integrador</p>
+            <label className="form-label mt-3">
+              Usuario
+              <input className="form-control" value={user} onChange={(e) => setUser(e.target.value)} />
+            </label>
+            <label className="form-label mt-2">
+              Contraseña
+              <input type="password" className="form-control" value={pass} onChange={(e) => setPass(e.target.value)} />
+            </label>
+            {loginError ? <p className="text-danger small mt-2">{loginError}</p> : null}
+            <button type="submit" className="btn btn-primary w-100 mt-3">
+              Entrar
+            </button>
+          </div>
         </form>
       </div>
     )
   }
 
-  const pending = list.filter((s) => s.status === 'pending' || s.status === 'provisioning')
-
   return (
-    <div className="min-h-[100dvh] bg-[#f4f7fb]">
-      <header className="border-b border-line/60 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-8">
-          <h1 className="text-lg font-bold text-[#1a2332]">Solicitudes BaaS</h1>
-          <button type="button" className="text-sm text-[#6b7280]" onClick={() => void load()}>
-            Refrescar
-          </button>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
-        <p className="text-sm text-[#6b7280]">
-          {pending.length} en cola (pending / provisioning)
-        </p>
-
-        {loading ? <p className="mt-4 text-sm">Cargando…</p> : null}
-
-        <div className="mt-4 overflow-hidden rounded-2xl border border-line/60 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#f4f7fb] text-xs uppercase text-[#6b7280]">
-              <tr>
-                <th className="px-4 py-3">Organización</th>
-                <th className="px-4 py-3">tenant_id</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3">Contacto</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/40">
-              {list.map((s) => (
-                <tr key={s.id} className="hover:bg-[#fafbfd]">
-                  <td className="px-4 py-3 font-medium">{s.orgName}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{s.tenantId}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE[s.status] ?? ''}`}>
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs">{s.contactEmail}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-[#1a3a5c]"
-                      onClick={() => navigate(`/admin/solicitudes/${s.id}`)}
-                    >
-                      Ver detalle
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {list.length === 0 && !loading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-[#6b7280]">
-                    Sin solicitudes
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+    <div className="container-xl py-4">
+      <div className="page-header mb-4">
+        <div className="row align-items-center">
+          <div className="col">
+            <h1 className="page-title">Solicitudes de integración</h1>
+            <p className="text-secondary mb-0">
+              Revisa, aprueba y activa tenants solicitados desde el Portal Integrador Nexum.
+            </p>
+          </div>
+          <div className="col-auto">
+            <button type="button" className="btn btn-outline-secondary" onClick={() => void load()} disabled={loading}>
+              {loading ? 'Actualizando…' : 'Refrescar'}
+            </button>
+          </div>
         </div>
       </div>
+
+      <div className="row row-cards g-3 mb-4">
+        <div className="col-6 col-md">
+          <div className="card card-sm">
+            <div className="card-body">
+              <div className="text-secondary small">Total</div>
+              <div className="h2 mb-0">{conteos.total}</div>
+            </div>
+          </div>
+        </div>
+        <div className="col-6 col-md">
+          <div className="card card-sm">
+            <div className="card-body">
+              <div className="text-secondary small">En revisión</div>
+              <div className="h2 mb-0 text-warning">{conteos.pending}</div>
+            </div>
+          </div>
+        </div>
+        <div className="col-6 col-md">
+          <div className="card card-sm">
+            <div className="card-body">
+              <div className="text-secondary small">En provisioning</div>
+              <div className="h2 mb-0 text-info">{conteos.provisioning}</div>
+            </div>
+          </div>
+        </div>
+        <div className="col-6 col-md">
+          <div className="card card-sm">
+            <div className="card-body">
+              <div className="text-secondary small">Activas</div>
+              <div className="h2 mb-0 text-success">{conteos.active}</div>
+            </div>
+          </div>
+        </div>
+        <div className="col-6 col-md">
+          <div className="card card-sm">
+            <div className="card-body">
+              <div className="text-secondary small">Rechazadas</div>
+              <div className="h2 mb-0 text-danger">{conteos.rejected}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="btn-list mb-3">
+        {FILTROS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            className={`btn btn-sm ${filtro === f.id ? 'btn-primary' : 'btn-outline-secondary'}`}
+            onClick={() => setFiltro(f.id)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loading && lista.length === 0 ? (
+        <div className="card">
+          <div className="card-body text-center text-secondary py-5">
+            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden />
+            Cargando solicitudes…
+          </div>
+        </div>
+      ) : lista.length === 0 ? (
+        <div className="card">
+          <div className="card-body text-center py-5 px-4">
+            <h2 className="h4 mb-3">No hay solicitudes de integración</h2>
+            <p className="text-secondary mb-0">
+              Cuando un integrador envíe una solicitud desde el Portal Integrador, aparecerá aquí para su
+              revisión.
+            </p>
+          </div>
+        </div>
+      ) : filtrada.length === 0 ? (
+        <div className="card">
+          <div className="card-body text-center text-secondary py-4">
+            No hay solicitudes con el filtro seleccionado.
+          </div>
+        </div>
+      ) : (
+        <div className="card">
+          <div className="table-responsive">
+            <table className="table table-vcenter card-table">
+              <thead>
+                <tr>
+                  <th>Organización</th>
+                  <th>Tenant ID</th>
+                  <th>Integrador / contacto</th>
+                  <th>Estado</th>
+                  <th>Actualización</th>
+                  <th>Próximo paso</th>
+                  <th className="w-1" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtrada.map((s) => {
+                  const fecha = formatDevRequestDate(s.updatedAt ?? s.createdAt)
+                  const next =
+                    OPERATOR_NEXT_STEP[s.status as DevRequestStatus] ?? OPERATOR_NEXT_STEP.pending
+                  return (
+                    <tr key={s.id}>
+                      <td className="fw-medium">{s.orgName}</td>
+                      <td className="font-monospace small">{s.tenantId}</td>
+                      <td className="small">{s.contactEmail}</td>
+                      <td>
+                        <DevRequestStatusBadge status={s.status} />
+                      </td>
+                      <td className="text-secondary small">{fecha ?? '—'}</td>
+                      <td className="text-secondary small">{next}</td>
+                      <td className="text-end">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => navigate(`/admin/solicitudes/${s.id}`)}
+                        >
+                          Ver detalle
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
