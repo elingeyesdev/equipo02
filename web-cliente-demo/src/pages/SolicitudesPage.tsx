@@ -116,10 +116,10 @@ export default function SolicitudesPage() {
 
   const introRol =
     esAdmin
-      ? 'Como administrador, puedes aprobar o rechazar cambios propuestos por integradores.'
+      ? 'Como administrador, puedes aprobar o rechazar cambios propuestos por integradores (altas, ediciones, bajas y restauraciones).'
       : esLectura
         ? 'Tu rol puede consultar información, pero no aprobar cambios.'
-        : 'Aquí puedes ver el estado de los cambios que propusiste.'
+        : 'Aquí puedes ver el estado de los cambios que propusiste, incluidas solicitudes de restauración.'
 
   return (
     <div className="space-y-5">

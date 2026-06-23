@@ -1,6 +1,6 @@
 import { apiJson } from './apiClient'
 import { parseDatoDatos } from '../lib/datoApiAdapter'
-import type { ClienteApi, RespuestaExitoTx, RespuestaLectura } from '../types/api'
+import type { ClienteApi, RespuestaLectura } from '../types/api'
 
 /** Activo genérico del modelo universal (dato_cc). */
 export interface DatoGenerico {
@@ -63,9 +63,9 @@ export async function fetchHistorialDato(datoId: string): Promise<RespuestaLectu
   return apiJson<RespuestaLectura>(`/datos/${id}/historial`, { method: 'GET' })
 }
 
-export async function restaurarDatoRevision(datoId: string, txId: string): Promise<RespuestaExitoTx & { restauradoDesdeTxId?: string }> {
+export async function restaurarDatoRevision(datoId: string, txId: string): Promise<RespuestaMutacionDato> {
   const id = encodeURIComponent(datoId.trim())
-  return apiJson<RespuestaExitoTx & { restauradoDesdeTxId?: string }>(`/datos/${id}/restaurar`, {
+  return apiJson<RespuestaMutacionDato>(`/datos/${id}/restaurar`, {
     method: 'POST',
     body: JSON.stringify({ txId: txId.trim() }),
   })

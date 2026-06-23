@@ -1,19 +1,29 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useSettings } from '../context/SettingsContext'
 import { describeApiError } from '../lib/apiErrorMessage'
 import { formatDemoDateTime } from '../lib/format'
 import { datoFilasLegibles, displayDatoField } from '../lib/datoDisplay'
-import { fetchHistorialDato } from '../services/apiDatos'
+import { fetchHistorialDato, restaurarDatoRevision } from '../services/apiDatos'
 import { historialConPayloads, type HistorialFilaVista } from '../lib/historialDato'
 import LoteProcesoPanel from '../components/LoteProcesoPanel'
 import LineaTiempoStrip from '../components/LineaTiempoStrip'
 import { buildAccionesFromHistorial } from '../lib/lineaTiempoAcciones'
+import {
+  etiquetaBotonRestaurar,
+  mensajeConfirmRestaurar,
+  puedeProponerRestauracion,
+  resolverAvisoRestaurar,
+  type AvisoRestaurar,
+} from '../lib/restaurarRevisionUi'
+import RestaurarRevisionAviso from '../components/RestaurarRevisionAviso'
 
 const btn =
   'admin-btn-primary shadow-sm transition-colors hover:bg-accent-hover disabled:opacity-50'
 
 export default function DatoHistorialPage() {
   const { datoId: datoIdParam } = useParams()
+  const { role } = useSettings()
   const datoId = decodeURIComponent(datoIdParam ?? '').trim()
   const [rows, setRows] = useState<HistorialFilaVista[]>([])
   const [payloads, setPayloads] = useState<Array<Record<string, unknown> | null>>([])
@@ -22,6 +32,8 @@ export default function DatoHistorialPage() {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [restaurandoTxId, setRestaurandoTxId] = useState<string | null>(null)
+  const [avisoRestaurar, setAvisoRestaurar] = useState<AvisoRestaurar | null>(null)
 
   const load = useCallback(async () => {
     if (!datoId) return
@@ -45,6 +57,32 @@ export default function DatoHistorialPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const restaurarRevision = useCallback(async (txId: string) => {
+    if (!datoId || !txId.trim() || !puedeProponerRestauracion(role)) return
+    const ok = window.confirm(mensajeConfirmRestaurar(role))
+    if (!ok) return
+
+    setRestaurandoTxId(txId)
+    setError(null)
+    setAvisoRestaurar(null)
+    try {
+      const r = await restaurarDatoRevision(datoId, txId)
+      const aviso = resolverAvisoRestaurar(r)
+      setAvisoRestaurar(aviso)
+      if (aviso.tipo === 'confirmado') {
+        await load()
+        setSelectedIdx(null)
+      }
+    } catch (e) {
+      setError(describeApiError(e))
+    } finally {
+      setRestaurandoTxId(null)
+    }
+  }, [datoId, load, role])
+
+  const filaSeleccionada = selectedIdx !== null ? rows[selectedIdx] : null
+  const esRevisionEliminada = Boolean(filaSeleccionada?.isDelete)
 
   if (!datoId) {
     return (
@@ -177,12 +215,48 @@ export default function DatoHistorialPage() {
             </div>
             <button
               type="button"
-              onClick={() => setSelectedIdx(null)}
+              onClick={() => {
+                setSelectedIdx(null)
+                setAvisoRestaurar(null)
+              }}
               className="rounded-md bg-gray-50 px-3 py-1.5 text-xs text-ink-secondary hover:bg-gray-100"
             >
               Cerrar
             </button>
           </div>
+
+          {avisoRestaurar ? (
+            <RestaurarRevisionAviso
+              aviso={avisoRestaurar}
+              datoId={datoId}
+              onCerrar={() => setAvisoRestaurar(null)}
+              className="mb-4"
+            />
+          ) : null}
+
+          {puedeProponerRestauracion(role) ? (
+            <div className="mb-4 flex justify-end">
+              <button
+                type="button"
+                className={btn}
+                disabled={restaurandoTxId === rows[selectedIdx].txId || esRevisionEliminada}
+                onClick={() => void restaurarRevision(rows[selectedIdx].txId)}
+                title={
+                  esRevisionEliminada
+                    ? 'No se puede restaurar una revisión de eliminación'
+                    : role === 'integrador'
+                      ? 'Enviar solicitud de restauración al administrador'
+                      : 'Crear un nuevo bloque con los datos de esta revisión'
+                }
+              >
+                {restaurandoTxId === rows[selectedIdx].txId
+                  ? role === 'integrador'
+                    ? 'Enviando…'
+                    : 'Restaurando…'
+                  : etiquetaBotonRestaurar(role)}
+              </button>
+            </div>
+          ) : null}
 
           {payloads[selectedIdx] ? (
             <div className="mb-6 rounded-xl border border-line/60 bg-surface/20 p-4">

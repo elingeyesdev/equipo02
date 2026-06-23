@@ -18,6 +18,14 @@ import LoteProcesoPanel from '../components/LoteProcesoPanel'
 import { extraerPayloadDato } from '../lib/datoPayload'
 import { decodeIfBase64 } from '../lib/ledgerFieldDecode'
 import { autorRolDisplayDesdeNotas } from '../lib/notasLedger'
+import {
+  etiquetaBotonRestaurar,
+  mensajeConfirmRestaurar,
+  puedeProponerRestauracion,
+  resolverAvisoRestaurar,
+  type AvisoRestaurar,
+} from '../lib/restaurarRevisionUi'
+import RestaurarRevisionAviso from '../components/RestaurarRevisionAviso'
 
 // Detalle de identidad de los actores de auditoría. En el modelo universal NO
 // se hardcodean usuarios de un dominio concreto: el detalle proviene del
@@ -223,6 +231,12 @@ export default function AuditarPage() {
   const [selectedAccionIdx, setSelectedAccionIdx] = useState<number | null>(null)
   const [selectedUsuario, setSelectedUsuario] = useState<string | null>(null)
   const [restaurandoTxId, setRestaurandoTxId] = useState<string | null>(null)
+  const [avisoRestaurar, setAvisoRestaurar] = useState<AvisoRestaurar | null>(null)
+
+  const seleccionarAccion = useCallback((idx: number | null) => {
+    setSelectedAccionIdx(idx)
+    setAvisoRestaurar(null)
+  }, [])
 
   const buscarLineaTiempo = useCallback(async (id: string) => {
     const trimmed = id.trim()
@@ -309,25 +323,27 @@ export default function AuditarPage() {
   }, [location.key, location.state, puedeConsultarApi, buscarLineaTiempo, load])
 
   const restaurarRevision = useCallback(async (datoId: string, txId: string) => {
-    if (!datoId.trim() || !txId.trim()) return
-    const ok = window.confirm(
-      'Se creará un NUEVO bloque con los datos de esta revisión histórica. La cadena no se borra. ¿Deseas continuar?',
-    )
+    if (!datoId.trim() || !txId.trim() || !puedeProponerRestauracion(role)) return
+    const ok = window.confirm(mensajeConfirmRestaurar(role))
     if (!ok) return
 
     setRestaurandoTxId(txId)
     setLineaError(null)
+    setAvisoRestaurar(null)
     try {
-      await restaurarDatoRevision(datoId, txId)
-      await Promise.all([buscarLineaTiempo(datoId), load()])
-      setSelectedAccionIdx(null)
-      window.alert('Revisión restaurada correctamente como un nuevo bloque.')
+      const r = await restaurarDatoRevision(datoId, txId)
+      const aviso = resolverAvisoRestaurar(r)
+      setAvisoRestaurar(aviso)
+      if (aviso.tipo === 'confirmado') {
+        await Promise.all([buscarLineaTiempo(datoId), load()])
+        seleccionarAccion(null)
+      }
     } catch (e) {
       setLineaError(describeApiError(e))
     } finally {
       setRestaurandoTxId(null)
     }
-  }, [buscarLineaTiempo, load])
+  }, [buscarLineaTiempo, load, role])
 
   const filas = useMemo(() => {
     const fromEventos = datos ? filasDesdeDatos(datos) : []
@@ -447,8 +463,8 @@ export default function AuditarPage() {
     setTimelineAbierta(null)
     setLineaTiempo(null)
     setLineaError(null)
-    setSelectedAccionIdx(null)
-  }, [])
+    seleccionarAccion(null)
+  }, [seleccionarAccion])
 
   const toggleTimeline = useCallback(
     (codigo: string, e?: React.MouseEvent) => {
@@ -549,7 +565,7 @@ export default function AuditarPage() {
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200"
-            onClick={() => setSelectedAccionIdx(null)}
+            onClick={() => seleccionarAccion(null)}
           >
             <div
               className="w-full max-w-5xl h-[85vh] rounded-2xl border border-line bg-surface shadow-card-md animate-in zoom-in-95 duration-200 flex flex-col overflow-hidden"
@@ -564,7 +580,7 @@ export default function AuditarPage() {
                   <p className="text-[10px] text-muted mt-0.5">Código de Registro: <span className="font-mono text-ink-secondary font-bold">{lineaTiempo.clienteId}</span></p>
                 </div>
                 <button
-                  onClick={() => setSelectedAccionIdx(null)}
+                  onClick={() => seleccionarAccion(null)}
                   className="admin-btn-secondary !rounded-lg !px-3.5 !py-1.5 !text-xs"
                 >
                   Cerrar
@@ -585,7 +601,7 @@ export default function AuditarPage() {
                       return (
                         <button
                           key={`${acc.txId}-${idx}`}
-                          onClick={() => setSelectedAccionIdx(idx)}
+                          onClick={() => seleccionarAccion(idx)}
                           className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
                             isSelected ? `${estilo.chip} ring-1 ring-[#1a3a5c]/15` : 'border-line/60 bg-white hover:border-line'
                           }`}
@@ -644,21 +660,36 @@ export default function AuditarPage() {
                       </div>
                     </div>
 
-                    {role === 'admin' ? (
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          type="button"
-                          className="rounded-lg bg-[#1a3a5c] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0f2844] disabled:opacity-50"
-                          disabled={restaurandoTxId === selectedAcc.txId || esRevisionEliminada}
-                          onClick={() => void restaurarRevision(lineaTiempo.clienteId, selectedAcc.txId)}
-                          title={
-                            esRevisionEliminada
-                              ? 'No se puede restaurar una revisión de eliminación'
-                              : 'Crear un nuevo bloque con los datos de esta revisión'
-                          }
-                        >
-                          {restaurandoTxId === selectedAcc.txId ? 'Restaurando…' : 'Restaurar esta revisión'}
-                        </button>
+                    {puedeProponerRestauracion(role) ? (
+                      <div className="mt-3 space-y-3">
+                        {avisoRestaurar ? (
+                          <RestaurarRevisionAviso
+                            aviso={avisoRestaurar}
+                            datoId={lineaTiempo.clienteId}
+                            onCerrar={() => setAvisoRestaurar(null)}
+                          />
+                        ) : null}
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-[#1a3a5c] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0f2844] disabled:opacity-50"
+                            disabled={restaurandoTxId === selectedAcc.txId || esRevisionEliminada}
+                            onClick={() => void restaurarRevision(lineaTiempo.clienteId, selectedAcc.txId)}
+                            title={
+                              esRevisionEliminada
+                                ? 'No se puede restaurar una revisión de eliminación'
+                                : role === 'integrador'
+                                  ? 'Enviar solicitud de restauración al administrador'
+                                  : 'Crear un nuevo bloque con los datos de esta revisión'
+                            }
+                          >
+                            {restaurandoTxId === selectedAcc.txId
+                              ? role === 'integrador'
+                                ? 'Enviando…'
+                                : 'Restaurando…'
+                              : etiquetaBotonRestaurar(role)}
+                          </button>
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -839,7 +870,7 @@ export default function AuditarPage() {
                           registroId={g.codigo}
                           acciones={lineaTiempo?.clienteId === g.codigo ? lineaTiempo.acciones : []}
                           selectedIdx={selectedAccionIdx}
-                          onSelect={setSelectedAccionIdx}
+                          onSelect={seleccionarAccion}
                           compact
                           loading={lineaLoading}
                           error={lineaError}
