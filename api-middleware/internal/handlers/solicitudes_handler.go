@@ -111,11 +111,16 @@ func RechazarSolicitud(c *gin.Context) {
 		return
 	}
 
-	publicarNotificacion(c,
+	publicarNotificacionConMetadata(c,
 		notificador.EventoSolicitudResuelta,
 		actualizada.DatoID,
 		"",
 		fmt.Sprintf("Solicitud %s rechazada por %q", actualizada.ID, aprobador),
+		map[string]any{
+			"solicitudId": actualizada.ID,
+			"estado":      "rechazada",
+			"operacion":   string(actualizada.Operacion),
+		},
 	)
 	c.JSON(http.StatusOK, gin.H{
 		"ok":        true,

@@ -13,6 +13,10 @@ import (
 // del actor extraídos del contexto Gin. Es seguro llamarla aunque el
 // notificador no esté inicializado (no-op).
 func publicarNotificacion(c *gin.Context, tipo, recurso, txID, resumen string) {
+	publicarNotificacionConMetadata(c, tipo, recurso, txID, resumen, nil)
+}
+
+func publicarNotificacionConMetadata(c *gin.Context, tipo, recurso, txID, resumen string, metadata map[string]any) {
 	if notificador.Default == nil {
 		return
 	}
@@ -35,5 +39,6 @@ func publicarNotificacion(c *gin.Context, tipo, recurso, txID, resumen string) {
 		ActorNombre: actorNombre,
 		TxID:        txID,
 		Resumen:     resumen,
+		Metadata:    metadata,
 	})
 }
