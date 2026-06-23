@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
-export const inputClass =
-  'w-full rounded-lg border border-line/80 bg-white px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-muted/70 transition-shadow focus:border-[#1a3a5c]/40 focus:ring-2 focus:ring-[#1a3a5c]/10'
+export const inputClass = 'form-control'
 
-export const textareaClass = `${inputClass} resize-y leading-relaxed`
+export const textareaClass = 'form-control'
 
 export function copyToClipboard(value: string) {
   void navigator.clipboard.writeText(value)
@@ -40,17 +39,12 @@ export function Field({
   placeholder?: string
 }) {
   return (
-    <label className="block text-xs font-medium text-[#6b7280]">
-      <span className="mb-1.5 flex items-center gap-2 text-[#374151]">
+    <label className="form-label">
+      <span className="d-flex align-items-center gap-2">
         <span>{label}</span>
         {help ? <HelpTooltip text={help} /> : null}
       </span>
-      <input
-        className={inputClass}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
+      <input className={inputClass} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
     </label>
   )
 }
@@ -72,7 +66,7 @@ export function HelpTooltip({ text }: { text: string }) {
   }, [open])
 
   return (
-    <span ref={containerRef} className="relative inline-flex">
+    <span ref={containerRef} className="position-relative d-inline-flex">
       <button
         type="button"
         onClick={(e) => {
@@ -80,13 +74,14 @@ export function HelpTooltip({ text }: { text: string }) {
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-line bg-gray-50 text-[10px] font-bold text-ink-secondary hover:bg-gray-100"
+        className="btn btn-sm btn-ghost-secondary rounded-circle p-0"
+        style={{ width: '1.25rem', height: '1.25rem', fontSize: '0.65rem' }}
         aria-label="Mostrar ayuda del campo"
       >
         ?
       </button>
       {open ? (
-        <span className="absolute left-0 top-6 z-20 w-64 rounded-md border border-line bg-surface p-2 text-[11px] font-normal leading-4 text-ink-secondary shadow-card">
+        <span className="position-absolute start-0 top-100 mt-1 p-2 bg-white border rounded shadow-sm small" style={{ width: '16rem', zIndex: 20 }}>
           {text}
         </span>
       ) : null}
@@ -96,14 +91,11 @@ export function HelpTooltip({ text }: { text: string }) {
 
 export function StepIntro({ title, lines }: { title: string; lines: string[] }) {
   return (
-    <div className="mt-5 rounded-2xl border border-[#1a3a5c]/10 bg-[#f4f7fb] px-5 py-4">
-      <p className="text-sm font-semibold text-[#1a2332]">{title}</p>
-      <ul className="mt-3 space-y-2.5 text-sm leading-relaxed text-[#4b5563]">
+    <div className="alert alert-info mt-3">
+      <p className="fw-semibold mb-2">{title}</p>
+      <ul className="mb-0 ps-3">
         {lines.map((line) => (
-          <li key={line} className="flex gap-2.5">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#f0b429]" aria-hidden />
-            <span>{line}</span>
-          </li>
+          <li key={line}>{line}</li>
         ))}
       </ul>
     </div>
@@ -112,25 +104,24 @@ export function StepIntro({ title, lines }: { title: string; lines: string[] }) 
 
 export function ExampleNotice({ text }: { text: string }) {
   return (
-    <div className="mt-5 rounded-2xl border border-amber-200/80 bg-amber-50/80 px-5 py-4">
-      <p className="text-sm font-semibold text-amber-900">Valores de ejemplo</p>
-      <p className="mt-2 text-sm leading-relaxed text-amber-800/90">{text}</p>
+    <div className="alert alert-warning mt-3">
+      <p className="fw-semibold mb-1">Valores de ejemplo</p>
+      <p className="mb-0 small">{text}</p>
     </div>
   )
 }
 
 export function Checklist({ items }: { items: string[] }) {
   return (
-    <div className="mt-6 rounded-2xl border border-[#1a3a5c]/12 bg-[#1a3a5c]/5 px-5 py-4">
-      <p className="text-sm font-semibold text-[#1a3a5c]">Checklist sugerido</p>
-      <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#4b5563]">
-        {items.map((item) => (
-          <li key={item} className="flex gap-2">
-            <span className="text-[#1a3a5c]">·</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
+    <div className="card bg-primary-lt mt-3">
+      <div className="card-body">
+        <p className="fw-semibold text-primary">Checklist sugerido</p>
+        <ul className="mb-0 small">
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }
@@ -145,18 +136,16 @@ export function SnippetBlock({
   onCopy: () => void
 }) {
   return (
-    <div className="mt-6 overflow-hidden rounded-2xl border border-line/60 bg-[#fafbfd]">
-      <div className="flex items-center justify-between gap-3 border-b border-line/60 bg-white px-4 py-3">
-        <p className="text-sm font-semibold text-[#1a2332]">{title}</p>
-        <button
-          type="button"
-          className="shrink-0 rounded-full border border-line bg-white px-3 py-1.5 text-xs font-medium text-[#374151] hover:bg-[#f9fafb]"
-          onClick={onCopy}
-        >
+    <div className="card mt-3">
+      <div className="card-header d-flex justify-content-between align-items-center">
+        <h4 className="card-title mb-0">{title}</h4>
+        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onCopy}>
           Copiar
         </button>
       </div>
-      <pre className="max-h-80 overflow-auto px-4 py-4 text-xs leading-relaxed text-[#374151]">{value}</pre>
+      <div className="card-body p-0">
+        <pre className="snippet-pre p-3 bg-light">{value}</pre>
+      </div>
     </div>
   )
 }
@@ -164,30 +153,26 @@ export function SnippetBlock({
 export function RoleAlert({ role }: { role: 'integrador' | 'admin' | 'lectura' }) {
   if (role === 'integrador') {
     return (
-      <div className="mt-5 rounded-2xl border border-amber-200/80 bg-amber-50/80 px-5 py-4 text-sm leading-relaxed text-amber-900">
-        <p className="font-semibold">Rol integrador → HTTP 202 (pendiente)</p>
-        <p className="mt-2">
-          Tus POST/PUT/DELETE <strong>no escriben directo en cadena</strong>. El BaaS crea una solicitud
-          pendiente y un admin debe aprobarla en la consola. Recibir 202 es el comportamiento esperado, no un
-          error.
+      <div className="alert alert-warning mt-3">
+        <p className="fw-semibold mb-1">Rol integrador → HTTP 202 (pendiente)</p>
+        <p className="mb-0 small">
+          Tus POST/PUT/DELETE no escriben directo en cadena. Recibir 202 es el comportamiento esperado.
         </p>
       </div>
     )
   }
   if (role === 'admin') {
     return (
-      <div className="mt-5 rounded-2xl border border-emerald-200/80 bg-emerald-50/80 px-5 py-4 text-sm leading-relaxed text-emerald-900">
-        <p className="font-semibold">Rol admin → HTTP 201 (escritura directa)</p>
-        <p className="mt-2">
-          Las mutaciones se confirman en blockchain de inmediato. La respuesta incluye <code>txId</code>.
-        </p>
+      <div className="alert alert-success mt-3">
+        <p className="fw-semibold mb-1">Rol admin → HTTP 201 (escritura directa)</p>
+        <p className="mb-0 small">Las mutaciones se confirman en blockchain de inmediato con txId.</p>
       </div>
     )
   }
   return (
-    <div className="mt-5 rounded-2xl border border-red-200/80 bg-red-50/80 px-5 py-4 text-sm leading-relaxed text-red-900">
-      <p className="font-semibold">Rol lectura → solo GET</p>
-      <p className="mt-2">Esta key sirve para consultas e historial. Cualquier POST/PUT/DELETE devolverá 403.</p>
+    <div className="alert alert-danger mt-3">
+      <p className="fw-semibold mb-1">Rol lectura → solo GET</p>
+      <p className="mb-0 small">Esta key sirve para consultas e historial. Mutaciones devuelven 403.</p>
     </div>
   )
 }

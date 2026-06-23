@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { inputClass } from '../components/onboarding/OnboardingUi'
+import IntegrationCodePanel from '../components/codegen/IntegrationCodePanel'
+import { useDevAuth } from '../context/DevAuthContext'
+import type { OnboardingContext } from '../lib/onboardingSnippets'
 import {
   draftCanSubmit,
   draftToSolicitudBody,
@@ -10,19 +12,37 @@ import {
   type DevChatDraft,
   type DevChatMessage,
 } from '../services/devPortalApi'
-import DevPortalFormWizard from './DevPortalFormWizard'
-import { useDevAuth } from '../context/DevAuthContext'
 
 const WELCOME: DevChatMessage = {
   role: 'assistant',
   content:
-    '¡Hola! Soy el asistente de alta en Nexum BaaS. Te guiaré para registrar tu organización, usuarios de consola y diseño de integración API — sin que toques Hyperledger.\n\n¿Cómo se llama tu empresa?',
+    '¡Hola! Soy el asistente de integración de Nexum. Te guiaré para registrar tu organización, usuarios de consola y diseño de integración API — sin que toques Hyperledger.\n\n¿Cómo se llama tu empresa?',
+}
+
+function draftHasCodegen(draft: DevChatDraft | null): boolean {
+  const i = draft?.integration
+  return !!(i?.entityType?.trim() && i?.stack && (i?.payloadExample?.trim() || i?.entityName?.trim()))
+}
+
+function draftToCodegenCtx(draft: DevChatDraft | null): OnboardingContext | null {
+  if (!draftHasCodegen(draft) || !draft?.integration) return null
+  const i = draft.integration
+  return {
+    baseUrl: 'http://localhost:3000',
+    apiKey: `${draft.tenantId ?? 'tenant'}-integrador-PENDIENTE`,
+    apiKeyRole: 'integrador',
+    entityName: i.entityName || 'Registro',
+    businessIdField: i.businessIdField || 'id',
+    entityType: i.entityType,
+    schemaVersion: i.schemaVersion || 'v1',
+    payloadExampleText: i.payloadExample || '{}',
+    attributes: i.attributes,
+  }
 }
 
 export default function DevPortalChatPage() {
   const navigate = useNavigate()
   const { estado: devEstado, usuario } = useDevAuth()
-  const [mode, setMode] = useState<'chat' | 'form'>('chat')
   const [configured, setConfigured] = useState<boolean | null>(null)
   const [model, setModel] = useState('')
   const [messages, setMessages] = useState<DevChatMessage[]>([WELCOME])
@@ -72,7 +92,7 @@ export default function DevPortalChatPage() {
   const submitFromDraft = async () => {
     if (!draft?.tenantId) return
     if (devEstado !== 'autenticado') {
-      navigate('/dev/login', { state: { from: '/dev' } })
+      navigate('/dev/login', { state: { from: '/dev/asistente' } })
       return
     }
     setSubmitting(true)
@@ -91,11 +111,15 @@ export default function DevPortalChatPage() {
     }
   }
 
-  const canSubmitDraft = draftCanSubmit({
+  const effectiveDraft = {
     ...draft,
     contactEmail: usuario?.email ?? draft?.contactEmail,
-  })
+  }
+  const canSubmitDraft = draftCanSubmit(effectiveDraft)
   const showSubmit = (ready || complete) && canSubmitDraft
+  const codegenCtx = useMemo(() => draftToCodegenCtx(draft), [draft])
+  const stack = (draft?.integration?.stack ?? 'laravel') as 'laravel' | 'nodejs' | 'curl'
+
   const submitHint = complete && !ready
     ? 'Datos completos. Escribe «sí, enviar» en el chat o pulsa el botón.'
     : devEstado !== 'autenticado'
@@ -103,91 +127,57 @@ export default function DevPortalChatPage() {
       : 'Cuando confirmes todos los datos en el chat, aquí aparecerá el botón de envío.'
 
   return (
-    <div className="min-h-[100dvh] bg-[#f4f7fb] flex flex-col">
-      <header className="border-b border-line/60 bg-white/90 backdrop-blur-sm shrink-0">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-8">
-          <Link to="/" className="text-sm font-bold uppercase tracking-[0.06em] text-[#1a3a5c]">
-            Nexum Dev Portal
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex rounded-full border border-line/60 p-0.5 text-xs font-semibold">
-              <button
-                type="button"
-                className={`rounded-full px-3 py-1.5 ${mode === 'chat' ? 'bg-[#1a3a5c] text-white' : 'text-[#6b7280]'}`}
-                onClick={() => setMode('chat')}
-              >
-                Chat IA
-              </button>
-              <button
-                type="button"
-                className={`rounded-full px-3 py-1.5 ${mode === 'form' ? 'bg-[#1a3a5c] text-white' : 'text-[#6b7280]'}`}
-                onClick={() => setMode('form')}
-              >
-                Formulario
-              </button>
-            </div>
-            <Link to="/dev/mis-solicitudes" className="text-sm font-medium text-[#6b7280] hover:text-[#1a3a5c]">
-              Mis solicitudes
-            </Link>
-            {devEstado === 'autenticado' ? (
-              <span className="text-xs text-[#6b7280]">{usuario?.email}</span>
-            ) : (
-              <Link to="/dev/login" className="text-sm font-medium text-[#1a3a5c]">
-                Entrar
-              </Link>
-            )}
-            <Link to="/admin/solicitudes" className="text-sm font-medium text-[#6b7280] hover:text-[#1a3a5c]">
-              Operador
-            </Link>
+    <div className="container-xl py-4">
+      <div className="mb-4">
+        <Link to="/dev" className="btn btn-ghost-secondary btn-sm mb-2">
+          ← Portal Integrador Nexum
+        </Link>
+        <h1 className="page-title">Asistente de integración</h1>
+        <p className="text-secondary mb-0">
+          Opción guiada por IA para estructurar tu payload y generar ejemplos de código Nexum.
+        </p>
+        {configured === false ? (
+          <div className="alert alert-warning mt-3 mb-0">
+            IA no configurada en el servidor (DEEPSEEK_API_KEY). Usa el{' '}
+            <Link to="/dev/solicitud">formulario manual</Link> para crear tu solicitud.
           </div>
-        </div>
-      </header>
+        ) : null}
+      </div>
 
-      {mode === 'form' ? (
-        <DevPortalFormWizard />
-      ) : (
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 py-6 sm:px-8 lg:flex-row lg:items-stretch">
-          <section className="flex min-h-[420px] flex-1 flex-col rounded-3xl border border-line/60 bg-white shadow-sm">
-            <div className="border-b border-line/40 px-5 py-4">
-              <h1 className="text-lg font-bold text-[#1a2332]">Asistente de alta BaaS</h1>
-              <p className="text-xs text-[#6b7280]">
+      <div className="row g-4">
+        <div className="col-lg-7">
+          <div className="card h-100">
+            <div className="card-header">
+              <h3 className="card-title">Chat con Nexum</h3>
+              <div className="card-subtitle text-secondary">
                 {configured === false
-                  ? 'IA no configurada en el BFF (DEEPSEEK_API_KEY). Usa el formulario manual.'
+                  ? 'Asistente no disponible'
                   : configured
                     ? `Conectado · ${model || 'DeepSeek'}`
                     : 'Comprobando asistente…'}
-              </p>
+              </div>
             </div>
-
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+            <div className="card-body overflow-auto" style={{ maxHeight: '28rem' }}>
               {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+                <div key={i} className={`d-flex mb-3 ${m.role === 'user' ? 'justify-content-end' : ''}`}>
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                      m.role === 'user'
-                        ? 'bg-[#1a3a5c] text-white'
-                        : 'bg-[#f4f7fb] text-[#1a2332]'
+                    className={`rounded px-3 py-2 small ${
+                      m.role === 'user' ? 'bg-primary text-white' : 'bg-light'
                     }`}
+                    style={{ maxWidth: '85%', whiteSpace: 'pre-wrap' }}
                   >
                     {m.content}
                   </div>
                 </div>
               ))}
-              {loading ? (
-                <p className="text-xs text-[#6b7280] animate-pulse">El asistente está escribiendo…</p>
-              ) : null}
+              {loading ? <p className="text-secondary small">El asistente está escribiendo…</p> : null}
               <div ref={bottomRef} />
             </div>
-
-            {error ? <p className="px-5 text-sm text-red-600">{error}</p> : null}
-
-            <div className="border-t border-line/40 p-4">
-              <div className="flex gap-2">
+            {error ? <div className="card-footer text-danger small">{error}</div> : null}
+            <div className="card-footer">
+              <div className="input-group">
                 <input
-                  className={inputClass}
+                  className="form-control"
                   placeholder="Escribe tu mensaje…"
                   value={input}
                   disabled={loading || configured === false}
@@ -202,65 +192,79 @@ export default function DevPortalChatPage() {
                 <button
                   type="button"
                   disabled={loading || !input.trim() || configured === false}
-                  className="shrink-0 rounded-full bg-[#f0b429] px-5 py-2 text-sm font-bold text-[#1a2332] disabled:opacity-40"
+                  className="btn btn-warning"
                   onClick={() => void send()}
                 >
                   Enviar
                 </button>
               </div>
             </div>
-          </section>
-
-          <aside className="w-full shrink-0 rounded-3xl border border-line/60 bg-white p-5 shadow-sm lg:w-80">
-            <h2 className="text-sm font-bold text-[#1a2332]">Borrador</h2>
-            <dl className="mt-4 space-y-2 text-xs">
-              <div>
-                <dt className="text-[#6b7280]">Organización</dt>
-                <dd className="font-medium">{draft?.orgName || '—'}</dd>
-              </div>
-              <div>
-                <dt className="text-[#6b7280]">tenant_id</dt>
-                <dd className="font-mono">{draft?.tenantId || '—'}</dd>
-              </div>
-              <div>
-                <dt className="text-[#6b7280]">Contacto</dt>
-                <dd>{draft?.contactEmail || '—'}</dd>
-              </div>
-              <div>
-                <dt className="text-[#6b7280]">Integración</dt>
-                <dd>{draft?.integration?.entityType || '—'} / {draft?.integration?.stack || '—'}</dd>
-              </div>
-              <div>
-                <dt className="text-[#6b7280]">Usuarios</dt>
-                <dd>{draft?.users?.length ?? 0}</dd>
-              </div>
-            </dl>
-
-            {showSubmit ? (
-              <>
-                {devEstado !== 'autenticado' ? (
-                  <p className="mt-4 text-xs text-amber-800">
-                    <Link to="/dev/registro" className="font-semibold underline">Crea una cuenta</Link>
-                    {' '}o{' '}
-                    <Link to="/dev/login" className="font-semibold underline">inicia sesión</Link>
-                    {' '}para enviar.
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  disabled={submitting || !canSubmitDraft || devEstado !== 'autenticado'}
-                  className="mt-4 w-full rounded-full bg-[#1a3a5c] py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                  onClick={() => void submitFromDraft()}
-                >
-                  {submitting ? 'Enviando…' : 'Enviar solicitud'}
-                </button>
-              </>
-            ) : (
-              <p className="mt-6 text-xs text-[#6b7280]">{submitHint}</p>
-            )}
-          </aside>
+          </div>
         </div>
-      )}
+
+        <div className="col-lg-5">
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">Borrador</h3>
+            </div>
+            <div className="card-body">
+              <dl className="row mb-0 small">
+                <dt className="col-5 text-secondary">Organización</dt>
+                <dd className="col-7">{draft?.orgName || '—'}</dd>
+                <dt className="col-5 text-secondary">tenant_id</dt>
+                <dd className="col-7 font-monospace">{draft?.tenantId || '—'}</dd>
+                <dt className="col-5 text-secondary">Contacto</dt>
+                <dd className="col-7">{effectiveDraft.contactEmail || '—'}</dd>
+                <dt className="col-5 text-secondary">Integración</dt>
+                <dd className="col-7">
+                  {draft?.integration?.entityType || '—'} / {draft?.integration?.stack || '—'}
+                </dd>
+                <dt className="col-5 text-secondary">Usuarios</dt>
+                <dd className="col-7">{draft?.users?.length ?? 0}</dd>
+              </dl>
+              {showSubmit ? (
+                <>
+                  {devEstado !== 'autenticado' ? (
+                    <p className="mt-3 small text-warning">
+                      <Link to="/dev/registro">Crea una cuenta</Link> o{' '}
+                      <Link to="/dev/login">inicia sesión</Link> para enviar.
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={submitting || !canSubmitDraft || devEstado !== 'autenticado'}
+                    className="btn btn-primary w-100 mt-3"
+                    onClick={() => void submitFromDraft()}
+                  >
+                    {submitting ? 'Enviando…' : 'Enviar solicitud'}
+                  </button>
+                </>
+              ) : (
+                <p className="mt-3 small text-secondary">{submitHint}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {codegenCtx ? (
+        <div className="card mt-4">
+          <div className="card-header">
+            <h3 className="card-title">Tu código de integración</h3>
+            <div className="card-subtitle text-secondary">
+              Generado desde tu diseño de payload. Copia el controller a tu proyecto Laravel.
+            </div>
+          </div>
+          <div className="card-body">
+            <IntegrationCodePanel
+              ctx={codegenCtx}
+              stack={stack}
+              keysPending
+              downloadName={`integracion-${draft?.tenantId ?? 'borrador'}`}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -113,7 +113,7 @@ export default function DevPortalFormWizard() {
 
   const submit = async () => {
     if (devEstado !== 'autenticado') {
-      navigate('/dev/login', { state: { from: '/dev' } })
+      navigate('/dev/login', { state: { from: '/dev/solicitud' } })
       return
     }
     setSaving(true)

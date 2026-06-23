@@ -1,6 +1,13 @@
 export type StackTarget = 'laravel' | 'nodejs' | 'curl'
 export type ApiKeyRole = 'integrador' | 'admin' | 'lectura'
 
+export type AttributeItem = {
+  key: string
+  label: string
+  type: string
+  required: boolean
+}
+
 export type OnboardingContext = {
   baseUrl: string
   apiKey: string
@@ -10,6 +17,43 @@ export type OnboardingContext = {
   entityType: string
   schemaVersion: string
   payloadExampleText: string
+  attributes?: AttributeItem[]
+}
+
+function entityNames(ctx: OnboardingContext) {
+  const entity = ctx.entityName.trim() || 'Registro'
+  const entityVar = entity.charAt(0).toLowerCase() + entity.slice(1)
+  const field = ctx.businessIdField.trim() || 'id'
+  const tableName = `${entityVar}s`
+  return { entity, entityVar, field, tableName }
+}
+
+function laravelValidationRules(ctx: OnboardingContext): string {
+  const attrs = ctx.attributes?.filter((a) => a.key.trim()) ?? []
+  if (attrs.length === 0) {
+    return `'${entityNames(ctx).field}' => 'required|string|max:255',`
+  }
+  return attrs
+    .map((a) => {
+      const rule = a.required ? 'required' : 'nullable'
+      const typeRule =
+        a.type === 'numero' ? 'numeric' : a.type === 'fecha' ? 'date' : 'string'
+      return `'${a.key}' => '${rule}|${typeRule}',`
+    })
+    .join('\n            ')
+}
+
+function modelSnapshotFields(ctx: OnboardingContext): string {
+  const attrs = ctx.attributes?.filter((a) => a.key.trim()) ?? []
+  if (attrs.length > 0) {
+    return attrs
+      .map((a) => `            '${a.key}' => $this->${a.key},`)
+      .join('\n')
+  }
+  const { field } = entityNames(ctx)
+  return `            'schemaVersion' => '${ctx.schemaVersion}',
+            'estado' => $this->estado ?? 'activo',
+            '${field}' => (string) $this->${field},`
 }
 
 export type CurlExamples = {
@@ -158,10 +202,106 @@ class DatosBaasClient
 }`
 }
 
+export function buildLaravelModelSnippet(ctx: OnboardingContext): string {
+  const { entity, field, tableName } = entityNames(ctx)
+  const attrs = ctx.attributes?.filter((a) => a.key.trim()) ?? []
+  const fillable =
+    attrs.length > 0
+      ? attrs.map((a) => `'${a.key}'`).join(', ')
+      : `'${field}', 'estado'`
+  return `<?php
+// app/Models/${entity}.php
+
+namespace App\\Models;
+
+use Illuminate\\Database\\Eloquent\\Model;
+
+class ${entity} extends Model
+{
+    protected $table = '${tableName}';
+
+    protected $fillable = [${fillable}];
+
+    public function toBlockchainSnapshot(): array
+    {
+        return [
+            'schemaVersion' => '${ctx.schemaVersion}',
+${modelSnapshotFields(ctx)}
+        ];
+    }
+}`
+}
+
+export function buildLaravelControllerSnippet(ctx: OnboardingContext): string {
+  const { entity, entityVar, field } = entityNames(ctx)
+  const routePrefix = entityVar
+  return `<?php
+// app/Http/Controllers/${entity}Controller.php
+
+namespace App\\Http\\Controllers;
+
+use App\\Models\\${entity};
+use App\\Services\\Blockchain\\DatosBaasClient;
+use Illuminate\\Http\\RedirectResponse;
+use Illuminate\\Http\\Request;
+
+class ${entity}Controller extends Controller
+{
+    public function store(Request $request, DatosBaasClient $baas): RedirectResponse
+    {
+        $validated = $request->validate([
+            ${laravelValidationRules(ctx)}
+        ]);
+
+        $${entityVar} = ${entity}::create($validated);
+
+        $result = $baas->syncDato(
+            datoId: (string) $${entityVar}->${field},
+            tipo: '${ctx.entityType}',
+            payload: $${entityVar}->toBlockchainSnapshot(),
+            exists: false,
+        );
+
+        // Opcional: $${entityVar}->update(['blockchain_tx_id' => $result['txId'] ?? null]);
+
+        return redirect()->route('${routePrefix}.index')
+            ->with('status', $result['solicitudId'] ?? $result['txId'] ?? 'ok');
+    }
+
+    public function update(Request $request, ${entity} $${entityVar}, DatosBaasClient $baas): RedirectResponse
+    {
+        $validated = $request->validate([
+            ${laravelValidationRules(ctx)}
+        ]);
+
+        $${entityVar}->update($validated);
+
+        $result = $baas->syncDato(
+            datoId: (string) $${entityVar}->${field},
+            tipo: '${ctx.entityType}',
+            payload: $${entityVar}->toBlockchainSnapshot(),
+            exists: true,
+        );
+
+        return redirect()->route('${routePrefix}.index')
+            ->with('status', $result['solicitudId'] ?? $result['txId'] ?? 'ok');
+    }
+}`
+}
+
+export function buildLaravelRoutesSnippet(ctx: OnboardingContext): string {
+  const { entity, entityVar } = entityNames(ctx)
+  return `<?php
+// routes/web.php (o routes/api.php)
+
+use App\\Http\\Controllers\\${entity}Controller;
+use Illuminate\\Support\\Facades\\Route;
+
+Route::resource('${entityVar}', ${entity}Controller::class)->only(['store', 'update']);`
+}
+
 export function buildLaravelHookSnippet(ctx: OnboardingContext): string {
-  const entity = ctx.entityName.trim() || 'Registro'
-  const entityVar = entity.charAt(0).toLowerCase() + entity.slice(1)
-  const field = ctx.businessIdField.trim() || 'id'
+  const { entity, entityVar, field } = entityNames(ctx)
   return `<?php
 // En tu Controller — DESPUÉS de guardar en la BD local con éxito.
 // Ejemplo: ${entity}Controller::store / update
@@ -266,6 +406,9 @@ export function buildIntegratorGuideMarkdown(
   const env = buildEnvSnippet(ctx)
   const mapping = buildMappingTable(ctx)
   const laravelClient = buildLaravelClientSnippet(ctx)
+  const laravelModel = buildLaravelModelSnippet(ctx)
+  const laravelController = buildLaravelControllerSnippet(ctx)
+  const laravelRoutes = buildLaravelRoutesSnippet(ctx)
   const laravelHook = buildLaravelHookSnippet(ctx)
   const nodeClient = buildNodeClientSnippet(ctx)
   const nodeHook = buildNodeHookSnippet(ctx)
@@ -330,7 +473,25 @@ ${buildLaravelConfigSnippet(ctx)}
 ${laravelClient}
 \`\`\`
 
-### Hook en controller
+### Modelo Eloquent
+
+\`\`\`php
+${laravelModel}
+\`\`\`
+
+### Controller completo
+
+\`\`\`php
+${laravelController}
+\`\`\`
+
+### Rutas sugeridas
+
+\`\`\`php
+${laravelRoutes}
+\`\`\`
+
+### Hook mínimo (alternativa)
 
 \`\`\`php
 ${laravelHook}

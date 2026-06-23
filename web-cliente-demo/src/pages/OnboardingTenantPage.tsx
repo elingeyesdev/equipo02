@@ -8,16 +8,12 @@ import {
   type AttributeDraft,
   type AttributeType,
 } from '../lib/onboardingTemplates'
+import IntegrationCodePanel from '../components/codegen/IntegrationCodePanel'
 import {
   buildCurlExamples,
   buildEnvSnippet,
   buildIntegratorGuideMarkdown,
-  buildLaravelClientSnippet,
-  buildLaravelConfigSnippet,
-  buildLaravelHookSnippet,
   buildMappingTable,
-  buildNodeClientSnippet,
-  buildNodeHookSnippet,
   integrationManualPath,
   type ApiKeyRole,
   type StackTarget,
@@ -76,8 +72,14 @@ export default function OnboardingTenantPage() {
       entityType,
       schemaVersion,
       payloadExampleText,
+      attributes: attributes.map((a) => ({
+        key: a.name,
+        label: a.name,
+        type: a.type,
+        required: false,
+      })),
     }),
-    [baseUrl, apiKey, apiKeyRole, entityName, businessIdField, entityType, schemaVersion, payloadExampleText],
+    [baseUrl, apiKey, apiKeyRole, entityName, businessIdField, entityType, schemaVersion, payloadExampleText, attributes],
   )
 
   const envSnippet = useMemo(() => buildEnvSnippet(ctx), [ctx])
@@ -297,37 +299,24 @@ export default function OnboardingTenantPage() {
                   ]}
                 />
                 <RoleAlert role={apiKeyRole} />
-                <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-3 btn-group flex-wrap" role="group">
                   {(['laravel', 'nodejs', 'curl'] as StackTarget[]).map((stack) => (
                     <button
                       key={stack}
                       type="button"
                       onClick={() => setTargetStack(stack)}
-                      className={`rounded-full border px-4 py-2 text-xs font-semibold ${targetStack === stack ? 'border-[#1a3a5c] bg-[#1a3a5c] text-white' : 'border-line bg-white text-[#374151]'}`}
+                      className={`btn btn-sm ${targetStack === stack ? 'btn-primary' : 'btn-outline-primary'}`}
                     >
-                      {stack === 'laravel' ? 'Laravel / PHP (recomendado)' : stack === 'nodejs' ? 'Node.js' : 'Solo cURL'}
+                      {stack === 'laravel' ? 'Laravel / PHP' : stack === 'nodejs' ? 'Node.js' : 'Solo cURL'}
                     </button>
                   ))}
                 </div>
-                {targetStack === 'laravel' ? (
-                  <>
-                    <SnippetBlock title="config/blockchain.php" value={buildLaravelConfigSnippet(ctx)} onCopy={() => copyToClipboard(buildLaravelConfigSnippet(ctx))} />
-                    <SnippetBlock title="DatosBaasClient.php" value={buildLaravelClientSnippet(ctx)} onCopy={() => copyToClipboard(buildLaravelClientSnippet(ctx))} />
-                    <SnippetBlock title="Hook en Controller (después de save)" value={buildLaravelHookSnippet(ctx)} onCopy={() => copyToClipboard(buildLaravelHookSnippet(ctx))} />
-                  </>
-                ) : null}
-                {targetStack === 'nodejs' ? (
-                  <>
-                    <SnippetBlock title="Cliente HTTP (Node)" value={buildNodeClientSnippet(ctx)} onCopy={() => copyToClipboard(buildNodeClientSnippet(ctx))} />
-                    <SnippetBlock title="Hook tras guardar en BD" value={buildNodeHookSnippet(ctx)} onCopy={() => copyToClipboard(buildNodeHookSnippet(ctx))} />
-                  </>
-                ) : null}
-                {targetStack === 'curl' ? (
-                  <p className="mt-4 text-sm text-[#6b7280]">
-                    Usa los cURL del paso 4 para validar la conexión antes de programar. El equivalente en código está en
-                    Laravel o Node.js.
-                  </p>
-                ) : null}
+                <IntegrationCodePanel
+                  ctx={ctx}
+                  stack={targetStack}
+                  repoUrl={repoUrl}
+                  downloadName={`integracion-baas-${entityType || 'sistema'}`}
+                />
                 <Checklist
                   items={[
                     'Variables BLOCKCHAIN_* solo en el servidor',
@@ -353,9 +342,7 @@ export default function OnboardingTenantPage() {
                   ]}
                 />
                 <Field label="URL repo (para la guía descargable)" value={repoUrl} onChange={setRepoUrl} />
-                <SnippetBlock title="cURL — crear dato" value={curlExamples.create} onCopy={() => copyToClipboard(curlExamples.create)} />
-                <SnippetBlock title="cURL — actualizar dato" value={curlExamples.update} onCopy={() => copyToClipboard(curlExamples.update)} />
-                <SnippetBlock title="cURL — historial" value={curlExamples.history} onCopy={() => copyToClipboard(curlExamples.history)} />
+                <IntegrationCodePanel ctx={ctx} stack={targetStack} showTestButton repoUrl={repoUrl} />
                 <Checklist
                   items={[
                     'BLOCKCHAIN_* configurado en .env del servidor',
