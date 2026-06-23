@@ -182,9 +182,9 @@ export default function LoginPage() {
             </form>
 
             <p className="mt-6 text-center text-sm text-[#6b7280]">
-              ¿Primera vez aquí?{' '}
-              <Link to="/onboarding" className="font-semibold text-[#1a3a5c] hover:underline">
-                Empezar onboarding
+              ¿Quieres integrar tu sistema?{' '}
+              <Link to="/dev/registro" className="font-semibold text-[#1a3a5c] hover:underline">
+                Solicitar integración
               </Link>
             </p>
           </div>

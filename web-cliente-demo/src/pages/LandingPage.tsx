@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Check, Layers, Link2, Network, Rocket, ScrollText } from 'lucide-react'
 
@@ -9,8 +10,8 @@ const STATS = [
 
 const SERVICIOS = [
   {
-    titulo: 'Onboarding',
-    texto: 'Alta de organización, credenciales y primera prueba de conexión al puente.',
+    titulo: 'Portal integrador',
+    texto: 'Alta con asistente IA, código Laravel generado y seguimiento de tu solicitud BaaS.',
     icon: Rocket,
   },
   {
@@ -36,6 +37,78 @@ const BENEFICIOS = [
   'Accede a tu panel privado para consultar historial y trazabilidad',
 ] as const
 
+const ACCESOS = [
+  {
+    titulo: 'Portal Integrador',
+    descripcion: 'Solicita alta, diseña tu integración y descarga el código.',
+    to: '/dev/login',
+  },
+  {
+    titulo: 'Consola Operador',
+    descripcion: 'Gestiona solicitudes y activa tenants en el BaaS.',
+    to: '/admin/solicitudes',
+  },
+  {
+    titulo: 'Consola Cliente',
+    descripcion: 'Panel de tu organización: datos, auditoría y aprobaciones.',
+    to: '/login',
+  },
+] as const
+
+function AccederMenu({
+  variant = 'dark',
+  className = '',
+}: {
+  variant?: 'dark' | 'light' | 'outline'
+  className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    window.addEventListener('mousedown', onPointerDown)
+    return () => window.removeEventListener('mousedown', onPointerDown)
+  }, [open])
+
+  const btnClass =
+    variant === 'dark'
+      ? 'rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20'
+      : variant === 'outline'
+        ? 'inline-flex items-center justify-center rounded-full border border-white/30 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/10'
+        : 'inline-flex items-center justify-center rounded-full border border-[#1a3a5c]/20 bg-white px-7 py-3.5 text-sm font-semibold text-[#1a3a5c] transition-colors hover:bg-[#f4f7fb]'
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button type="button" className={btnClass} onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        Acceder
+      </button>
+      {open ? (
+        <div
+          className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-[#e8edf3] bg-white shadow-xl"
+          role="menu"
+        >
+          {ACCESOS.map((a) => (
+            <Link
+              key={a.to}
+              to={a.to}
+              role="menuitem"
+              className="block border-b border-[#f0f2f5] px-4 py-3 transition-colors last:border-b-0 hover:bg-[#f8fafc]"
+              onClick={() => setOpen(false)}
+            >
+              <p className="text-sm font-semibold text-[#1a2332]">{a.titulo}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-[#6b7280]">{a.descripcion}</p>
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export default function LandingPage() {
   return (
     <div className="landing-page min-h-[100dvh] bg-[#f4f7fb] text-[#1a2332]">
@@ -55,12 +128,7 @@ export default function LandingPage() {
               Cómo funciona
             </a>
           </nav>
-          <Link
-            to="/login"
-            className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
-          >
-            Acceso al panel
-          </Link>
+          <AccederMenu variant="dark" />
         </div>
       </header>
 
@@ -79,18 +147,13 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
-                to="/dev"
+                to="/dev/registro"
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[#f0b429] px-7 py-3.5 text-sm font-bold text-[#1a2332] shadow-lg shadow-[#f0b429]/25 transition-transform hover:scale-[1.02] hover:bg-[#f5c24a]"
               >
-                Solicitar alta BaaS
+                Solicitar integración
                 <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
               </Link>
-              <Link
-                to="/onboarding"
-                className="inline-flex items-center justify-center rounded-full border border-white/25 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/50 hover:bg-white/10"
-              >
-                Ya tengo credenciales
-              </Link>
+              <AccederMenu variant="outline" />
             </div>
           </div>
 
@@ -137,12 +200,12 @@ export default function LandingPage() {
             </ul>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
-                to="/onboarding"
+                to="/dev"
                 className="inline-flex items-center justify-center rounded-full bg-[#1a3a5c] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0f2844]"
               >
-                Configurar integración
+                Empezar con el asistente
               </Link>
-              <span className="text-sm text-[#6b7280]">· Consulta y audita desde un solo lugar</span>
+              <span className="text-sm text-[#6b7280]">· Chat IA + código listo para tu backend</span>
             </div>
           </div>
         </div>
@@ -156,7 +219,7 @@ export default function LandingPage() {
               <span className="landing-highlight">conectar</span> tu organización
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-[#6b7280]">
-              Desde el alta inicial hasta la auditoría en red: un flujo claro para tu organización.
+              Desde el alta en el portal integrador hasta la auditoría en red: un flujo claro para tu organización.
             </p>
           </div>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -180,22 +243,17 @@ export default function LandingPage() {
         <div className="rounded-3xl bg-[#1a3a5c] px-6 py-10 text-center sm:px-10 sm:py-12">
           <h2 className="text-2xl font-bold text-white sm:text-3xl">¿Listo para empezar?</h2>
           <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/70">
-            Configura tu integración en minutos o entra al panel para consultar lo que ya está registrado
-            en la red.
+            Crea tu cuenta en el portal integrador, diseña la conexión con el asistente y recibe credenciales
+            cuando el operador active tu tenant.
           </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              to="/onboarding"
+              to="/dev/registro"
               className="inline-flex items-center justify-center rounded-full bg-[#f0b429] px-8 py-3.5 text-sm font-bold text-[#1a2332] transition-colors hover:bg-[#f5c24a]"
             >
-              Empezar onboarding
+              Solicitar integración
             </Link>
-            <Link
-              to="/login"
-              className="inline-flex items-center justify-center rounded-full border border-white/30 px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              Ir al panel privado
-            </Link>
+            <AccederMenu variant="outline" />
           </div>
         </div>
       </section>

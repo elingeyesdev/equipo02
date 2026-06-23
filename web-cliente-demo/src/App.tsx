@@ -1,6 +1,10 @@
 import { Route, Navigate, Routes, useParams } from 'react-router-dom'
+import { RequiereDevAuth } from './components/RequiereDevAuth'
 import { RequiereSesion } from './components/RequiereSesion'
-import { DashboardLayout } from './layouts/DashboardLayout'
+import { TablerAppLayout } from './layouts/TablerAppLayout'
+import { TablerAdminLayout } from './layouts/TablerAdminLayout'
+import { TablerDevLayout } from './layouts/TablerDevLayout'
+import { TablerPublicLayout } from './layouts/TablerPublicLayout'
 import DatoHistorialPage from './pages/DatoHistorialPage'
 import DatosRegistradosPage from './pages/DatosRegistradosPage'
 import CredencialesPage from './pages/CredencialesPage'
@@ -13,39 +17,80 @@ import DatosPage from './pages/DatosPage'
 import OnboardingOperatorPage from './pages/OnboardingOperatorPage'
 import OnboardingTenantPage from './pages/OnboardingTenantPage'
 import DevPortalChatPage from './pages/DevPortalChatPage'
+import DevPortalDashboardPage from './pages/DevPortalDashboardPage'
+import DevPortalSolicitudPage from './pages/DevPortalSolicitudPage'
 import DevPortalStatusPage from './pages/DevPortalStatusPage'
 import DevLoginPage from './pages/DevLoginPage'
 import DevRegisterPage from './pages/DevRegisterPage'
 import DevMisSolicitudesPage from './pages/DevMisSolicitudesPage'
 import PlatformRequestsPage from './pages/PlatformRequestsPage'
 import PlatformRequestDetailPage from './pages/PlatformRequestDetailPage'
+import PlatformRequestIntegratorPreviewPage from './pages/PlatformRequestIntegratorPreviewPage'
 import PanelPage from './pages/PanelPage'
 import SolicitudesPage from './pages/SolicitudesPage'
 import TrazabilidadPage from './pages/TrazabilidadPage'
 
-/**
- * Consola BaaS: frontend ÚNICO del proyecto. Modelo universal `/datos`,
- * bandeja de aprobaciones, auditoría, historial, trazabilidad y onboarding.
- */
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/onboarding" element={<OnboardingTenantPage />} />
-      <Route path="/onboarding/operador" element={<OnboardingOperatorPage />} />
-      <Route path="/dev" element={<DevPortalChatPage />} />
-      <Route path="/dev/login" element={<DevLoginPage />} />
-      <Route path="/dev/registro" element={<DevRegisterPage />} />
-      <Route path="/dev/mis-solicitudes" element={<DevMisSolicitudesPage />} />
-      <Route path="/dev/estado/:id" element={<DevPortalStatusPage />} />
-      <Route path="/admin/solicitudes" element={<PlatformRequestsPage />} />
-      <Route path="/admin/solicitudes/:id" element={<PlatformRequestDetailPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route element={<TablerPublicLayout />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/onboarding" element={<OnboardingTenantPage />} />
+        <Route path="/onboarding/operador" element={<OnboardingOperatorPage />} />
+        <Route path="/login" element={<LoginPage />} />
+      </Route>
+
+      <Route path="/dev" element={<TablerDevLayout />}>
+        <Route index element={<DevPortalDashboardPage />} />
+        <Route
+          path="solicitud"
+          element={
+            <RequiereDevAuth
+              title="Acceso requerido"
+              message="Para crear una solicitud de integración debes iniciar sesión o registrarte."
+            >
+              <DevPortalSolicitudPage />
+            </RequiereDevAuth>
+          }
+        />
+        <Route
+          path="asistente"
+          element={
+            <RequiereDevAuth
+              title="Acceso requerido"
+              message="Para usar el asistente de integración debes iniciar sesión. Así podremos asociar la solicitud a tu cuenta."
+            >
+              <DevPortalChatPage />
+            </RequiereDevAuth>
+          }
+        />
+        <Route path="login" element={<DevLoginPage />} />
+        <Route path="registro" element={<DevRegisterPage />} />
+        <Route
+          path="mis-solicitudes"
+          element={
+            <RequiereDevAuth
+              title="Acceso requerido"
+              message="Para ver tus solicitudes debes iniciar sesión con tu cuenta integrador."
+            >
+              <DevMisSolicitudesPage />
+            </RequiereDevAuth>
+          }
+        />
+        <Route path="estado/:id" element={<DevPortalStatusPage />} />
+      </Route>
+
+      <Route path="/admin" element={<TablerAdminLayout />}>
+        <Route path="solicitudes" element={<PlatformRequestsPage />} />
+        <Route path="solicitudes/:id/preview-integrador" element={<PlatformRequestIntegratorPreviewPage />} />
+        <Route path="solicitudes/:id" element={<PlatformRequestDetailPage />} />
+      </Route>
+
       <Route
         path="/app"
         element={
           <RequiereSesion>
-            <DashboardLayout />
+            <TablerAppLayout />
           </RequiereSesion>
         }
       >
@@ -59,7 +104,6 @@ export default function App() {
         <Route path="auditoria" element={<AuditarPage />} />
         <Route path="trazabilidad" element={<TrazabilidadPage />} />
         <Route path="credenciales" element={<CredencialesPage />} />
-        {/* Rutas legacy → redirigen al modelo universal */}
         <Route path="clientes-registrados" element={<Navigate to="/app/datos-registrados" replace />} />
         <Route path="historial-cliente/:clienteId" element={<RedirectHistorialLegacy />} />
       </Route>
