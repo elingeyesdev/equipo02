@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { IconRefresh } from '@tabler/icons-react'
 import { useAuth } from '../context/AuthContext'
 import { roleFromBackend } from '../lib/roles'
 import {
@@ -114,62 +115,65 @@ export default function SolicitudesPage() {
 
   const esLectura = rol === 'solo_lectura'
 
-  const introRol =
+  const avisoRol =
     esAdmin
-      ? 'Como administrador, puedes aprobar o rechazar cambios propuestos por integradores (altas, ediciones, bajas y restauraciones).'
+      ? 'Como administrador, puedes aprobar o rechazar altas, ediciones, bajas y restauraciones.'
       : esLectura
         ? 'Tu rol puede consultar información, pero no aprobar cambios.'
-        : 'Aquí puedes ver el estado de los cambios que propusiste, incluidas solicitudes de restauración.'
+        : 'Aquí puedes ver el estado de los cambios que propusiste, incluidas restauraciones.'
 
   return (
-    <div className="space-y-5">
-      <div className="alert alert-info" role="status">
-        <h2 className="alert-heading h5 mb-2">Cola de aprobación</h2>
-        <p className="mb-2">
-          Esta pantalla muestra solicitudes de cambio de datos dentro del tenant. No son solicitudes de
-          integración BaaS. Las solicitudes de integración se gestionan en la Consola Operador.
-        </p>
-        <p className="mb-0 small">{introRol}</p>
+    <div className="consola-solicitudes">
+      <div className="consola-notice" role="status">
+        Revisa solicitudes de cambio propuestas dentro del tenant. Las solicitudes de integración BaaS se
+        gestionan desde la Consola Operador.
+        <span className="consola-notice-hint">{avisoRol}</span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {FILTROS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            onClick={() => setFiltro(f.key)}
-            className={[
-              'rounded-lg px-3 py-1.5 text-sm transition-colors',
-              filtro === f.key
-                ? 'bg-accent text-white'
-                : 'border border-line bg-surface text-ink-secondary hover:border-accent/30',
-            ].join(' ')}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="consola-solicitudes-toolbar">
+        <div className="consola-solicitudes-tabs">
+          {FILTROS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFiltro(f.key)}
+              className={[
+                'consola-solicitudes-tab',
+                filtro === f.key ? 'consola-solicitudes-tab--active' : '',
+              ].join(' ')}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={() => void cargar()}
-          className="ml-auto rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink-secondary hover:border-accent/30"
+          className="consola-refresh-btn"
+          title="Actualizar solicitudes"
+          aria-label="Actualizar solicitudes"
+          disabled={cargando}
         >
-          Actualizar
+          <IconRefresh size={18} stroke={1.75} className={cargando ? 'animate-spin' : undefined} />
         </button>
       </div>
 
-      {aviso ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{aviso}</div> : null}
-      {error ? <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div> : null}
+      {aviso ? <div className="consola-alert consola-alert--success" role="status">{aviso}</div> : null}
+      {error ? <div className="consola-alert consola-alert--error" role="alert">{error}</div> : null}
 
       {cargando ? (
-        <p className="text-sm text-muted">Cargando solicitudes…</p>
+        <p className="consola-empty consola-solicitudes-empty">Cargando solicitudes…</p>
       ) : visibles.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-line bg-surface px-6 py-10 text-center text-sm text-muted">
-          No hay solicitudes {filtro !== 'todas' ? `en estado "${filtro}"` : ''}.
+        <div className="consola-panel consola-solicitudes-empty-panel">
+          <p className="consola-empty">
+            No hay solicitudes {filtro !== 'todas' ? `en estado "${filtro}"` : ''}.
+          </p>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="consola-solicitudes-list">
           {visibles.map((s) => (
-            <li key={s.id} className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+            <li key={s.id} className="consola-panel consola-solicitudes-item">
+              <div className="consola-solicitudes-item-body">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeEstado(s.estado)}`}>{s.estado}</span>
                 <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-ink-secondary">{OP_LABEL[s.operacion]}</span>
@@ -221,6 +225,7 @@ export default function SolicitudesPage() {
                   </button>
                 </div>
               ) : null}
+              </div>
             </li>
           ))}
         </ul>
