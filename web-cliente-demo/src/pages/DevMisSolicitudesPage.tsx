@@ -1,97 +1,196 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  DEV_STATUS_META,
+  DevRequestStatusBadge,
+  formatDevRequestDate,
+} from '../components/dev/DevRequestStatusUi'
 import { useDevAuth } from '../context/DevAuthContext'
-import { listMisSolicitudes, type DevTenantRequest } from '../services/devPortalApi'
+import { listMisSolicitudes, type DevRequestStatus, type DevTenantRequest } from '../services/devPortalApi'
 
-const BADGE: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-800',
-  provisioning: 'bg-blue-100 text-blue-800',
-  active: 'bg-emerald-100 text-emerald-800',
-  rejected: 'bg-red-100 text-red-800',
+function formatListError(e: unknown): { auth: boolean; message: string } {
+  if (e instanceof TypeError) {
+    return {
+      auth: false,
+      message: 'No se pudo conectar con el servidor. Verifica que web-portal-api esté activo.',
+    }
+  }
+  if (e instanceof Error) {
+    const lower = e.message.toLowerCase()
+    if (
+      lower.includes('http 401') ||
+      lower.includes('http 403') ||
+      lower.includes('inicia sesión') ||
+      lower.includes('inicia sesion') ||
+      lower.includes('no autenticado') ||
+      lower.includes('acceso_denegado')
+    ) {
+      return {
+        auth: true,
+        message: 'No tienes sesión activa de integrador. Inicia sesión nuevamente.',
+      }
+    }
+    if (lower.includes('failed to fetch') || lower.includes('network')) {
+      return {
+        auth: false,
+        message: 'No se pudo conectar con el servidor. Verifica que web-portal-api esté activo.',
+      }
+    }
+    return { auth: false, message: e.message }
+  }
+  return { auth: false, message: 'Error al cargar solicitudes.' }
 }
 
 export default function DevMisSolicitudesPage() {
-  const { estado, usuario, logout } = useDevAuth()
+  const { estado } = useDevAuth()
   const [list, setList] = useState<DevTenantRequest[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ auth: boolean; message: string } | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (estado !== 'autenticado') return
+    setLoading(true)
+    setError(null)
     void listMisSolicitudes()
-      .then(setList)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Error'))
+      .then((items) => setList(Array.isArray(items) ? items : []))
+      .catch((e) => {
+        setList([])
+        setError(formatListError(e))
+      })
+      .finally(() => setLoading(false))
   }, [estado])
 
-  if (estado === 'sin-sesion' || estado === 'verificando') {
-    return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-[#f4f7fb]">
-        <p className="text-sm text-[#6b7280]">Inicia sesión para ver tus solicitudes</p>
-        <Link to="/dev/login" className="rounded-full bg-[#1a3a5c] px-5 py-2 text-sm font-semibold text-white">
-          Iniciar sesión
-        </Link>
-      </div>
-    )
-  }
+  const listaSolicitudes = useMemo(
+    () => (Array.isArray(list) ? list : []),
+    [list],
+  )
+
+  const activeCount = listaSolicitudes.filter((s) => s.status === 'active').length
+  const pendingCount = listaSolicitudes.filter(
+    (s) => s.status === 'pending' || s.status === 'provisioning',
+  ).length
 
   return (
-    <div className="min-h-[100dvh] bg-[#f4f7fb]">
-      <header className="border-b border-line/60 bg-white px-4 py-4 sm:px-8">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">Mis solicitudes</h1>
-            <p className="text-xs text-[#6b7280]">{usuario?.email}</p>
-          </div>
-          <div className="flex gap-3 text-sm">
-            <Link to="/dev" className="text-[#1a3a5c]">Nueva solicitud</Link>
-            <button type="button" className="text-[#6b7280]" onClick={() => void logout()}>
-              Salir
-            </button>
-          </div>
-        </div>
-      </header>
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-8">
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <div className="overflow-hidden rounded-2xl border border-line/60 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#f4f7fb] text-xs uppercase text-[#6b7280]">
-              <tr>
-                <th className="px-4 py-3">Organización</th>
-                <th className="px-4 py-3">tenant</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/40">
-              {list.map((s) => (
-                <tr key={s.id}>
-                  <td className="px-4 py-3 font-medium">{s.orgName}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{s.tenantId}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${BADGE[s.status] ?? ''}`}>
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link to={`/dev/estado/${s.id}`} className="text-xs font-semibold text-[#1a3a5c]">
-                      Ver estado
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {list.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-[#6b7280]">
-                    Aún no has enviado solicitudes. <Link to="/dev" className="text-[#1a3a5c]">Empezar</Link>
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-4 text-xs text-[#6b7280]">
-          Esta página se actualiza al recargar. Cuando el operador active tu tenant, el estado pasará a <strong>active</strong>.
-        </p>
+    <div className="container-xl py-4">
+      <div className="page-header mb-4">
+        <h1 className="page-title">Mis solicitudes</h1>
+        <p className="text-secondary mb-0">Seguimiento de tus integraciones con Nexum</p>
       </div>
+
+      {listaSolicitudes.length > 0 ? (
+        <div className="row row-cards mb-4">
+          <div className="col-sm-4">
+            <div className="card">
+              <div className="card-body">
+                <div className="text-secondary small">Total solicitudes</div>
+                <div className="h2 mb-0">{listaSolicitudes.length}</div>
+              </div>
+            </div>
+          </div>
+          <div className="col-sm-4">
+            <div className="card">
+              <div className="card-body">
+                <div className="text-secondary small">En proceso</div>
+                <div className="h2 mb-0 text-info">{pendingCount}</div>
+              </div>
+            </div>
+          </div>
+          <div className="col-sm-4">
+            <div className="card">
+              <div className="card-body">
+                <div className="text-secondary small">Activas</div>
+                <div className="h2 mb-0 text-success">{activeCount}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="alert alert-danger">
+          <p className="mb-0">{error.message}</p>
+          {error.auth ? (
+            <Link
+              to="/dev/login"
+              state={{ from: '/dev/mis-solicitudes' }}
+              className="btn btn-primary btn-sm mt-3"
+            >
+              Iniciar sesión
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="card">
+          <div className="card-body text-center text-secondary py-5">
+            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden />
+            Cargando solicitudes…
+          </div>
+        </div>
+      ) : error ? null : listaSolicitudes.length === 0 ? (
+        <div className="card">
+          <div className="card-body text-center py-5 px-4">
+            <h2 className="h4 mb-3">No tienes solicitudes todavía</h2>
+            <p className="text-secondary mb-4">
+              Crea tu primera solicitud para integrar tu sistema con la API blockchain de Nexum.
+            </p>
+            <Link to="/dev/solicitud" className="btn btn-primary">
+              Crear solicitud
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="card">
+          <div className="table-responsive">
+            <table className="table table-vcenter card-table">
+              <thead>
+                <tr>
+                  <th>Organización</th>
+                  <th>Tenant ID</th>
+                  <th>Estado</th>
+                  <th>Actualización</th>
+                  <th>Próximo paso</th>
+                  <th className="w-1" />
+                </tr>
+              </thead>
+              <tbody>
+                {listaSolicitudes.map((s) => {
+                  const meta = DEV_STATUS_META[s.status as DevRequestStatus] ?? DEV_STATUS_META.draft
+                  const fecha = formatDevRequestDate(s.updatedAt ?? s.createdAt)
+                  return (
+                    <tr key={s.id}>
+                      <td className="fw-medium">{s.orgName}</td>
+                      <td className="font-monospace small">{s.tenantId}</td>
+                      <td>
+                        <DevRequestStatusBadge status={s.status} />
+                      </td>
+                      <td className="text-secondary small">{fecha ?? '—'}</td>
+                      <td className="text-secondary small">{meta.nextStep}</td>
+                      <td className="text-end">
+                        <Link to={`/dev/estado/${s.id}`} className="btn btn-sm btn-outline-primary">
+                          Ver detalle
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {listaSolicitudes.length > 0 ? (
+        <div className="d-flex flex-wrap gap-2 mt-3">
+          <Link to="/dev/solicitud" className="btn btn-primary btn-sm">
+            Nueva solicitud
+          </Link>
+          <Link to="/dev" className="btn btn-outline-secondary btn-sm">
+            Volver al portal
+          </Link>
+        </div>
+      ) : null}
     </div>
   )
 }

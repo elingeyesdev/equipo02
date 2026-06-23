@@ -38,6 +38,7 @@ export type DevCredentials = {
   middlewareUrl: string
   tenantId: string
   keys: Record<string, string>
+  userPasswords?: Record<string, string>
 }
 
 const BFF_PREFIX = '/api'
@@ -123,8 +124,8 @@ export async function getDevCredenciales(id: string, email?: string): Promise<De
 }
 
 export async function listMisSolicitudes(): Promise<DevTenantRequest[]> {
-  const res = await devFetch<{ ok: boolean; solicitudes: DevTenantRequest[] }>('/dev/mis-solicitudes')
-  return res.solicitudes
+  const res = await devFetch<{ ok: boolean; solicitudes?: DevTenantRequest[] | null }>('/dev/mis-solicitudes')
+  return Array.isArray(res.solicitudes) ? res.solicitudes : []
 }
 
 export type DevChatDraft = {
