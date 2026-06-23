@@ -112,16 +112,25 @@ export default function SolicitudesPage() {
     }
   }
 
+  const esLectura = rol === 'solo_lectura'
+
+  const introRol =
+    esAdmin
+      ? 'Como administrador, puedes aprobar o rechazar cambios propuestos por integradores.'
+      : esLectura
+        ? 'Tu rol puede consultar información, pero no aprobar cambios.'
+        : 'Aquí puedes ver el estado de los cambios que propusiste.'
+
   return (
     <div className="space-y-5">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-ink">{esAdmin ? 'Cola de aprobación' : 'Mis solicitudes'}</h1>
-        <p className="text-sm text-ink-secondary">
-          {esAdmin
-            ? 'Cambios propuestos por integradores. Al aprobar se escriben en la Blockchain; al rechazar se descartan sin tocar la cadena.'
-            : 'Cambios que propusiste. Quedan pendientes hasta que un administrador los apruebe.'}
+      <div className="alert alert-info" role="status">
+        <h2 className="alert-heading h5 mb-2">Cola de aprobación</h2>
+        <p className="mb-2">
+          Esta pantalla muestra solicitudes de cambio de datos dentro del tenant. No son solicitudes de
+          integración BaaS. Las solicitudes de integración se gestionan en la Consola Operador.
         </p>
-      </header>
+        <p className="mb-0 small">{introRol}</p>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         {FILTROS.map((f) => (
