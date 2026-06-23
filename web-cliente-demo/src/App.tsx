@@ -28,7 +28,6 @@ import PlatformRequestDetailPage from './pages/PlatformRequestDetailPage'
 import PlatformRequestIntegratorPreviewPage from './pages/PlatformRequestIntegratorPreviewPage'
 import PanelPage from './pages/PanelPage'
 import SolicitudesPage from './pages/SolicitudesPage'
-import TrazabilidadPage from './pages/TrazabilidadPage'
 
 export default function App() {
   return (
@@ -102,7 +101,7 @@ export default function App() {
         <Route path="historial-dato/:datoId" element={<DatoHistorialPage />} />
         <Route path="historial" element={<HistorialPage />} />
         <Route path="auditoria" element={<AuditarPage />} />
-        <Route path="trazabilidad" element={<TrazabilidadPage />} />
+        <Route path="trazabilidad" element={<Navigate to="/app/consultas" replace />} />
         <Route path="credenciales" element={<CredencialesPage />} />
         <Route path="clientes-registrados" element={<Navigate to="/app/datos-registrados" replace />} />
         <Route path="historial-cliente/:clienteId" element={<RedirectHistorialLegacy />} />

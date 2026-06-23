@@ -10,7 +10,6 @@ import type { AppRole } from '../types/demo'
 export interface RolePermissions {
   canConsultClients: boolean
   canViewHistory: boolean
-  canViewTraceability: boolean
   /** Solo admin recibe notificaciones del feed administrativo. */
   canSeeAdminNotifications: boolean
 }
@@ -24,7 +23,6 @@ export type AppRoutePath =
   | '/app/auditoria'
   | '/app/historial-dato'
   | '/app/historial'
-  | '/app/trazabilidad'
   | '/app/credenciales'
 
 /** Convierte el rol del backend (admin|integrador|lectura) al alias usado en la UI. */
@@ -49,9 +47,9 @@ export function roleLabel(role: AppRole): string {
 }
 
 export function workspaceLabel(role: AppRole): string {
-  if (role === 'admin') return 'Panel del puente'
-  if (role === 'integrador') return 'Explorador del puente'
-  return 'Consulta del puente'
+  if (role === 'admin') return 'Administración del tenant'
+  if (role === 'integrador') return 'Operaciones del integrador'
+  return 'Consulta del tenant'
 }
 
 /**
@@ -63,7 +61,6 @@ export function rolePermissions(role: AppRole): RolePermissions {
   return {
     canConsultClients: true,
     canViewHistory: true,
-    canViewTraceability: true,
     canSeeAdminNotifications: role === 'admin',
   }
 }
