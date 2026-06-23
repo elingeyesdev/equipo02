@@ -2,51 +2,51 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useSettings } from '../context/SettingsContext'
 import { etiquetaOrganizacion } from '../lib/organizacion'
-import { rolePermissions, workspaceLabel } from '../lib/roles'
+import { rolePermissions } from '../lib/roles'
+import type { AppRole } from '../types/demo'
+
+function descripcionRol(role: AppRole): string {
+  if (role === 'admin') {
+    return 'Puede registrar datos, aprobar solicitudes, auditar y gestionar operaciones del tenant.'
+  }
+  if (role === 'integrador') {
+    return 'Puede enviar operaciones desde el sistema cliente y proponer cambios que pueden requerir aprobación.'
+  }
+  return 'Puede consultar datos e historial en cadena sin modificar información.'
+}
 
 /**
- * Página "Perfil de sesión". Antes editaba la X-API-Key manualmente; tras
- * introducir el login JWT este formulario quedó obsoleto. Ahora muestra:
- *   - identidad del usuario (nombre, usuario, tenant, rol),
- *   - permisos efectivos del rol,
- *   - explicación del flujo (JWT → BFF → middleware) sin exponer claves,
- *   - botón para cerrar sesión.
+ * Página "Perfil y permisos". Muestra identidad, rol y capacidades de la sesión JWT.
  */
 export default function CredencialesPage() {
   const { role, roleLabel, tenant, nombreUsuario } = useSettings()
   const { usuario, logout } = useAuth()
   const navigate = useNavigate()
   const perms = rolePermissions(role)
-  const workspace = workspaceLabel(role)
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 pb-2">
       <section className="admin-card p-5">
         <h2 className="admin-card-title">Sesión actual</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatusTile label="Nombre" value={nombreUsuario || '—'} tone="ok" help="Tal como lo registró el operador del BaaS." />
           <StatusTile label="Usuario" value={usuario?.usuario ?? '—'} tone="info" help="Identificador para iniciar sesión." />
+          <StatusTile label="Nombre" value={nombreUsuario || '—'} tone="ok" help="Tal como lo registró el operador del BaaS." />
           <StatusTile
-            label="Organización"
+            label="Tenant"
             value={etiquetaOrganizacion(tenant)}
             tone="info"
-            help="Empresa o espacio de datos al que pertenece tu cuenta."
+            help="Organización o espacio de datos de tu cuenta."
           />
-          <StatusTile label="Rol" value={roleLabel} tone="ok" help="Determina los permisos y la X-API-Key del backend." />
-          <StatusTile label="Espacio" value={workspace} tone="info" help="Interfaz adaptada al rol." />
+          <StatusTile label="Rol" value={roleLabel} tone="ok" help="Determina qué acciones puedes realizar en la consola." />
         </div>
       </section>
 
       <section className="admin-card p-5">
-        <h2 className="admin-card-title">Permisos efectivos en la consola</h2>
-        <p className="mt-1 text-xs text-muted">
-          La consola del puente es de solo lectura. Las altas, ediciones y bajas se hacen en el portal del cliente
-          (o vía API directa al middleware) y aquí solo se auditan.
-        </p>
+        <h2 className="admin-card-title">Qué puede hacer tu rol</h2>
+        <p className="mt-2 text-sm text-ink-secondary">{descripcionRol(role)}</p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <PermChip ok={perms.canConsultClients} text="Consultar clientes" />
-          <PermChip ok={perms.canViewHistory} text="Ver historial" />
-          <PermChip ok={perms.canViewTraceability} text="Ver trazabilidad" />
+          <PermChip ok={perms.canConsultClients} text="Consultar datos" />
+          <PermChip ok={perms.canViewHistory} text="Ver actividad e historial" />
           <PermChip ok={perms.canSeeAdminNotifications} text="Recibir notificaciones admin" />
         </div>
       </section>
@@ -54,7 +54,7 @@ export default function CredencialesPage() {
       <section className="admin-card p-5">
         <h2 className="admin-card-title">Cómo se autentica esta consola</h2>
         <p className="mt-2 text-xs text-muted">
-          La consola del puente ya <strong>no</strong> guarda una <code className="font-mono">X-API-Key</code> en el
+          La Consola Cliente <strong>no</strong> guarda una <code className="font-mono">X-API-Key</code> en el
           navegador. El login emite un JWT que enviamos en cada petición; el BFF (
           <code className="font-mono">web-portal-api</code>) lo valida, deduce el tenant y rol del usuario, e inyecta
           la <code className="font-mono">X-API-Key</code> real más las cabeceras{' '}

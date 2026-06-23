@@ -160,9 +160,12 @@ export default function ConsultasPage() {
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold text-ink">Consultar registro</h1>
-        <p className="mt-0.5 text-xs text-muted">Consulta por datoId o TxID · historial y línea de tiempo</p>
+      <div className="alert alert-info mb-0" role="status">
+        <h2 className="alert-heading h5 mb-2">Consultar registro</h2>
+        <p className="mb-0 small">
+          Busca un registro específico por datoId o TxID para revisar su información, historial y evidencia de
+          auditoría.
+        </p>
       </div>
 
       <form onSubmit={onSubmitApi} className="admin-card shrink-0 p-4 shadow-card">
@@ -217,7 +220,7 @@ export default function ConsultasPage() {
       <div className="admin-card flex min-h-0 flex-1 flex-col overflow-hidden shadow-card">
         <div className="shrink-0 border-b border-line px-5 py-3">
           <h2 className="text-sm font-semibold text-ink">Resultado</h2>
-          <p className="text-xs text-muted">GET /datos/:datoId</p>
+          <p className="text-xs text-muted">Detalle del registro consultado</p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {lastError && !lastRow ? (
