@@ -1,327 +1,523 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, Layers, Link2, Network, Rocket, ScrollText } from 'lucide-react'
+import {
+  IconApi,
+  IconChevronRight,
+  IconBuilding,
+  IconCalendar,
+  IconCode,
+  IconCube,
+  IconLayoutDashboard,
+  IconPackage,
+  IconPlugConnected,
+  IconSearch,
+  IconServer2,
+  IconKey,
+  IconLock,
+  IconNetwork,
+  IconShield,
+  IconShieldCheck,
+  IconTimeline,
+  IconUsers,
+} from '@tabler/icons-react'
 
-const STATS = [
-  { valor: 'API', etiqueta: 'REST universal para cualquier empresa' },
-  { valor: 'Fabric', etiqueta: 'Red Hyperledger segura y siempre disponible' },
-  { valor: 'Multi', etiqueta: 'Tenant aislado por organización' },
+const LOGO_BLANCO = '/logoNexumBlanco.png'
+const IMG_HERO = '/landing/hero.png'
+const IMG_SOLVE = '/landing/panel.png'
+const IMG_CTA_BG = '/landing/cta-bg.png'
+const IMG_PREVIEW_DEV = '/landing/portalintegrador.png'
+const IMG_PREVIEW_APP = '/landing/portalcliente.png'
+
+const HERO_STATS = [
+  { label: 'Tenant activo', value: '12', icon: IconBuilding },
+  { label: 'Evidencia registrada', value: '24.861', icon: IconShieldCheck },
+  { label: 'Ledger confirmado', value: '100%', icon: IconNetwork },
 ] as const
 
-const SERVICIOS = [
+const CONFIANZA = [
+  { label: 'Integración vía API', icon: IconApi },
+  { label: 'Evidencia inmutable', icon: IconShield },
+  { label: 'Consolas por rol', icon: IconUsers },
+  { label: 'Hyperledger Fabric permissionado', icon: IconNetwork },
+] as const
+
+const QUE_RESUELVE = [
   {
-    titulo: 'Portal integrador',
-    texto: 'Alta con asistente IA, código Laravel generado y seguimiento de tu solicitud BaaS.',
-    icon: Rocket,
+    titulo: 'Cambios difíciles de comprobar',
+    texto: 'Las modificaciones en sistemas internos no siempre dejan un registro independiente.',
+    icon: IconSearch,
   },
   {
-    titulo: 'Middleware',
-    texto: 'Validación, auditoría y traducción de operaciones hacia el ledger.',
-    icon: Layers,
+    titulo: 'Historial disperso',
+    texto: 'Logs locales y exportaciones no bastan para reconstruir qué ocurrió con un dato.',
+    icon: IconServer2,
   },
   {
-    titulo: 'Auditoría',
-    texto: 'Historial, trazabilidad y consulta de eventos en solo lectura.',
-    icon: ScrollText,
-  },
-  {
-    titulo: 'Integración',
-    texto: 'Cualquier sistema empresarial se conecta sin tocar la red directamente.',
-    icon: Network,
+    titulo: 'Auditoría sin flujo estandarizado',
+    texto: 'Cada integración define su propia forma de registrar evidencia.',
+    icon: IconCalendar,
   },
 ] as const
 
-const BENEFICIOS = [
-  'Tu organización opera con su propio espacio y permisos',
-  'Cada registro queda guardado de forma segura e inmutable en la red',
-  'Accede a tu panel privado para consultar historial y trazabilidad',
+const PASOS = [
+  {
+    paso: 1,
+    titulo: 'Solicitud de integración',
+    icon: IconPackage,
+  },
+  {
+    paso: 2,
+    titulo: 'Provisionamiento del tenant',
+    icon: IconServer2,
+  },
+  {
+    paso: 3,
+    titulo: 'Registro de eventos por API',
+    icon: IconCode,
+  },
+  {
+    paso: 4,
+    titulo: 'Validación en cadena',
+    icon: IconCube,
+  },
+  {
+    paso: 5,
+    titulo: 'Consulta y auditoría',
+    icon: IconSearch,
+  },
 ] as const
+
+const CODE_SNIPPET = {
+  method: 'POST /api/evidence',
+  body: `{
+  "tenant": "cliente-bank",
+  "event": "contract.updated",
+  "hash": "0x9fa2...",
+  "status": "confirmed"
+}`,
+}
 
 const ACCESOS = [
   {
     titulo: 'Portal Integrador',
-    descripcion: 'Solicita alta, diseña tu integración y descarga el código.',
-    to: '/dev/login',
-  },
-  {
-    titulo: 'Consola Operador',
-    descripcion: 'Gestiona solicitudes y activa tenants en el BaaS.',
-    to: '/admin/solicitudes',
+    descripcion: 'Solicitud, seguimiento y credenciales',
+    cta: 'Ingresar al portal',
+    to: '/dev',
+    preview: IMG_PREVIEW_DEV,
+    icon: IconPlugConnected,
   },
   {
     titulo: 'Consola Cliente',
-    descripcion: 'Panel de tu organización: datos, auditoría y aprobaciones.',
+    descripcion: 'Evidencias registradas, auditoría e historial',
+    cta: 'Ingresar a la consola',
     to: '/login',
+    preview: IMG_PREVIEW_APP,
+    icon: IconLayoutDashboard,
   },
 ] as const
 
-function AccederMenu({
-  variant = 'dark',
+const SEGURIDAD = [
+  { titulo: 'API keys por rol', texto: 'Integrador, administrador y lectura con permisos diferenciados.', icon: IconKey },
+  { titulo: 'Aislamiento por tenant', texto: 'Cada organización opera en su propio espacio de datos.', icon: IconLock },
+  { titulo: 'Evidencia inmutable', texto: 'Los registros en cadena no se reescriben; las correcciones generan nueva evidencia.', icon: IconShield },
+  { titulo: 'Auditoría de operaciones', texto: 'Eventos y cambios quedan trazables para revisión posterior.', icon: IconTimeline },
+  { titulo: 'Ledger privado', texto: 'Hyperledger Fabric permissionado, sin exposición pública del ledger.', icon: IconCube },
+  { titulo: 'Permisos diferenciados', texto: 'Cada rol accede solo a las operaciones que le corresponden.', icon: IconUsers },
+] as const
+
+function NexumLogo({ height = 36, className = '' }: { height?: number; className?: string }) {
+  return (
+    <img
+      src={LOGO_BLANCO}
+      alt="Nexum"
+      height={height}
+      className={`d-block ${className}`}
+      style={{ width: 'auto', height: `${height}px` }}
+    />
+  )
+}
+
+function LandingImage({
+  src,
+  fallback,
+  alt,
   className = '',
 }: {
-  variant?: 'dark' | 'light' | 'outline'
+  src: string
+  fallback?: string
+  alt: string
   className?: string
 }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [current, setCurrent] = useState(src)
+  const [failed, setFailed] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    window.addEventListener('mousedown', onPointerDown)
-    return () => window.removeEventListener('mousedown', onPointerDown)
-  }, [open])
-
-  const btnClass =
-    variant === 'dark'
-      ? 'rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20'
-      : variant === 'outline'
-        ? 'inline-flex items-center justify-center rounded-full border border-white/30 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/10'
-        : 'inline-flex items-center justify-center rounded-full border border-[#1a3a5c]/20 bg-white px-7 py-3.5 text-sm font-semibold text-[#1a3a5c] transition-colors hover:bg-[#f4f7fb]'
+  if (failed) {
+    return <div className={`landing-img-placeholder ${className}`} aria-hidden={!alt} role={alt ? 'img' : undefined} aria-label={alt || undefined} />
+  }
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
-      <button type="button" className={btnClass} onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        Acceder
-      </button>
-      {open ? (
-        <div
-          className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-[#e8edf3] bg-white shadow-xl"
-          role="menu"
-        >
-          {ACCESOS.map((a) => (
-            <Link
-              key={a.to}
-              to={a.to}
-              role="menuitem"
-              className="block border-b border-[#f0f2f5] px-4 py-3 transition-colors last:border-b-0 hover:bg-[#f8fafc]"
-              onClick={() => setOpen(false)}
-            >
-              <p className="text-sm font-semibold text-[#1a2332]">{a.titulo}</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-[#6b7280]">{a.descripcion}</p>
-            </Link>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    <img
+      src={current}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={() => {
+        if (fallback && current !== fallback) setCurrent(fallback)
+        else setFailed(true)
+      }}
+    />
+  )
+}
+
+function cerrarNav(setNavAbierto: (v: boolean) => void) {
+  setNavAbierto(false)
+}
+
+function LandingCtaBackground() {
+  const [visible, setVisible] = useState(true)
+  if (!visible) return null
+  return (
+    <img
+      src={IMG_CTA_BG}
+      alt=""
+      className="landing-cta-bg"
+      loading="lazy"
+      onError={() => setVisible(false)}
+    />
   )
 }
 
 export default function LandingPage() {
+  const [navAbierto, setNavAbierto] = useState(false)
+
   return (
-    <div className="landing-page min-h-[100dvh] bg-[#f4f7fb] text-[#1a2332]">
-      <header className="absolute inset-x-0 top-0 z-20">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-5 sm:px-8">
-          <Link to="/" className="flex items-center">
-            <span className="text-2xl font-bold uppercase tracking-[0.08em] text-white sm:text-3xl">Nexum</span>
+    <div className="landing-marketing">
+      <header className="navbar navbar-expand-lg landing-nav-light d-print-none">
+        <div className="container-xl">
+          <Link to="/" className="navbar-brand landing-brand-light">
+            <NexumLogo height={38} className="landing-brand-logo" />
           </Link>
-          <nav className="hidden items-center gap-8 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 md:flex">
-            <a href="#inicio" className="transition-colors hover:text-[#f0b429]">
-              Inicio
-            </a>
-            <a href="#servicios" className="transition-colors hover:text-[#f0b429]">
-              Servicios
-            </a>
-            <a href="#como-funciona" className="transition-colors hover:text-[#f0b429]">
-              Cómo funciona
-            </a>
-          </nav>
-          <AccederMenu variant="dark" />
+          <button
+            type="button"
+            className="navbar-toggler"
+            aria-controls="landing-nav"
+            aria-expanded={navAbierto}
+            aria-label="Abrir navegación"
+            onClick={() => setNavAbierto((v) => !v)}
+          >
+            <span className="navbar-toggler-icon" />
+          </button>
+          <div className={`collapse navbar-collapse landing-nav-collapse${navAbierto ? ' show' : ''}`} id="landing-nav">
+            <ul className="navbar-nav mx-auto landing-nav-links">
+              <li className="nav-item">
+                <a className="nav-link" href="#solucion" onClick={() => cerrarNav(setNavAbierto)}>
+                  Solución
+                </a>
+              </li>
+              <li className="nav-item">
+                <a className="nav-link" href="#como-funciona" onClick={() => cerrarNav(setNavAbierto)}>
+                  Cómo funciona
+                </a>
+              </li>
+              <li className="nav-item">
+                <a className="nav-link" href="#seguridad" onClick={() => cerrarNav(setNavAbierto)}>
+                  Seguridad
+                </a>
+              </li>
+              <li className="nav-item">
+                <a className="nav-link" href="#accesos" onClick={() => cerrarNav(setNavAbierto)}>
+                  Accesos
+                </a>
+              </li>
+              <li className="nav-item">
+                <a className="nav-link" href="#footer-contacto" onClick={() => cerrarNav(setNavAbierto)}>
+                  Contacto
+                </a>
+              </li>
+            </ul>
+          </div>
         </div>
       </header>
 
-      <section id="inicio" className="landing-hero relative overflow-hidden pt-24 pb-0 sm:pt-28">
-        <div className="landing-blob pointer-events-none absolute -right-24 top-0 h-80 w-80 rounded-full opacity-80" aria-hidden />
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 pb-16 sm:px-8 lg:grid-cols-2 lg:items-center lg:gap-14 lg:pb-20">
-          <div className="relative z-10">
-            <p className="text-sm font-medium text-[#f0b429]">Plataforma BaaS · Puente universal</p>
-            <h1 className="mt-4 max-w-xl text-4xl font-bold leading-[1.12] tracking-tight text-white sm:text-5xl">
-              Tu empresa conectada a{' '}
-              <span className="landing-highlight">blockchain</span> sin complejidad técnica
-            </h1>
-            <p className="mt-5 max-w-lg text-base leading-relaxed text-white/72">
-              Nexum es el puente entre los sistemas de cada organización y Hyperledger Fabric. Registra,
-              audita y consulta operaciones desde un solo punto de acceso.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                to="/dev/registro"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#f0b429] px-7 py-3.5 text-sm font-bold text-[#1a2332] shadow-lg shadow-[#f0b429]/25 transition-transform hover:scale-[1.02] hover:bg-[#f5c24a]"
-              >
-                Solicitar integración
-                <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
-              </Link>
-              <AccederMenu variant="outline" />
+      <section id="inicio" className="landing-hero-light">
+        <div className="container-xl">
+          <div className="row align-items-center g-4 g-lg-5">
+            <div className="col-lg-6">
+              <p className="landing-hero-eyebrow-light mb-3">Blockchain-as-a-Service</p>
+              <h1 className="landing-hero-title-light mb-3">
+                <span className="landing-hero-title-line">
+                  Evidencia{' '}
+                  <span className="landing-hero-accent-light">verificable</span>
+                </span>
+                <span className="landing-hero-title-line landing-hero-title-sub-light">para sistemas críticos</span>
+              </h1>
+              <p className="landing-hero-lead-light mb-4">
+                Nexum registra eventos y cambios sensibles mediante API, generando trazabilidad consultable sobre
+                Hyperledger Fabric sin reemplazar tu sistema actual.
+              </p>
+              <div className="d-flex flex-wrap gap-2">
+                <Link to="/dev" className="btn btn-landing-primary btn-lg">
+                  Solicitar integración
+                </Link>
+                <a href="#accesos" className="btn btn-outline-primary btn-lg">
+                  Ver accesos
+                </a>
+              </div>
+            </div>
+            <div className="col-lg-6">
+              <div className="landing-hero-visual-wrap">
+                <img
+                  src={IMG_HERO}
+                  alt="Integración API y evidencia en blockchain"
+                  className="landing-hero-illustration"
+                  loading="eager"
+                  decoding="async"
+                />
+                <div className="landing-hero-stats">
+                  {HERO_STATS.map((s) => (
+                    <div key={s.label} className="card landing-hero-stat-card shadow-sm">
+                      <div className="card-body d-flex align-items-center gap-3 py-3 px-3">
+                        <span className="avatar avatar-sm bg-landing-soft text-landing-action flex-shrink-0">
+                          <s.icon size={18} stroke={1.75} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-secondary small mb-0">{s.label}</p>
+                          <p className="mb-0 fw-bold text-body">{s.value}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="relative mx-auto w-full max-w-md lg:max-w-none lg:justify-self-end">
-            <HeroVisual />
+      <div className="container-xl landing-trust-wrap-light">
+        <div className="card landing-trust-band shadow-sm">
+          <div className="card-body landing-trust-band-body">
+            <div className="row g-3 g-md-0">
+              {CONFIANZA.map((item, i) => (
+                <div key={item.label} className="col-6 col-md-3">
+                  <div className={`landing-trust-item h-100${i < CONFIANZA.length - 1 ? ' landing-trust-divider' : ''}`}>
+                    <span className="landing-trust-icon flex-shrink-0">
+                      <item.icon size={38} stroke={1.35} />
+                    </span>
+                    <span className="landing-trust-label">{item.label}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="border-t border-white/10 bg-white/[0.04] backdrop-blur-sm">
-          <div className="mx-auto grid max-w-6xl gap-6 px-5 py-8 sm:grid-cols-3 sm:px-8">
-            {STATS.map((s) => (
-              <div key={s.valor} className="flex items-start gap-4">
-                <span className="text-3xl font-bold text-[#f0b429]">{s.valor}</span>
-                <p className="pt-1 text-sm leading-snug text-white/65">{s.etiqueta}</p>
+      <section id="solucion" className="landing-section">
+        <div className="container-xl">
+          <div className="row g-4 g-lg-5 align-items-center">
+            <div className="col-lg-6">
+              <LandingImage
+                src={IMG_SOLVE}
+                alt="Panel de evidencia y auditoría Nexum"
+                className="landing-photo landing-solve-img"
+              />
+            </div>
+            <div className="col-lg-6">
+              <h2 className="h2 landing-section-title mb-3">Qué resuelve Nexum</h2>
+              <p className="text-secondary mb-4">
+                Nexum agrega una capa de evidencia blockchain sin reemplazar la base de datos del cliente. El sistema de
+                origen sigue operando; Nexum registra lo que debe poder auditarse después.
+              </p>
+              <div className="row g-3">
+                {QUE_RESUELVE.map((item) => (
+                  <div key={item.titulo} className="col-md-4">
+                    <div className="card h-100 landing-solve-card">
+                      <div className="card-body p-3 p-lg-4">
+                        <span className="avatar avatar-sm bg-landing-soft text-landing-action flex-shrink-0 mb-3">
+                          <item.icon size={18} stroke={1.75} />
+                        </span>
+                        <h3 className="h5 mb-2">{item.titulo}</h3>
+                        <p className="text-secondary small mb-0">{item.texto}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="como-funciona" className="landing-section landing-section-alt">
+        <div className="container-xl">
+          <div className="page-header mb-4 mb-lg-5">
+            <h2 className="page-title landing-section-title">Cómo funciona</h2>
+            <p className="text-secondary mb-0">Del alta del integrador a la evidencia consultable en consola.</p>
+          </div>
+          <div className="row g-4 g-xl-5 align-items-center">
+            <div className="col-xl-7">
+              <div className="landing-flow-track" aria-label="Flujo de integración Nexum">
+                {PASOS.map((p, i) => (
+                  <div key={p.paso} className="landing-flow-step-v2">
+                    <div className="landing-flow-step-top">
+                      <span className="landing-flow-number-v2">{p.paso}</span>
+                      {i < PASOS.length - 1 ? <span className="landing-flow-connector" aria-hidden /> : null}
+                    </div>
+                    <span className="landing-flow-icon-v2">
+                      <p.icon size={22} stroke={1.5} />
+                    </span>
+                    <p className="landing-flow-label-v2">{p.titulo}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="col-xl-5">
+              <div className="landing-code-panel-v2">
+                <p className="landing-code-panel-title">Ejemplo de petición API</p>
+                <div className="landing-code-body">
+                  <p className="landing-code-method">{CODE_SNIPPET.method}</p>
+                  <pre className="landing-code-json mb-0">{CODE_SNIPPET.body}</pre>
+                </div>
+                <div className="landing-code-status">
+                  <span className="landing-code-status-dot" aria-hidden />
+                  200 OK
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="accesos" className="landing-section">
+        <div className="container-xl">
+          <div className="page-header mb-4 mb-lg-5">
+            <h2 className="page-title landing-section-title">Accesos del sistema</h2>
+            <p className="text-secondary mb-0">Dos interfaces según el rol: integración y tenant cliente.</p>
+          </div>
+          <div className="row g-4 justify-content-center">
+            {ACCESOS.map((a) => (
+              <div key={a.titulo} className="col-md-11 col-lg-5 col-xl-5">
+                <article className="card landing-access-card-v2 h-100">
+                  <div className="landing-access-card-head">
+                    <span className="landing-access-card-icon">
+                      <a.icon size={24} stroke={1.6} />
+                    </span>
+                    <div>
+                      <h3 className="landing-access-card-title">{a.titulo}</h3>
+                      <p className="landing-access-card-subtitle mb-0">{a.descripcion}</p>
+                    </div>
+                  </div>
+                  <LandingImage
+                    src={a.preview}
+                    alt={`Vista previa ${a.titulo}`}
+                    className="landing-access-preview-v2"
+                  />
+                  <div className="landing-access-card-foot">
+                    <Link to={a.to} className="landing-access-link">
+                      {a.cta}
+                      <IconChevronRight size={18} stroke={1.75} aria-hidden />
+                    </Link>
+                  </div>
+                </article>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="como-funciona" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-          <div className="relative overflow-hidden rounded-[2rem] bg-[#dce6f2] p-2 sm:p-3">
-            <div className="overflow-hidden rounded-[1.6rem] bg-[#c5d4e8]">
-              <FlowDiagram />
-            </div>
-            <div className="absolute -bottom-4 -left-4 h-24 w-24 rounded-full bg-[#f0b429]/30 blur-2xl" aria-hidden />
+      <section id="seguridad" className="landing-section landing-section-alt">
+        <div className="container-xl">
+          <div className="page-header mb-4 mb-lg-5">
+            <h2 className="page-title landing-section-title">Diseñado para entornos permissionados</h2>
+            <p className="text-secondary mb-0">Controles para operación B2B con identidad por rol y evidencia verificable.</p>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-[#c48f12]">Integración empresarial</p>
-            <h2 className="mt-2 text-3xl font-bold leading-tight text-[#1a2332] sm:text-4xl">
-              Un puente que tu equipo{' '}
-              <span className="text-[#1a3a5c]">entiende y usa con confianza</span>
-            </h2>
-            <ul className="mt-8 space-y-4">
-              {BENEFICIOS.map((b) => (
-                <li key={b} className="flex gap-3 text-sm leading-relaxed text-[#4a5568]">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#f0b429] text-[#1a2332]">
-                    <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  </span>
-                  {b}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Link
-                to="/dev"
-                className="inline-flex items-center justify-center rounded-full bg-[#1a3a5c] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0f2844]"
-              >
-                Empezar con el asistente
-              </Link>
-              <span className="text-sm text-[#6b7280]">· Chat IA + código listo para tu backend</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="servicios" className="bg-white py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5 sm:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold text-[#1a2332] sm:text-4xl">
-              Todo lo que necesitas para{' '}
-              <span className="landing-highlight">conectar</span> tu organización
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-[#6b7280]">
-              Desde el alta en el portal integrador hasta la auditoría en red: un flujo claro para tu organización.
-            </p>
-          </div>
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {SERVICIOS.map((s) => (
-              <article
-                key={s.titulo}
-                className="rounded-2xl border border-[#e8edf3] bg-[#fafbfd] p-6 transition-shadow hover:shadow-lg hover:shadow-[#1a3a5c]/6"
-              >
-                <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#1a3a5c] text-[#f0b429]">
-                  <s.icon className="h-6 w-6" strokeWidth={1.8} />
-                </span>
-                <h3 className="mt-5 text-base font-bold text-[#1a2332]">{s.titulo}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-[#6b7280]">{s.texto}</p>
-              </article>
+          <div className="row g-3">
+            {SEGURIDAD.map((s) => (
+              <div key={s.titulo} className="col-md-6 col-lg-4">
+                <div className="card card-sm h-100 landing-security-card">
+                  <div className="card-body d-flex gap-3">
+                    <span className="avatar avatar-sm bg-landing-soft text-landing-action flex-shrink-0">
+                      <s.icon size={18} stroke={1.75} />
+                    </span>
+                    <div>
+                      <h3 className="h6 mb-1">{s.titulo}</h3>
+                      <p className="text-secondary small mb-0">{s.texto}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 pb-16 sm:px-8 sm:pb-20">
-        <div className="rounded-3xl bg-[#1a3a5c] px-6 py-10 text-center sm:px-10 sm:py-12">
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">¿Listo para empezar?</h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/70">
-            Crea tu cuenta en el portal integrador, diseña la conexión con el asistente y recibe credenciales
-            cuando el operador active tu tenant.
+      <section className="landing-cta-section">
+        <LandingCtaBackground />
+        <div className="landing-cta-overlay" aria-hidden />
+        <div className="container-xl position-relative py-5 py-lg-6 text-center">
+          <h2 className="h2 text-white mb-3">
+            Integra evidencia <span className="landing-hero-accent-cta">verificable</span> en tu operación actual
+          </h2>
+          <p className="text-white opacity-75 mx-auto mb-4" style={{ maxWidth: '32rem' }}>
+            Solicita una integración y recibe las credenciales necesarias para registrar evidencia desde tu backend.
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              to="/dev/registro"
-              className="inline-flex items-center justify-center rounded-full bg-[#f0b429] px-8 py-3.5 text-sm font-bold text-[#1a2332] transition-colors hover:bg-[#f5c24a]"
-            >
+          <div className="d-flex flex-wrap justify-content-center gap-2">
+            <Link to="/dev" className="btn btn-light btn-lg">
               Solicitar integración
             </Link>
-            <AccederMenu variant="outline" />
+            <Link to="/dev/login" className="btn btn-landing-outline-light btn-lg">
+              Ingresar al Portal Integrador
+            </Link>
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-[#e8edf3] bg-white py-5 text-center text-xs text-[#9ca3af]">
-        Nexum · Middleware blockchain sobre Hyperledger Fabric
-      </footer>
-    </div>
-  )
-}
-
-function HeroVisual() {
-  return (
-    <div className="relative aspect-[4/5] w-full max-w-sm sm:max-w-md lg:ml-auto lg:max-w-lg">
-      <div className="absolute bottom-6 left-8 right-4 rounded-2xl border-4 border-white/10 bg-white p-4 shadow-2xl sm:bottom-10 sm:left-12">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a3a5c]">
-            <Link2 className="h-5 w-5 text-[#f0b429]" strokeWidth={1.8} />
-          </span>
-          <div>
-            <p className="text-xs font-bold text-[#1a2332]">Puente Nexum</p>
-            <p className="text-[11px] text-[#6b7280]">Validación · Auditoría · Envío</p>
-          </div>
-        </div>
-        <div className="mt-3 flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span className="text-[11px] text-[#6b7280]">Conexión activa con Fabric</span>
-        </div>
-      </div>
-
-      <div
-        className="absolute bottom-24 right-2 h-20 w-20 rounded-full bg-[#f0b429]/90 shadow-lg sm:bottom-28"
-        aria-hidden
-      />
-    </div>
-  )
-}
-
-function FlowDiagram() {
-  const pasos = [
-    { label: 'Sistema de la empresa', sub: 'Portal, ERP o app propia' },
-    { label: 'Puente Nexum', sub: 'Middleware y API REST' },
-    { label: 'Hyperledger Fabric', sub: 'Registro inmutable en red' },
-  ]
-
-  return (
-    <div className="bg-gradient-to-br from-[#b8c9de] to-[#9eb3cc] px-6 py-10 sm:px-10 sm:py-12">
-      <p className="text-center text-xs font-semibold uppercase tracking-wider text-[#1a3a5c]/80">
-        Flujo de una operación
-      </p>
-      <div className="mt-8 space-y-4">
-        {pasos.map((p, i) => (
-          <div key={p.label} className="relative">
-            <div className="flex items-center gap-4 rounded-2xl bg-white/90 px-5 py-4 shadow-sm">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1a3a5c] text-sm font-bold text-[#f0b429]">
-                {i + 1}
+      <footer id="footer-contacto" className="landing-footer-dark">
+        <div className="container-xl py-5">
+          <div className="row g-4 align-items-start">
+            <div className="col-md-4">
+              <span className="landing-brand-badge d-inline-block mb-3">
+                <NexumLogo height={32} />
               </span>
-              <div>
-                <p className="text-sm font-bold text-[#1a2332]">{p.label}</p>
-                <p className="text-xs text-[#6b7280]">{p.sub}</p>
-              </div>
+              <p className="text-white opacity-50 small mb-0">Universal Blockchain API · BaaS</p>
             </div>
-            {i < pasos.length - 1 ? (
-              <div className="ml-[1.375rem] h-4 w-px bg-[#1a3a5c]/25" aria-hidden />
-            ) : null}
+            <div className="col-md-4">
+              <p className="text-white opacity-75 small fw-semibold mb-2">Navegación</p>
+              <nav className="d-flex flex-column gap-2">
+                <a href="#solucion" className="landing-footer-link-dark small">
+                  Solución
+                </a>
+                <a href="#como-funciona" className="landing-footer-link-dark small">
+                  Cómo funciona
+                </a>
+                <a href="#accesos" className="landing-footer-link-dark small">
+                  Accesos
+                </a>
+                <Link to="/dev" className="landing-footer-link-dark small">
+                  Solicitar integración
+                </Link>
+              </nav>
+            </div>
+            <div className="col-md-4">
+              <p className="text-white opacity-75 small fw-semibold mb-2">Consolas</p>
+              <nav className="d-flex flex-column gap-2">
+                <Link to="/dev/login" className="landing-footer-link-dark small">
+                  Portal Integrador
+                </Link>
+                <Link to="/login" className="landing-footer-link-dark small">
+                  Consola Cliente
+                </Link>
+              </nav>
+            </div>
           </div>
-        ))}
-      </div>
+          <div className="border-top border-white border-opacity-10 mt-4 pt-4 text-center">
+            <p className="text-white opacity-40 small mb-0">
+              Nexum · Evidencia consultable · Tenants aislados · Operación permissionada
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
