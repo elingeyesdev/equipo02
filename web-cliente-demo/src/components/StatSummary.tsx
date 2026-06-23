@@ -14,7 +14,7 @@ interface StatSummaryProps {
 export function StatSummary({
   totalClientesEnRed,
   entityLabel = 'Clientes registrados',
-  ledgerEndpointHint = 'Datos del ledger vía GET /datos',
+  ledgerEndpointHint = 'Datos del ledger de tu organización',
   tokenOpsCount = 0,
   consultasCount = 0,
   eventosCount = 0,
@@ -55,7 +55,7 @@ export function StatSummary({
       trendUp: true,
     },
     {
-      label: 'Historial de actividad',
+      label: 'Eventos en esta sesión',
       value: eventosCount.toLocaleString('es-PE'),
       hint: 'Eventos y operaciones en esta sesión',
       trend: 'Últimos 200',

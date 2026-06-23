@@ -16,14 +16,12 @@ type NavItem = {
 
 const items: NavItem[] = [
   { to: '/app', label: 'Panel', icon: IconGrid, end: true },
-  { to: '/app/datos', label: 'Registro manual', icon: IconPencil },
+  { to: '/app/datos', label: 'Actualización manual', icon: IconPencil },
   { to: '/app/datos-registrados', label: 'Datos registrados', icon: IconList },
   { to: '/app/consultas', label: 'Consultar registro', icon: IconSearch },
   { to: '/app/solicitudes', label: 'Cola de aprobación', icon: IconInbox },
-  { to: '/app/auditoria', label: 'Auditar', icon: IconShield },
-  { to: '/app/historial', label: 'Historial de actividad', icon: IconClock },
-  { to: '/app/trazabilidad', label: 'Trazabilidad blockchain', icon: IconFlow },
-  { to: '/app/credenciales', label: 'Perfil', icon: IconKey },
+  { to: '/app/auditoria', label: 'Auditoría', icon: IconShield },
+  { to: '/app/credenciales', label: 'Perfil y permisos', icon: IconKey },
 ]
 
 export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
@@ -46,7 +44,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         <div className="border-b border-white/10 px-5 py-5">
           <NavLink to="/app" end className="block" onClick={onCloseMobile}>
             <span className="text-xl font-bold uppercase tracking-[0.08em] text-white">Nexum</span>
-            <p className="mt-1 text-xs text-white/55">Consola BaaS universal</p>
+            <p className="mt-1 text-xs text-white/55">Consola Cliente</p>
           </NavLink>
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
@@ -140,22 +138,6 @@ function IconSearch({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-    </svg>
-  )
-}
-
-function IconClock({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  )
-}
-
-function IconFlow({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.75h6m9 0h-3m-3 0h-3m6 0v3m0 4.5v3m0-3h3m-6 0h3m-12 0h6m-6 0v-3m0-4.5v-3m0 3h3m6 0h0" />
     </svg>
   )
 }

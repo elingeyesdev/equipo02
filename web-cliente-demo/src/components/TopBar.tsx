@@ -12,40 +12,37 @@ interface TopBarProps {
 
 const SECTION_META: Record<string, { title: string; subtitle: string }> = {
   '/app': {
-    title: 'Panel del puente',
-    subtitle: 'Resumen, accesos rápidos y actividad reciente',
+    title: 'Panel de la Consola Cliente',
+    subtitle: 'Resumen del tenant, accesos rápidos y datos registrados',
   },
   '/app/datos': {
-    title: 'Registro manual',
-    subtitle: 'Alta, edición y baja de datos en JSON (pruebas y administración)',
+    title: 'Actualización manual',
+    subtitle: 'Actualiza o da de baja registros existentes enviados desde el sistema cliente',
   },
   '/app/datos-registrados': {
     title: 'Datos registrados',
-    subtitle: 'Registros enviados al BaaS con trazabilidad blockchain',
+    subtitle: 'Inventario de registros del tenant en la red blockchain',
   },
   '/app/consultas': {
     title: 'Consultar registro',
-    subtitle: 'Búsqueda por datoId o TxID · historial y línea de tiempo',
+    subtitle: 'Búsqueda por datoId o TxID con historial y evidencia',
   },
   '/app/solicitudes': {
     title: 'Cola de aprobación',
-    subtitle: 'Solicitudes pendientes de integradores',
+    subtitle: 'Solicitudes de cambio de datos dentro del tenant',
   },
   '/app/auditoria': {
-    title: 'Auditar',
-    subtitle: 'Bitácora HTTP + eventos de cadena (GET /auditoria/combinada)',
+    title: 'Auditoría',
+    subtitle:
+      'Eventos y operaciones registradas del tenant. Para el historial on-chain de un dato, usa Consultar registro o Historial en cadena.',
   },
   '/app/historial': {
-    title: 'Historial de actividad',
-    subtitle: 'Operaciones observadas en esta sesión',
-  },
-  '/app/trazabilidad': {
-    title: 'Trazabilidad blockchain',
-    subtitle: 'Línea de tiempo y comprobación de TXID',
+    title: 'Historial local de sesión',
+    subtitle: 'Acciones registradas solo en este navegador durante la sesión actual',
   },
   '/app/credenciales': {
-    title: 'Perfil de sesión',
-    subtitle: 'Datos del usuario y permisos asignados',
+    title: 'Perfil y permisos',
+    subtitle: 'Usuario, tenant, rol y capacidades de tu sesión',
   },
 }
 
@@ -68,7 +65,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     if (pathname.startsWith('/app/historial-dato')) {
       return {
         title: 'Historial en cadena',
-        subtitle: 'GET /api/datos/:datoId/historial',
+        subtitle: 'Revisiones on-chain de un registro específico',
       }
     }
     return SECTION_META[pathname] ?? SECTION_META['/app']
@@ -143,7 +140,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                       navigate('/app/credenciales')
                     }}
                   >
-                    Perfil de sesión
+                    Perfil y permisos
                   </button>
                   <button
                     type="button"
