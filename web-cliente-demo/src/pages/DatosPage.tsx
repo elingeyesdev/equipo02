@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { IconFileSearch, IconPencil, IconRefresh } from '@tabler/icons-react'
 import { useAuth } from '../context/AuthContext'
 import { roleFromBackend } from '../lib/roles'
 import { formatShortDate } from '../lib/format'
@@ -22,9 +23,6 @@ interface FilaDato {
 type AvisoExito =
   | { tipo: 'pendiente' }
   | { tipo: 'confirmado'; datoId: string; txId?: string }
-
-const input =
-  'w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent-soft focus:ring-2 focus:ring-accent/25'
 
 function asObj(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -66,37 +64,21 @@ function normalizarFila(row: unknown): FilaDato | null {
   }
 }
 
-function tituloRolCard(rol: AppRole): string {
-  if (rol === 'admin') return 'Rol administrador'
-  if (rol === 'integrador') return 'Rol integrador'
-  return 'Rol solo lectura'
-}
-
-function textoRolCard(rol: AppRole): string {
-  if (rol === 'admin') {
-    return 'Como administrador, puedes actualizar o dar de baja registros existentes directamente en blockchain.'
-  }
-  if (rol === 'integrador') {
-    return 'Como integrador, puedes proponer cambios sobre registros existentes. Un administrador deberá aprobarlos desde la Cola de aprobación.'
-  }
-  return 'Tu rol permite consultar información, pero no modificar registros.'
-}
-
 function etiquetaGuardar(rol: AppRole): string {
   if (rol === 'admin') return 'Guardar cambios en la red'
   return 'Enviar solicitud de cambio'
 }
 
-function etiquetaEliminarLista(rol: AppRole): string {
+function etiquetaEliminar(rol: AppRole): string {
   if (rol === 'admin') return 'Dar de baja en la red'
   return 'Enviar solicitud de baja'
 }
 
 function mensajeConfirmBaja(rol: AppRole): string {
   if (rol === 'admin') {
-    return '¿Dar de baja este registro en la red? Esta acción se registrará en blockchain.'
+    return 'Esta acción marcará el registro seleccionado como dado de baja en la red. No se recomienda continuar si no estás seguro.'
   }
-  return '¿Enviar solicitud de baja? Un administrador deberá aprobarla antes de aplicarse.'
+  return 'Se enviará una solicitud de baja. Un administrador deberá aprobarla antes de aplicarse en la red.'
 }
 
 function resolverAvisoExito(r: RespuestaMutacionDato, datoId: string): AvisoExito {
@@ -104,6 +86,16 @@ function resolverAvisoExito(r: RespuestaMutacionDato, datoId: string): AvisoExit
     return { tipo: 'pendiente' }
   }
   return { tipo: 'confirmado', datoId, txId: r.txId }
+}
+
+function validarJson(text: string): string | null {
+  if (!text.trim()) return 'El JSON no puede estar vacío.'
+  try {
+    JSON.parse(text)
+    return null
+  } catch {
+    return 'El contenido del registro no es JSON válido.'
+  }
 }
 
 export default function DatosPage() {
@@ -121,6 +113,11 @@ export default function DatosPage() {
   const [tipo, setTipo] = useState('')
   const [payloadText, setPayloadText] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [modalBaja, setModalBaja] = useState<FilaDato | null>(null)
+  const [eliminando, setEliminando] = useState(false)
+
+  const [busquedaId, setBusquedaId] = useState('')
+  const [busquedaAplicada, setBusquedaAplicada] = useState('')
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -140,7 +137,30 @@ export default function DatosPage() {
     void cargar()
   }, [cargar])
 
-  const total = useMemo(() => filas.length, [filas])
+  const filasFiltradas = useMemo(() => {
+    const q = busquedaAplicada.trim().toLowerCase()
+    if (!q) return filas
+    return filas.filter((f) => f.datoId.toLowerCase().includes(q))
+  }, [filas, busquedaAplicada])
+
+  const registroSeleccionado = useMemo(
+    () => (editando ? filas.find((f) => f.datoId === datoId) ?? null : null),
+    [editando, datoId, filas],
+  )
+
+  const jsonError = useMemo(() => {
+    if (!editando || !payloadText.trim()) return null
+    return validarJson(payloadText)
+  }, [editando, payloadText])
+
+  function aplicarFiltros() {
+    setBusquedaAplicada(busquedaId)
+  }
+
+  function limpiarFiltros() {
+    setBusquedaId('')
+    setBusquedaAplicada('')
+  }
 
   function cancelarEdicion() {
     setEditando(false)
@@ -160,6 +180,11 @@ export default function DatosPage() {
 
   function onFormatearJson() {
     setError(null)
+    const err = validarJson(payloadText)
+    if (err) {
+      setError(err.replace('El contenido del registro no es JSON válido.', 'El contenido del registro no es JSON válido. Corrígelo antes de formatear.'))
+      return
+    }
     try {
       const parsed = JSON.parse(payloadText)
       setPayloadText(JSON.stringify(parsed, null, 2))
@@ -176,6 +201,11 @@ export default function DatosPage() {
     const t = tipo.trim()
     if (!id || !t) {
       setError('El ID del dato y el tipo de registro son obligatorios.')
+      return
+    }
+    const jsonErr = validarJson(payloadText)
+    if (jsonErr) {
+      setError(jsonErr)
       return
     }
     let payload: unknown
@@ -198,246 +228,354 @@ export default function DatosPage() {
     }
   }
 
-  async function onEliminar(f: FilaDato) {
-    if (!window.confirm(mensajeConfirmBaja(rol))) return
+  async function ejecutarBaja(f: FilaDato) {
     setAvisoExito(null)
     setError(null)
     if (editando && datoId === f.datoId) cancelarEdicion()
+    setEliminando(true)
     try {
       const r = await eliminarDatoApi(f.datoId)
       setAvisoExito(resolverAvisoExito(r, f.datoId))
+      setModalBaja(null)
       await cargar()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo dar de baja el registro')
+    } finally {
+      setEliminando(false)
     }
   }
 
   return (
-    <div className="space-y-5">
-      <header>
-        <h1 className="text-xl font-semibold text-ink sm:text-2xl">Actualización manual</h1>
-        <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
-          Actualiza o da de baja registros existentes en Nexum. La creación de nuevos datos debe realizarse desde el
-          sistema cliente mediante la API.
-        </p>
-      </header>
-
-      <div className="alert alert-warning mb-0" role="status">
-        <h2 className="alert-heading h5 mb-2">Actualización de registros existentes</h2>
-        <p className="mb-0">
-          Esta pantalla no crea registros nuevos. Los nuevos datos deben originarse desde el sistema cliente integrado
-          mediante la API. Aquí solo puedes actualizar o dar de baja registros que ya existen en Nexum.
-        </p>
+    <div className="consola-datos">
+      <div className="consola-notice" role="status">
+        Esta pantalla no crea registros nuevos. Los nuevos datos deben originarse desde el sistema cliente integrado
+        mediante la API. Aquí solo puedes actualizar o dar de baja registros existentes.
       </div>
 
-      <div className="alert alert-info mb-0" role="status">
-        <h2 className="alert-heading h5 mb-2">{tituloRolCard(rol)}</h2>
-        <p className="mb-0">{textoRolCard(rol)}</p>
-      </div>
-
-      {avisoExito ? <AvisoExitoPanel aviso={avisoExito} /> : null}
+      {avisoExito ? <AvisoExitoCompact aviso={avisoExito} /> : null}
       {error ? (
-        <div className="alert alert-danger mb-0" role="alert">
+        <div className="consola-alert consola-alert--error" role="alert">
           {error}
         </div>
       ) : null}
 
       {!puedeEscribir ? (
-        <section className="admin-card p-4 sm:p-5">
-          <p className="text-sm text-ink-secondary">{textoRolCard(rol)}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              to="/app/consultas"
-              className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-secondary transition-colors hover:border-accent/30 hover:bg-accent-soft hover:text-accent"
-            >
-              Consultar registro
-            </Link>
-            <Link
-              to="/app/datos-registrados"
-              className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-secondary transition-colors hover:border-accent/30 hover:bg-accent-soft hover:text-accent"
-            >
-              Ver datos registrados
-            </Link>
-          </div>
-        </section>
+        <div className="consola-notice consola-notice--muted">
+          Tu rol permite consultar información, pero no modificar registros.{' '}
+          <Link to="/app/consultas" className="consola-link">
+            Consultar registro
+          </Link>
+        </div>
       ) : null}
 
-      <section className="admin-card overflow-hidden">
-        <div className="admin-card-header flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="admin-card-title">Registros existentes ({total})</h2>
-            <p className="mt-1 text-xs text-muted">
-              Selecciona un registro para actualizar su contenido o darlo de baja.
+      <div className="consola-datos-layout">
+        <div className="consola-datos-col-left">
+          <section className="consola-panel consola-datos-search">
+            <div className="consola-panel-head consola-datos-search-head">
+              <h2 className="consola-panel-title">Buscar registro</h2>
+            </div>
+            <div className="consola-panel-body consola-datos-search-body">
+              <label className="consola-field consola-datos-search-field">
+                <span className="consola-field-label">ID del dato</span>
+                <input
+                  type="search"
+                  className="consola-input"
+                  placeholder="Ej. AmiLote, DIAG-POST-POLICY..."
+                  value={busquedaId}
+                  onChange={(e) => setBusquedaId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') aplicarFiltros()
+                  }}
+                />
+              </label>
+              <div className="consola-datos-search-actions">
+                <button type="button" className="consola-btn consola-btn--primary" onClick={aplicarFiltros}>
+                  Buscar
+                </button>
+                <button type="button" className="consola-btn consola-btn--secondary" onClick={limpiarFiltros}>
+                  Limpiar
+                </button>
+                <button
+                  type="button"
+                  className="consola-refresh-btn"
+                  title="Actualizar lista"
+                  aria-label="Actualizar lista"
+                  disabled={cargando}
+                  onClick={() => void cargar()}
+                >
+                  <IconRefresh size={18} stroke={1.75} className={cargando ? 'animate-spin' : undefined} />
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="consola-panel consola-datos-table-panel">
+          <div className="consola-panel-head">
+            <h2 className="consola-panel-title">Registros existentes</h2>
+            <p className="consola-panel-subtitle">
+              Selecciona un registro para revisar o modificar su contenido.
+              {filas.length > 0 ? ` · ${filasFiltradas.length} de ${filas.length}` : ''}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void cargar()}
-            className="btn btn-sm btn-outline-secondary"
-            disabled={cargando}
-          >
-            {cargando ? 'Actualizando…' : 'Actualizar lista'}
-          </button>
-        </div>
-        <div className="min-h-0 overflow-auto">
-          {cargando ? (
-            <p className="px-4 py-6 text-center text-sm text-muted">Cargando…</p>
-          ) : filas.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <table className="admin-table w-full text-left text-sm">
-              <thead className="sticky top-0 z-10 bg-surface">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">ID del dato</th>
-                  <th className="px-4 py-2.5 font-medium">Tipo</th>
-                  <th className="px-4 py-2.5 font-medium">Estado</th>
-                  <th className="hidden px-4 py-2.5 font-medium md:table-cell">Fecha</th>
-                  <th className="px-4 py-2.5 font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {filas.map((f) => (
-                  <tr key={f.datoId} className={editando && datoId === f.datoId ? 'bg-accent-soft/40' : undefined}>
-                    <td className="px-4 py-2.5">
-                      <span className="font-mono text-xs font-medium text-ink">{f.datoId}</span>
-                      <details className="mt-1">
-                        <summary className="cursor-pointer text-[11px] text-accent">Ver contenido JSON</summary>
-                        <pre className="mt-1 max-h-40 overflow-auto rounded-lg bg-gray-900 p-2 text-[10px] text-gray-100">
-                          {JSON.stringify(f.payload ?? {}, null, 2)}
-                        </pre>
-                      </details>
-                    </td>
-                    <td className="max-w-[120px] truncate px-4 py-2.5 text-muted">{f.tipo || '—'}</td>
-                    <td className="px-4 py-2.5">
-                      <span className="admin-badge-neutral text-[11px]">{f.estado}</span>
-                    </td>
-                    <td className="hidden whitespace-nowrap px-4 py-2.5 text-xs text-muted md:table-cell">
-                      {f.fecha ? formatShortDate(f.fecha) : '—'}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {puedeEscribir ? (
-                        <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => cargarEnForm(f)}
-                            className="btn btn-sm btn-outline-secondary"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void onEliminar(f)}
-                            className="btn btn-sm btn-outline-danger"
-                          >
-                            {etiquetaEliminarLista(rol)}
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted">Solo consulta</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </section>
-
-      {puedeEscribir && editando ? (
-        <section className="admin-card p-4 sm:p-5">
-          <h2 className="admin-card-title">Editar registro</h2>
-          <p className="mt-1 text-xs text-muted">
-            Modifica el contenido del registro <span className="font-mono font-medium text-ink">{datoId}</span> y guarda
-            los cambios.
-          </p>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-ink-secondary">ID del dato</span>
-              <input className={input} value={datoId} disabled readOnly />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-ink-secondary">Tipo de registro</span>
-              <input className={input} value={tipo} onChange={(e) => setTipo(e.target.value)} />
-            </label>
-          </div>
-          <label className="mt-3 block">
-            <span className="mb-1 block text-xs font-medium text-ink-secondary">Contenido del registro (JSON)</span>
-            <textarea
-              className={`${input} font-mono`}
-              rows={10}
-              value={payloadText}
-              onChange={(e) => setPayloadText(e.target.value)}
-            />
-          </label>
-          <p className="mt-2 text-xs text-muted">
-            El contenido debe ser un objeto JSON válido. Usa los datos reales del registro como base.
-          </p>
-          <div className="mt-2">
-            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onFormatearJson}>
-              Formatear JSON
-            </button>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" disabled={enviando} onClick={() => void onGuardar()} className="btn btn-primary">
-              {enviando ? 'Enviando…' : etiquetaGuardar(rol)}
-            </button>
-            <button type="button" onClick={cancelarEdicion} className="btn btn-outline-secondary">
-              Cancelar
-            </button>
+          <div className="consola-datos-table-body">
+            {cargando ? (
+              <p className="consola-empty">Cargando registros…</p>
+            ) : filas.length === 0 ? (
+              <EmptyStateLista />
+            ) : filasFiltradas.length === 0 ? (
+              <p className="consola-empty">No se encontraron registros con ese ID.</p>
+            ) : (
+              <div className="consola-table-wrap consola-datos-table-scroll">
+                <table className="consola-table consola-datos-table">
+                  <thead>
+                    <tr>
+                      <th>ID del dato</th>
+                      <th>Tipo</th>
+                      <th>Estado</th>
+                      <th>Fecha</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filasFiltradas.map((f) => {
+                      const seleccionado = editando && datoId === f.datoId
+                      return (
+                        <tr key={f.datoId} className={seleccionado ? 'consola-datos-row--selected' : undefined}>
+                          <td className="font-mono text-[0.72rem]">{f.datoId}</td>
+                          <td className="consola-datos-tipo">{f.tipo || '—'}</td>
+                          <td>
+                            <EstadoBadge estado={f.estado} />
+                          </td>
+                          <td className="text-[#667085]">{f.fecha ? formatShortDate(f.fecha) : '—'}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="consola-btn consola-btn--ghost consola-btn--sm"
+                              onClick={() => cargarEnForm(f)}
+                            >
+                              <IconPencil size={14} stroke={1.75} aria-hidden />
+                              {puedeEscribir ? 'Seleccionar' : 'Ver'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </section>
+        </div>
+
+        <aside className="consola-panel consola-datos-editor-panel">
+          {!editando ? (
+            <div className="consola-datos-editor-empty">
+              <IconFileSearch size={32} stroke={1.35} className="consola-datos-editor-empty-icon" aria-hidden />
+              <h3 className="consola-datos-editor-empty-title">Selecciona un registro</h3>
+              <p className="consola-datos-editor-empty-text">
+                Elige un registro de la tabla para ver su contenido JSON, editarlo o darlo de baja.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="consola-panel-head">
+                <h2 className="consola-panel-title">{puedeEscribir ? 'Editar registro' : 'Detalle del registro'}</h2>
+                <p className="consola-panel-subtitle">
+                  {puedeEscribir
+                    ? 'Modifica el contenido del registro seleccionado y guarda los cambios en la red.'
+                    : 'Vista de solo lectura del registro seleccionado.'}
+                </p>
+              </div>
+              <div className="consola-panel-body consola-datos-editor-scroll">
+                <dl className="consola-datos-meta">
+                  <div>
+                    <dt>ID del dato</dt>
+                    <dd className="font-mono">{datoId}</dd>
+                  </div>
+                  <div>
+                    <dt>Tipo</dt>
+                    <dd>{tipo || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Estado</dt>
+                    <dd>{registroSeleccionado?.estado ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Fecha</dt>
+                    <dd>{registroSeleccionado?.fecha ? formatShortDate(registroSeleccionado.fecha) : '—'}</dd>
+                  </div>
+                </dl>
+
+                <div className="consola-field consola-datos-json-field">
+                  <div className="consola-datos-json-head">
+                    <label className="consola-field-label" htmlFor="datos-json-editor">
+                      Contenido del registro (JSON)
+                    </label>
+                    {puedeEscribir ? (
+                      <button type="button" className="consola-btn consola-btn--ghost consola-btn--sm" onClick={onFormatearJson}>
+                        Formatear JSON
+                      </button>
+                    ) : null}
+                  </div>
+                  <textarea
+                    id="datos-json-editor"
+                    className={`consola-json-editor${jsonError ? ' consola-json-editor--error' : ''}`}
+                    value={payloadText}
+                    onChange={(e) => setPayloadText(e.target.value)}
+                    readOnly={!puedeEscribir}
+                    spellCheck={false}
+                  />
+                  {jsonError ? <p className="consola-field-error">{jsonError}</p> : null}
+                  <p className="consola-field-hint">
+                    El contenido debe ser un objeto JSON válido. Usa los datos reales del registro como base.
+                  </p>
+                </div>
+              </div>
+
+              {puedeEscribir ? (
+                <div className="consola-datos-editor-actions">
+                  <button
+                    type="button"
+                    disabled={enviando || Boolean(jsonError)}
+                    onClick={() => void onGuardar()}
+                    className="consola-btn consola-btn--primary"
+                  >
+                    {enviando ? 'Enviando…' : etiquetaGuardar(rol)}
+                  </button>
+                  <button type="button" onClick={cancelarEdicion} className="consola-btn consola-btn--secondary">
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="consola-btn consola-btn--danger-outline"
+                    onClick={() => {
+                      const f = filas.find((x) => x.datoId === datoId)
+                      if (f) setModalBaja(f)
+                    }}
+                  >
+                    {etiquetaEliminar(rol)}
+                  </button>
+                </div>
+              ) : (
+                <div className="consola-datos-editor-actions">
+                  <button type="button" onClick={cancelarEdicion} className="consola-btn consola-btn--secondary">
+                    Cerrar
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </aside>
+      </div>
+
+      {modalBaja ? (
+        <ModalConfirmBaja
+          registro={modalBaja}
+          rol={rol}
+          eliminando={eliminando}
+          onCancel={() => setModalBaja(null)}
+          onConfirm={() => void ejecutarBaja(modalBaja)}
+        />
       ) : null}
     </div>
   )
 }
 
-function EmptyState() {
+function EstadoBadge({ estado }: { estado: string }) {
+  const lower = estado.toLowerCase()
+  const cls =
+    lower.includes('activo') || lower.includes('ok')
+      ? 'consola-badge consola-badge--ok'
+      : lower.includes('baja') || lower.includes('inactiv')
+        ? 'consola-badge consola-badge--warn'
+        : 'consola-badge'
+  return <span className={cls}>{estado}</span>
+}
+
+function EmptyStateLista() {
   return (
-    <div className="px-4 py-10 text-center">
-      <h3 className="text-base font-semibold text-ink">No hay datos registrados</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-        Cuando el sistema cliente envíe datos a Nexum mediante la API, aparecerán aquí para consulta o actualización.
+    <div className="consola-empty">
+      <p className="mb-2 font-semibold text-[#17233a]">No se encontraron registros.</p>
+      <p className="mb-0 text-[0.8rem]">
+        Cuando el sistema cliente envíe datos mediante la API, aparecerán aquí.
       </p>
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
-        <Link to="/app/consultas" className="btn btn-sm btn-outline-primary">
-          Consultar registro
-        </Link>
-        <Link to="/app/datos-registrados" className="btn btn-sm btn-outline-secondary">
-          Ver datos registrados
-        </Link>
-      </div>
     </div>
   )
 }
 
-function AvisoExitoPanel({ aviso }: { aviso: AvisoExito }) {
+function AvisoExitoCompact({ aviso }: { aviso: AvisoExito }) {
   if (aviso.tipo === 'pendiente') {
     return (
-      <div className="alert alert-success mb-0" role="status">
-        <p className="mb-2">
-          Solicitud enviada correctamente. Quedó pendiente de aprobación del administrador.
-        </p>
-        <Link to="/app/solicitudes" className="btn btn-sm btn-success">
+      <div className="consola-alert consola-alert--success" role="status">
+        Solicitud enviada correctamente. Quedó pendiente de aprobación del administrador.{' '}
+        <Link to="/app/solicitudes" className="consola-link">
           Ver cola de aprobación
         </Link>
       </div>
     )
   }
-
   return (
-    <div className="alert alert-success mb-0" role="status">
-      <p className="mb-2">Registro confirmado en blockchain.</p>
+    <div className="consola-alert consola-alert--success" role="status">
+      Registro confirmado en blockchain.
       {aviso.txId ? (
-        <p className="mb-2 font-mono text-xs text-muted">Tx: {aviso.txId.slice(0, 16)}…</p>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Link to="/app/consultas" state={{ datoId: aviso.datoId }} className="btn btn-sm btn-success">
-          Consultar registro
-        </Link>
-        <Link to="/app/datos-registrados" state={{ focusId: aviso.datoId }} className="btn btn-sm btn-outline-success">
-          Ver datos registrados
-        </Link>
+        <span className="ms-2 font-mono text-[0.72rem] opacity-80">Tx: {aviso.txId.slice(0, 16)}…</span>
+      ) : null}{' '}
+      <Link to="/app/consultas" state={{ datoId: aviso.datoId }} className="consola-link">
+        Consultar
+      </Link>
+    </div>
+  )
+}
+
+function ModalConfirmBaja({
+  registro,
+  rol,
+  eliminando,
+  onCancel,
+  onConfirm,
+}: {
+  registro: FilaDato
+  rol: AppRole
+  eliminando: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div className="consola-modal-backdrop" role="presentation" onClick={onCancel}>
+      <div
+        className="consola-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-baja-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="modal-baja-title" className="consola-modal-title">
+          Confirmar baja del registro
+        </h2>
+        <p className="consola-modal-text">{mensajeConfirmBaja(rol)}</p>
+        <dl className="consola-datos-meta consola-modal-meta">
+          <div>
+            <dt>ID del dato</dt>
+            <dd className="font-mono">{registro.datoId}</dd>
+          </div>
+          <div>
+            <dt>Tipo</dt>
+            <dd>{registro.tipo || '—'}</dd>
+          </div>
+          <div>
+            <dt>Estado actual</dt>
+            <dd>{registro.estado}</dd>
+          </div>
+        </dl>
+        <div className="consola-modal-actions">
+          <button type="button" className="consola-btn consola-btn--secondary" onClick={onCancel} disabled={eliminando}>
+            Cancelar
+          </button>
+          <button type="button" className="consola-btn consola-btn--danger" onClick={onConfirm} disabled={eliminando}>
+            {eliminando ? 'Procesando…' : 'Confirmar baja'}
+          </button>
+        </div>
       </div>
     </div>
   )
