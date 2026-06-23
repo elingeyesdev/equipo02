@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useDevAuth } from '../context/DevAuthContext'
+import { PasswordInput } from '../components/PasswordInput'
 
 export default function DevRegisterPage() {
   const { register } = useDevAuth()
@@ -28,29 +29,65 @@ export default function DevRegisterPage() {
   }
 
   return (
-    <div className="container-xl py-5 d-flex justify-content-center">
-      <form onSubmit={submit} className="card w-100" style={{ maxWidth: '24rem' }}>
+    <div className="dev-auth-page">
+      <form onSubmit={submit} className="card dev-auth-card">
         <div className="card-body">
-          <h1 className="h3">Crear cuenta dev</h1>
-          <p className="text-secondary small">Para solicitar alta en el BaaS y ver el estado</p>
-          <label className="form-label mt-3">
-            Nombre
-            <input className="form-control" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
-          </label>
-          <label className="form-label mt-2">
-            Email
-            <input type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </label>
-          <label className="form-label mt-2">
-            Contraseña
-            <input type="password" className="form-control" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-          </label>
-          {error ? <p className="text-danger small mt-2">{error}</p> : null}
-          <button type="submit" disabled={busy} className="btn btn-warning w-100 mt-3">
+          <h1 className="dev-auth-title">Crear cuenta dev</h1>
+          <p className="dev-auth-subtitle">Para solicitar alta en el BaaS y ver el estado</p>
+
+          <div className="dev-auth-field">
+            <label className="form-label" htmlFor="dev-register-nombre">
+              Nombre
+            </label>
+            <input
+              id="dev-register-nombre"
+              className="form-control"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              required
+              autoComplete="name"
+            />
+          </div>
+
+          <div className="dev-auth-field">
+            <label className="form-label" htmlFor="dev-register-email">
+              Email
+            </label>
+            <input
+              id="dev-register-email"
+              type="email"
+              className="form-control"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="dev-auth-field">
+            <label className="form-label" htmlFor="dev-register-password">
+              Contraseña
+            </label>
+            <PasswordInput
+              id="dev-register-password"
+              value={password}
+              onChange={setPassword}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+          </div>
+
+          {error ? <p className="text-danger small mt-3 mb-0">{error}</p> : null}
+
+          <button type="submit" disabled={busy} className="btn btn-dev-register w-100 dev-auth-submit mt-4">
             {busy ? 'Creando…' : 'Crear cuenta'}
           </button>
-          <p className="text-center small mt-3 mb-0">
-            <Link to="/dev/login" state={{ from }}>Ya tengo cuenta</Link>
+
+          <p className="dev-auth-footer-link mb-0">
+            <Link to="/dev/login" state={{ from }}>
+              Ya tengo cuenta
+            </Link>
           </p>
         </div>
       </form>

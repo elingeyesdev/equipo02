@@ -1,5 +1,6 @@
 import { type ReactElement } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { IconChevronLeft } from '@tabler/icons-react'
 import { useDevAuth } from '../context/DevAuthContext'
 
 type Props = {
@@ -32,24 +33,27 @@ export function RequiereDevAuth({ children, title, message }: Props) {
 
   if (estado !== 'autenticado') {
     return (
-      <div className="container-xl py-5">
-        <div className="row justify-content-center">
-          <div className="col-md-8 col-lg-6">
-            <div className="card">
-              <div className="card-body text-center py-5 px-4">
-                <h2 className="h4 mb-3">{title}</h2>
-                <p className="text-secondary mb-4">{message}</p>
-                <div className="d-flex flex-column flex-sm-row gap-2 justify-content-center">
-                  <Link to="/dev/login" state={{ from }} className="btn btn-primary">
-                    Iniciar sesión
-                  </Link>
-                  <Link to="/dev/registro" state={{ from }} className="btn btn-outline-primary">
-                    Crear cuenta
+      <div className="dev-auth-gate">
+        <div className="container-xl py-5">
+          <div className="row justify-content-center">
+            <div className="col-md-8 col-lg-5">
+              <div className="card dev-auth-gate-card">
+                <div className="card-body text-center py-5 px-4">
+                  <h2 className="dev-auth-gate-title">{title}</h2>
+                  <p className="dev-auth-gate-message">{message}</p>
+                  <div className="d-flex flex-column flex-sm-row gap-2 justify-content-center">
+                    <Link to="/dev/login" state={{ from }} className="btn btn-dev-login">
+                      Iniciar sesión
+                    </Link>
+                    <Link to="/dev/registro" state={{ from }} className="btn btn-outline-primary">
+                      Crear cuenta
+                    </Link>
+                  </div>
+                  <Link to="/dev" className="dev-portal-inline-link dev-portal-inline-link-back mt-4">
+                    <IconChevronLeft size={18} stroke={1.75} aria-hidden />
+                    Volver al portal
                   </Link>
                 </div>
-                <Link to="/dev" className="d-inline-block mt-4 small text-secondary">
-                  ← Volver al portal
-                </Link>
               </div>
             </div>
           </div>
