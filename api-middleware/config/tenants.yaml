@@ -1,76 +1,196 @@
-# tenants.yaml — Configuración multi-tenant REAL del api-middleware (BaaS universal)
-#
-# MODELO UNIVERSAL: todos los tenants usan el chaincode genérico `dato_cc`.
-# Cada tenant = una empresa = un canal Fabric privado + API keys por rol.
-#
-# NOTA: el canal "salud" debe existir en la red. Crearlo con:
-#   ./scripts/fabric-despliegue/agregar_tenant.sh salud Org1
-# (ver docs/onboarding-cliente-nuevo.md).
+# tenants.yaml — actualizado por web-portal-api (dev portal)
+# Reiniciar api-middleware tras cambios.
 
 default: agricultura
-
 tenants:
-  # Tenant que ya opera sobre la test-network (Org2, canal agricultura).
-  agricultura:
-    nombre: "Administradora de Agricultura"
-    descripcion: "Empresa cliente (dominio agro). Modelo genérico dato_cc."
-    msp_id: "Org2MSP"
-    cert_path: "../red-hyperledger/test-network/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/signcerts/cert.pem"
-    key_path_dir: "../red-hyperledger/test-network/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/keystore"
-    tls_cert_path: "../red-hyperledger/test-network/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/tlscacerts/tls-localhost-8054-ca-org2.pem"
-    peer_endpoint: "localhost:9051"
-    peer_host_alias: "peer0.org2.example.com"
-    canal: "agricultura"
-    chaincode: "dato_cc"
-    api_keys:
-      "agri-admin-2026": admin
-      "agri-int-2026": integrador
-      "agri-lect-2026": solo_lectura
-    notificaciones:
-      activado: true
-      eventos:
-        - dato.creado
-        - dato.editado
-        - dato.eliminado
-        - dato.restaurado
-        - solicitud.creada
-      roles_actor:
-        - integrador
-      destinos:
-        - tipo: email
-          asunto: "[Agricultura] {tipo} → {recurso}"
-          destinatarios:
-            - admin-agri@empresa.com
-
-  # Segundo tenant de dominio distinto (Org1, canal salud) para demostrar
-  # universalidad + aislamiento en vivo. Requiere crear el canal "salud".
-  salud:
-    nombre: "Centro de Salud Demo"
-    descripcion: "Empresa cliente (dominio salud). Mismo modelo genérico dato_cc."
-    msp_id: "Org1MSP"
-    cert_path: "../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem"
-    key_path_dir: "../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore"
-    tls_cert_path: "../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem"
-    peer_endpoint: "localhost:7051"
-    peer_host_alias: "peer0.org1.example.com"
-    canal: "salud"
-    chaincode: "dato_cc"
-    api_keys:
-      "salud-admin-2026": admin
-      "salud-int-2026": integrador
-      "salud-lect-2026": solo_lectura
-    notificaciones:
-      activado: true
-      eventos:
-        - dato.creado
-        - dato.editado
-        - dato.eliminado
-        - dato.restaurado
-        - solicitud.creada
-      roles_actor:
-        - integrador
-      destinos:
-        - tipo: email
-          asunto: "[Salud] {tipo} → {recurso}"
-          destinatarios:
-            - admin-salud@empresa.com
+    agricultura:
+        nombre: Administradora de Agricultura
+        descripcion: Empresa cliente (dominio agro). Modelo genérico dato_cc.
+        msp_id: Org2MSP
+        cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/signcerts/cert.pem
+        key_path_dir: ../red-hyperledger/test-network/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/keystore
+        tls_cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/tlscacerts/tls-localhost-8054-ca-org2.pem
+        peer_endpoint: localhost:9051
+        peer_host_alias: peer0.org2.example.com
+        canal: agricultura
+        chaincode: dato_cc
+        api_keys:
+            agri-admin-2026: admin
+            agri-int-2026: integrador
+            agri-lect-2026: solo_lectura
+        notificaciones:
+            activado: true
+            eventos:
+                - dato.creado
+                - dato.editado
+                - dato.eliminado
+                - dato.restaurado
+                - solicitud.creada
+                - solicitud.resuelta
+            roles_actor:
+                - integrador
+                - admin
+            destinos:
+                - asunto: '[Agricultura] {tipo} → {recurso}'
+                  destinatarios:
+                    - admin-agri@empresa.com
+                  tipo: email
+                - url: http://127.0.0.1:8000/api/blockchain/notificacion
+                  token: agro-webhook-local
+                  tipo: webhook
+                  eventos:
+                    - dato.creado
+                    - dato.editado
+                    - dato.eliminado
+                    - dato.restaurado
+                    - solicitud.resuelta
+    bocados-confiteria:
+        nombre: bocados-confitería
+        descripcion: Tenant bocados-confiteria provisionado desde dev portal.
+        msp_id: Org1MSP
+        cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
+        key_path_dir: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
+        tls_cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem
+        peer_endpoint: localhost:7051
+        peer_host_alias: peer0.org1.example.com
+        canal: bocados-confiteria
+        chaincode: dato_cc
+        api_keys:
+            bocados-confiteria-admin-dc596a37b552: admin
+            bocados-confiteria-integrador-3e5911efaf3e: integrador
+            bocados-confiteria-lectura-db53d3044be0: solo_lectura
+        notificaciones:
+            activado: true
+            eventos:
+                - dato.creado
+                - dato.editado
+                - dato.eliminado
+                - dato.restaurado
+                - solicitud.creada
+            roles_actor:
+                - integrador
+            destinos:
+                - asunto: '[bocados-confitería] {tipo} → {recurso}'
+                  destinatarios:
+                    - eva@demo.com
+                  tipo: email
+    devuser-14357:
+        nombre: Smoke Dev Org
+        descripcion: Tenant devuser-14357 provisionado desde dev portal.
+        msp_id: Org1MSP
+        cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
+        key_path_dir: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
+        tls_cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem
+        peer_endpoint: localhost:7051
+        peer_host_alias: peer0.org1.example.com
+        canal: devuser-14357
+        chaincode: dato_cc
+        api_keys:
+            devuser-14357-admin-8ad1ad2cfe47: admin
+            devuser-14357-integrador-330246fe1ccf: integrador
+            devuser-14357-lectura-e2a3f0b598fe: solo_lectura
+        notificaciones:
+            activado: true
+            eventos:
+                - dato.creado
+                - dato.editado
+                - dato.eliminado
+                - dato.restaurado
+                - solicitud.creada
+            roles_actor:
+                - integrador
+            destinos:
+                - asunto: '[Smoke Dev Org] {tipo} → {recurso}'
+                  destinatarios:
+                    - dev-smoke-1782114357@example.com
+                  tipo: email
+    galletas-suarez:
+        nombre: Galletas Suarez
+        descripcion: Tenant galletas-suarez provisionado desde dev portal.
+        msp_id: Org1MSP
+        cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
+        key_path_dir: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
+        tls_cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem
+        peer_endpoint: localhost:7051
+        peer_host_alias: peer0.org1.example.com
+        canal: galletas-suarez
+        chaincode: dato_cc
+        api_keys:
+            galletas-suarez-admin-c1f2ac14e0fc: admin
+            galletas-suarez-integrador-f8f20f507887: integrador
+            galletas-suarez-lectura-0af4bb3fc273: solo_lectura
+        notificaciones:
+            activado: true
+            eventos:
+                - dato.creado
+                - dato.editado
+                - dato.eliminado
+                - dato.restaurado
+                - solicitud.creada
+            roles_actor:
+                - integrador
+            destinos:
+                - asunto: '[Galletas Suarez] {tipo} → {recurso}'
+                  destinatarios:
+                    - andres@demo.com
+                  tipo: email
+    salud:
+        nombre: Centro de Salud Demo
+        descripcion: Empresa cliente (dominio salud). Mismo modelo genérico dato_cc.
+        msp_id: Org1MSP
+        cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
+        key_path_dir: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
+        tls_cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem
+        peer_endpoint: localhost:7051
+        peer_host_alias: peer0.org1.example.com
+        canal: salud
+        chaincode: dato_cc
+        api_keys:
+            salud-admin-2026: admin
+            salud-int-2026: integrador
+            salud-lect-2026: solo_lectura
+        notificaciones:
+            activado: true
+            eventos:
+                - dato.creado
+                - dato.editado
+                - dato.eliminado
+                - dato.restaurado
+                - solicitud.creada
+            roles_actor:
+                - integrador
+            destinos:
+                - asunto: '[Salud] {tipo} → {recurso}'
+                  destinatarios:
+                    - admin-salud@empresa.com
+                  tipo: email
+    smoke-06650:
+        nombre: Smoke Test Org
+        descripcion: Tenant smoke-06650 provisionado desde dev portal.
+        msp_id: Org1MSP
+        cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
+        key_path_dir: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
+        tls_cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem
+        peer_endpoint: localhost:7051
+        peer_host_alias: peer0.org1.example.com
+        canal: smoke-06650
+        chaincode: dato_cc
+        api_keys:
+            smoke-06650-admin-878d2cc8fbd0: admin
+            smoke-06650-integrador-dab470b81d92: integrador
+            smoke-06650-lectura-651d141bf09e: solo_lectura
+        notificaciones:
+            activado: true
+            eventos:
+                - dato.creado
+                - dato.editado
+                - dato.eliminado
+                - dato.restaurado
+                - solicitud.creada
+            roles_actor:
+                - integrador
+            destinos:
+                - asunto: '[Smoke Test Org] {tipo} → {recurso}'
+                  destinatarios:
+                    - smoke@example.com
+                  tipo: email
