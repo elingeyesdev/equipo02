@@ -1,0 +1,40 @@
+/* Nexum brand overrides on Tabler */
+:root {
+  --tblr-primary: #1a3a5c;
+  --tblr-primary-rgb: 26, 58, 92;
+  --tblr-secondary: #6b7280;
+  --tblr-body-bg: #f4f6fa;
+  --tblr-font-sans-serif: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.navbar-vertical.navbar-dark {
+  background: #132238;
+}
+
+/* Consola tenant: no heredar layout Tabler .page que rompe el flex interno */
+.app-shell {
+  background: var(--tblr-body-bg, #f4f6f9);
+}
+
+.page-title {
+  font-weight: 600;
+}
+
+pre.snippet-pre {
+  max-height: 20rem;
+  overflow: auto;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.landing-hero {
+  background: linear-gradient(135deg, #0b1628 0%, #132238 48%, #0f1d32 100%);
+}
+
+.landing-highlight {
+  background: linear-gradient(180deg, transparent 62%, rgba(240, 180, 41, 0.42) 62%, rgba(240, 180, 41, 0.42) 88%, transparent 88%);
+}
+
+.landing-blob {
+  background: radial-gradient(circle, rgba(240, 180, 41, 0.15) 0%, transparent 70%);
+}
