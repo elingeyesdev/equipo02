@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { IconRefresh } from '@tabler/icons-react'
+import { useAppShell } from '../context/AppShellContext'
 import { useAuth } from '../context/AuthContext'
 import { useSettings } from '../context/SettingsContext'
 import { etiquetaOrganizacion } from '../lib/organizacion'
@@ -13,7 +15,7 @@ interface TopBarProps {
 const SECTION_META: Record<string, { title: string; subtitle: string }> = {
   '/app': {
     title: 'Panel de la Consola Cliente',
-    subtitle: 'Resumen del tenant, accesos rápidos y datos registrados',
+    subtitle: 'Resumen operativo del tenant',
   },
   '/app/datos': {
     title: 'Actualización manual',
@@ -25,7 +27,7 @@ const SECTION_META: Record<string, { title: string; subtitle: string }> = {
   },
   '/app/consultas': {
     title: 'Consultar registro',
-    subtitle: 'Búsqueda por datoId o TxID con historial y evidencia',
+    subtitle: 'Busca un registro por ID para revisar su estado actual en Nexum',
   },
   '/app/solicitudes': {
     title: 'Cola de aprobación',
@@ -53,14 +55,30 @@ function iniciales(nombre: string): string {
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()
 }
 
+function formatRelativeTime(date: Date | null): string {
+  if (!date) return 'sin registrar'
+  const diffMs = Date.now() - date.getTime()
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return 'hace un momento'
+  if (mins === 1) return 'hace 1 min'
+  if (mins < 60) return `hace ${mins} min`
+  const hours = Math.floor(mins / 60)
+  if (hours === 1) return 'hace 1 h'
+  return `hace ${hours} h`
+}
+
 export function TopBar({ onMenuClick }: TopBarProps) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const { panelToolbar } = useAppShell()
   const { mode, role, roleLabel, tenant, nombreUsuario } = useSettings()
   const { usuario, logout } = useAuth()
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const esPanel = pathname === '/app'
   const workspace = workspaceLabel(role)
   const nombre = nombreUsuario || usuario?.usuario || 'Sin sesión'
+  const tenantLabel = tenant ? etiquetaOrganizacion(tenant) : 'Tenant actual'
+
   const meta = useMemo(() => {
     if (pathname.startsWith('/app/historial-dato')) {
       return {
@@ -71,8 +89,10 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     return SECTION_META[pathname] ?? SECTION_META['/app']
   }, [pathname])
 
+  const subtitle = esPanel ? `${tenantLabel} · ${workspace}` : meta.subtitle
+
   return (
-    <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3 shadow-sm sm:gap-4 sm:px-6">
+    <header className="consola-topbar flex shrink-0 items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
@@ -85,77 +105,83 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           </svg>
         </button>
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#1a3a5c]">Nexum</p>
-          <h1 className="truncate text-base font-semibold tracking-tight text-ink sm:text-lg">{meta.title}</h1>
-          <p className="hidden truncate text-xs text-muted sm:block">{meta.subtitle}</p>
+          <p className="consola-topbar-eyebrow">Nexum</p>
+          <h1 className="consola-topbar-title truncate">{meta.title}</h1>
+          <p className="consola-topbar-subtitle truncate">{subtitle}</p>
         </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        <div
-          className={`hidden rounded-md border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide sm:block ${
-            mode === 'api' ? 'border-accent/30 bg-accent-soft text-accent' : 'border-line bg-gray-50 text-muted'
-          }`}
-        >
-          {mode === 'api' ? 'API' : 'Sin API'}
-        </div>
-        <div className="hidden items-center gap-2 md:flex">
-          {tenant ? (
-            <span className="rounded-md border border-line bg-gray-50 px-3 py-1 text-xs font-medium text-ink-secondary">
-              Organización: <span className="text-ink">{etiquetaOrganizacion(tenant)}</span>
-            </span>
-          ) : null}
-          <span className="rounded-md border border-line bg-gray-50 px-3 py-1 text-xs font-medium text-ink-secondary">
-            Rol: <span className="font-semibold text-accent">{roleLabel}</span>
-          </span>
-          <span className="rounded-md border border-line bg-gray-50 px-3 py-1 text-xs font-medium text-ink-secondary">
-            Espacio: <span className="text-ink">{workspace}</span>
-          </span>
-          <NotificacionesAdminPanel />
-          <div className="relative">
+        {esPanel && panelToolbar ? (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setMenuAbierto((v) => !v)}
-              className="flex items-center gap-2 rounded-md border border-line bg-gray-50 px-2 py-1 pr-3 hover:bg-gray-100"
-              title={nombre}
+              className="consola-refresh-btn"
+              title="Actualizar datos"
+              aria-label="Actualizar datos"
+              disabled={panelToolbar.refreshing}
+              onClick={() => void panelToolbar.onRefresh()}
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">
-                {iniciales(nombre)}
-              </span>
-              <span className="max-w-[140px] truncate text-xs font-medium text-ink">{nombre}</span>
+              <IconRefresh
+                size={18}
+                stroke={1.75}
+                className={panelToolbar.refreshing ? 'animate-spin' : undefined}
+              />
             </button>
-            {menuAbierto ? (
-              <>
-                <div className="fixed inset-0 z-20" onClick={() => setMenuAbierto(false)} aria-hidden />
-                <div className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-md border border-line bg-surface shadow-card-md">
-                  <div className="border-b border-line bg-gray-50 px-3 py-2 text-xs">
-                    <p className="truncate font-semibold text-ink">{nombre}</p>
-                    <p className="truncate text-muted">{usuario?.usuario}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="block w-full px-3 py-2 text-left text-xs text-ink-secondary hover:bg-gray-50"
-                    onClick={() => {
-                      setMenuAbierto(false)
-                      navigate('/app/credenciales')
-                    }}
-                  >
-                    Perfil y permisos
-                  </button>
-                  <button
-                    type="button"
-                    className="block w-full border-t border-line px-3 py-2 text-left text-xs text-danger hover:bg-danger-soft"
-                    onClick={() => {
-                      setMenuAbierto(false)
-                      void logout().then(() => navigate('/login', { replace: true }))
-                    }}
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
-              </>
-            ) : null}
+            <span className="consola-refresh-meta hidden lg:inline">
+              Última actualización: {formatRelativeTime(panelToolbar.lastUpdated)}
+            </span>
           </div>
+        ) : null}
+
+        <span className={`consola-chip ${mode === 'api' ? 'consola-chip--api' : ''}`}>
+          {mode === 'api' ? 'API' : 'Sin API'}
+        </span>
+        <span className="consola-chip consola-chip--role hidden sm:inline-flex">{roleLabel}</span>
+
+        <NotificacionesAdminPanel />
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuAbierto((v) => !v)}
+            className="consola-user-avatar-btn"
+            title={nombre}
+            aria-label={`Menú de ${nombre}`}
+          >
+            <span className="consola-user-avatar">{iniciales(nombre)}</span>
+          </button>
+          {menuAbierto ? (
+            <>
+              <div className="fixed inset-0 z-20" onClick={() => setMenuAbierto(false)} aria-hidden />
+              <div className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-lg border border-line bg-surface shadow-card-md">
+                <div className="border-b border-line bg-gray-50 px-3 py-2 text-xs">
+                  <p className="truncate font-semibold text-ink">{nombre}</p>
+                  <p className="truncate text-muted">{usuario?.usuario}</p>
+                </div>
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-left text-xs text-ink-secondary hover:bg-gray-50"
+                  onClick={() => {
+                    setMenuAbierto(false)
+                    navigate('/app/credenciales')
+                  }}
+                >
+                  Perfil y permisos
+                </button>
+                <button
+                  type="button"
+                  className="block w-full border-t border-line px-3 py-2 text-left text-xs text-danger hover:bg-danger-soft"
+                  onClick={() => {
+                    setMenuAbierto(false)
+                    void logout().then(() => navigate('/login', { replace: true }))
+                  }}
+                >
+                  Cerrar sesión
+                </button>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     </header>

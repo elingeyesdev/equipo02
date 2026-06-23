@@ -1,5 +1,7 @@
 import type { ComponentType } from 'react'
 import { NavLink } from 'react-router-dom'
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { useAppShell } from '../context/AppShellContext'
 import type { AppRoutePath } from '../lib/roles'
 
 interface SidebarProps {
@@ -24,7 +26,12 @@ const items: NavItem[] = [
   { to: '/app/credenciales', label: 'Perfil y permisos', icon: IconKey },
 ]
 
+const LOGO = '/logo_icono_sinfondo.png'
+
 export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
+  const { sidebarCollapsed, toggleSidebar } = useAppShell()
+  const collapsed = sidebarCollapsed
+
   return (
     <>
       {mobileOpen ? (
@@ -37,53 +44,66 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
       ) : null}
       <aside
         className={[
-          'fixed z-40 flex h-full w-64 shrink-0 flex-col bg-sidebar text-white shadow-card-md transition-transform lg:static lg:translate-x-0',
+          'consola-sidebar fixed z-40 flex h-full shrink-0 flex-col text-white shadow-card-md transition-transform lg:static',
+          collapsed ? 'consola-sidebar--collapsed' : 'consola-sidebar--expanded',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         ].join(' ')}
       >
-        <div className="border-b border-white/10 px-5 py-5">
-          <NavLink to="/app" end className="block" onClick={onCloseMobile}>
-            <span className="text-xl font-bold uppercase tracking-[0.08em] text-white">Nexum</span>
-            <p className="mt-1 text-xs text-white/55">Consola Cliente</p>
+        <div className="consola-sidebar-brand">
+          <NavLink to="/app" end className="flex min-w-0 items-center gap-2" onClick={onCloseMobile} title="Panel">
+            <img src={LOGO} alt="Nexum" className="consola-sidebar-logo" height={28} />
+            <div className="consola-sidebar-brand-text">
+              <span className="text-sm font-bold uppercase tracking-[0.08em] text-white">Nexum</span>
+              <p className="consola-sidebar-subtitle">Consola Cliente</p>
+            </div>
           </NavLink>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+
+        <nav className="consola-sidebar-nav" aria-label="Navegación principal">
           {items.map((it) => (
             <NavLink
               key={it.to}
               to={it.to}
               end={it.end}
+              title={it.label}
               onClick={onCloseMobile}
               className={({ isActive }) =>
-                [
-                  'flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors',
-                  isActive
-                    ? 'bg-sidebar-active font-medium text-white'
-                    : 'text-white/75 hover:bg-sidebar-hover hover:text-white',
-                ].join(' ')
+                ['consola-sidebar-link', isActive ? 'consola-sidebar-link--active' : ''].filter(Boolean).join(' ')
               }
             >
-              {({ isActive }) => (
-                <>
-                  <it.icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-white' : 'text-white/70'}`} />
-                  <span>{it.label}</span>
-                </>
-              )}
+              <it.icon className="consola-sidebar-link-icon" />
+              <span className="consola-sidebar-link-label">{it.label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-white/10 p-4">
-          <div className="rounded-md border border-white/10 bg-white/5 p-3">
-            <p className="text-xs font-medium text-white/60">Conexión</p>
-            <p className="mt-1 text-sm font-medium text-white">Hyperledger Fabric</p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/50 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-              </span>
-              <span className="text-xs text-white/60">Estado vía middleware</span>
+
+        <div className="consola-sidebar-foot">
+          {collapsed ? (
+            <div
+              className="consola-sidebar-fabric consola-sidebar-fabric--compact"
+              title="Hyperledger Fabric · Conexión activa vía middleware"
+            >
+              <span className="consola-sidebar-fabric-dot" aria-hidden />
             </div>
-          </div>
+          ) : (
+            <div className="consola-sidebar-fabric">
+              <p className="mb-0 text-[0.68rem] font-semibold uppercase tracking-wide text-white/45">Conexión</p>
+              <p className="mb-0 mt-1 text-sm font-medium text-white">Hyperledger Fabric</p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="consola-sidebar-fabric-dot" aria-hidden />
+                <span className="text-xs text-white/55">Activa vía middleware</span>
+              </div>
+            </div>
+          )}
+          <button
+            type="button"
+            className="consola-sidebar-toggle hidden lg:flex"
+            onClick={toggleSidebar}
+            aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+            title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+          >
+            {collapsed ? <IconChevronRight size={18} stroke={1.75} /> : <IconChevronLeft size={18} stroke={1.75} />}
+          </button>
         </div>
       </aside>
     </>

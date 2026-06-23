@@ -1,168 +1,207 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ActivityFeed } from '../components/ActivityFeed'
-import { ClienteLedgerEstadoBadge } from '../components/ClienteLedgerEstadoBadge'
+import {
+  IconActivity,
+  IconClock,
+  IconDatabase,
+  IconInbox,
+  IconPlugConnected,
+} from '@tabler/icons-react'
+import { useAppShell } from '../context/AppShellContext'
 import { useAppStore } from '../context/AppStoreContext'
-import { useAuth } from '../context/AuthContext'
 import { useSettings } from '../context/SettingsContext'
 import { formatShortDate } from '../lib/format'
-import { etiquetaOrganizacion } from '../lib/organizacion'
-import { listarSolicitudes } from '../services/apiSolicitudes'
+import { workspaceLabel } from '../lib/roles'
+import { listarSolicitudes, type Solicitud } from '../services/apiSolicitudes'
 import type { ClienteApi } from '../types/api'
-import type { AppRole } from '../types/demo'
+import type { AppRole, DemoEvent } from '../types/demo'
 
 type ConexionTono = 'ok' | 'warn' | 'error' | 'neutral'
 
-interface AccesoRapido {
-  to: string
-  label: string
+interface ActividadFila {
+  id: string
+  codigo: string
+  operacion: string
+  estado: string
+  estadoTone: 'ok' | 'warn' | 'neutral' | 'error'
+  fecha: string
+  accionTo: string
+  accionLabel: string
 }
 
-function descripcionRol(role: AppRole): string {
-  if (role === 'admin') {
-    return 'Puedes registrar datos, aprobar solicitudes y auditar operaciones del tenant.'
-  }
-  if (role === 'integrador') {
-    return 'Puedes enviar operaciones desde el sistema cliente y proponer cambios que pueden requerir aprobación del administrador.'
-  }
-  return 'Puedes consultar datos e historial en cadena sin modificar información.'
-}
-
-function accesosPorRol(role: AppRole): AccesoRapido[] {
-  if (role === 'admin') {
-    return [
-      { to: '/app/datos', label: 'Actualización manual' },
-      { to: '/app/solicitudes', label: 'Cola de aprobación' },
-      { to: '/app/auditoria', label: 'Auditoría' },
-      { to: '/app/datos-registrados', label: 'Datos registrados' },
-    ]
-  }
-  if (role === 'integrador') {
-    return [
-      { to: '/app/datos', label: 'Actualización manual' },
-      { to: '/app/solicitudes', label: 'Cola de aprobación' },
-      { to: '/app/consultas', label: 'Consultar registro' },
-      { to: '/app/datos-registrados', label: 'Datos registrados' },
-    ]
-  }
-  return [
-    { to: '/app/consultas', label: 'Consultar registro' },
-    { to: '/app/datos-registrados', label: 'Datos registrados' },
-    { to: '/app/credenciales', label: 'Perfil y permisos' },
-  ]
+interface SolicitudesResumen {
+  pendientes: number
+  aprobadas: number
+  rechazadas: number
+  enRevision: number
 }
 
 function resolverConexion(
   loading: boolean,
   accessDenied: boolean,
   error: string | null,
-): { tono: ConexionTono; valor: string; mensaje: string; pulso: boolean; hint: string } {
-  if (loading) {
-    return {
-      tono: 'neutral',
-      valor: 'Conectando',
-      mensaje: 'Conectando con Nexum…',
-      pulso: false,
-      hint: 'Verificando acceso a los datos del tenant.',
-    }
-  }
-  if (accessDenied) {
-    return {
-      tono: 'warn',
-      valor: 'Sin permiso',
-      mensaje: 'Tu sesión no tiene permiso para listar datos. Revisa tu rol en Perfil y permisos.',
-      pulso: false,
-      hint: 'Conexión inferida por carga de datos.',
-    }
-  }
-  if (error) {
-    return {
-      tono: 'error',
-      valor: 'Error',
-      mensaje: 'No se pudo conectar con el middleware. Verifica que el servicio esté activo.',
-      pulso: false,
-      hint: 'Conexión inferida por carga de datos.',
-    }
-  }
-  return {
-    tono: 'ok',
-    valor: 'Operativa',
-    mensaje: 'Conexión activa. Los datos del tenant se cargaron correctamente.',
-    pulso: true,
-    hint: 'Conexión inferida por carga de datos.',
-  }
+): { tono: ConexionTono; valor: string; hint: string } {
+  if (loading) return { tono: 'neutral', valor: 'Conectando', hint: 'Verificando acceso al tenant.' }
+  if (accessDenied) return { tono: 'warn', valor: 'Sin permiso', hint: 'Revisa tu rol en Perfil y permisos.' }
+  if (error) return { tono: 'error', valor: 'Error', hint: 'No se pudo conectar con el middleware.' }
+  return { tono: 'ok', valor: 'Operativa', hint: 'Datos del tenant disponibles.' }
 }
 
-const tonoClases: Record<
-  ConexionTono,
-  { borde: string; punto: string; pulso: string; texto: string; valor: string }
-> = {
-  ok: {
-    borde: 'border-emerald-200/80 bg-emerald-50/60',
-    punto: 'bg-emerald-500',
-    pulso: 'bg-emerald-400/40',
-    texto: 'text-emerald-800',
-    valor: 'text-success',
-  },
-  warn: {
-    borde: 'border-amber-200/80 bg-amber-50/60',
-    punto: 'bg-amber-500',
-    pulso: 'bg-amber-400/40',
-    texto: 'text-amber-900',
-    valor: 'text-amber-800',
-  },
-  error: {
-    borde: 'border-red-200/80 bg-red-50/60',
-    punto: 'bg-red-500',
-    pulso: 'bg-red-400/40',
-    texto: 'text-red-800',
-    valor: 'text-danger',
-  },
-  neutral: {
-    borde: 'border-line/60 bg-[#f9fafb]',
-    punto: 'bg-gray-400',
-    pulso: 'bg-gray-300/50',
-    texto: 'text-[#6b7280]',
-    valor: 'text-muted',
-  },
+function contarSolicitudes(lista: Solicitud[]): SolicitudesResumen {
+  const resumen: SolicitudesResumen = { pendientes: 0, aprobadas: 0, rechazadas: 0, enRevision: 0 }
+  for (const s of lista) {
+    if (s.estado === 'pendiente') resumen.pendientes += 1
+    else if (s.estado === 'aprobada') resumen.aprobadas += 1
+    else if (s.estado === 'rechazada') resumen.rechazadas += 1
+  }
+  // Reservado para un estado futuro "en_revision" del backend.
+  resumen.enRevision = 0
+  return resumen
+}
+
+/** Conecta aquí métricas reales de actividad diaria (últimos 7 días). */
+function parseChartTimestamp(iso: string | undefined): number | null {
+  if (!iso?.trim()) return null
+  const t = new Date(iso).getTime()
+  return Number.isNaN(t) ? null : t
+}
+
+function buildActividadSemanal(datos: ClienteApi[], eventos: DemoEvent[]): { label: string; value: number }[] {
+  const days: { label: string; value: number; start: number; end: number }[] = []
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const start = d.getTime()
+    const end = start + 86400000
+    const label = d.toLocaleDateString('es-PE', { weekday: 'short' }).replace('.', '')
+    days.push({ label, value: 0, start, end })
+  }
+
+  const windowStart = days[0]?.start ?? 0
+  let fueraDeVentana = 0
+  let sinFecha = 0
+
+  const bump = (timestamp: number | null) => {
+    if (timestamp === null) {
+      sinFecha += 1
+      return
+    }
+    if (timestamp < windowStart) {
+      fueraDeVentana += 1
+      return
+    }
+    for (const day of days) {
+      if (timestamp >= day.start && timestamp < day.end) {
+        day.value += 1
+        return
+      }
+    }
+    fueraDeVentana += 1
+  }
+
+  for (const d of datos) bump(parseChartTimestamp(d.fechaAlta))
+  for (const e of eventos) bump(parseChartTimestamp(e.fechaIso))
+
+  // Registros sin fecha o anteriores a la ventana: reflejar en el día actual al refrescar ledger.
+  const hoy = days[days.length - 1]
+  if (hoy && (sinFecha > 0 || fueraDeVentana > 0)) {
+    hoy.value += sinFecha + fueraDeVentana
+  }
+
+  return days.map(({ label, value }) => ({ label, value }))
+}
+
+const CHART_BAR_MAX_PX = 112
+
+function eventoOperacionLabel(ev: DemoEvent): string {
+  const map: Record<string, string> = {
+    registro_creado: 'Alta de registro',
+    registro_editado: 'Actualización de registro',
+    registro_eliminado: 'Baja lógica',
+    token_emitido: 'Emisión de token',
+    token_transferido: 'Transferencia',
+    consulta: 'Consulta de registro',
+  }
+  return map[ev.tipo] ?? ev.titulo
+}
+
+function filasActividadReciente(
+  role: AppRole,
+  datos: ClienteApi[],
+  eventos: DemoEvent[],
+): ActividadFila[] {
+  const filas: ActividadFila[] = []
+
+  for (const ev of eventos.slice(0, 4)) {
+    if (role === 'solo_lectura' && ev.tipo !== 'consulta') continue
+    filas.push({
+      id: ev.id,
+      codigo: ev.referencia?.slice(0, 12) ?? ev.id.slice(-8),
+      operacion: eventoOperacionLabel(ev),
+      estado: ev.estado === 'exito' ? 'Completado' : 'Error',
+      estadoTone: ev.estado === 'exito' ? 'ok' : 'error',
+      fecha: formatShortDate(ev.fechaIso),
+      accionTo: ev.referencia ? `/app/consultas` : '/app/historial',
+      accionLabel: 'Ver detalle',
+    })
+  }
+
+  const datosOrden = [...datos]
+    .sort((a, b) => new Date(b.fechaAlta).getTime() - new Date(a.fechaAlta).getTime())
+    .slice(0, 6 - filas.length)
+
+  for (const c of datosOrden) {
+    filas.push({
+      id: c.clienteId,
+      codigo: c.clienteId,
+      operacion: role === 'admin' ? 'Registro en tenant' : role === 'integrador' ? 'Operación registrada' : 'Registro consultado',
+      estado: c.estado || 'Registrado',
+      estadoTone: c.estado?.toLowerCase().includes('baja') ? 'warn' : 'ok',
+      fecha: formatShortDate(c.fechaAlta),
+      accionTo: '/app/datos-registrados',
+      accionLabel: 'Ver detalle',
+    })
+  }
+
+  return filas.slice(0, 6)
 }
 
 export default function PanelPage() {
-  const { role, roleLabel, nombreUsuario, tenant } = useSettings()
-  const { usuario } = useAuth()
+  const { role, roleLabel } = useSettings()
+  const { setPanelToolbar } = useAppShell()
   const {
     eventos,
     datosLedger,
     datosLedgerLoading,
     datosLedgerError,
     datosLedgerAccessDenied,
-    limpiarEventos,
     refreshDatosLedger,
   } = useAppStore()
 
   const [pendientesCount, setPendientesCount] = useState<number | null>(null)
   const [pendientesError, setPendientesError] = useState(false)
+  const [solicitudesResumen, setSolicitudesResumen] = useState<SolicitudesResumen | null>(null)
   const [refrescando, setRefrescando] = useState(false)
-
-  const nombreMostrar =
-    nombreUsuario.trim() || usuario?.nombreCompleto?.trim() || usuario?.usuario?.trim() || 'Usuario'
-  const tenantMostrar = etiquetaOrganizacion(tenant) || 'Tenant actual'
-  const rolMostrar = roleLabel || 'Rol actual'
-
-  const ultimos = useMemo(
-    () =>
-      [...datosLedger]
-        .sort((a, b) => new Date(b.fechaAlta).getTime() - new Date(a.fechaAlta).getTime())
-        .slice(0, 8),
-    [datosLedger],
-  )
-  const actividad = eventos.slice(0, 8)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const conexion = useMemo(
     () => resolverConexion(datosLedgerLoading, datosLedgerAccessDenied, datosLedgerError),
     [datosLedgerLoading, datosLedgerAccessDenied, datosLedgerError],
   )
-  const estilos = tonoClases[conexion.tono]
+
+  const actividadSemanal = useMemo(
+    () => buildActividadSemanal(datosLedger, eventos),
+    [datosLedger, eventos],
+  )
+  const maxBar = Math.max(...actividadSemanal.map((d) => d.value), 1)
+  const actividadTotal = actividadSemanal.reduce((s, d) => s + d.value, 0)
+  const filasRecientes = useMemo(
+    () => filasActividadReciente(role, datosLedger, eventos),
+    [role, datosLedger, eventos],
+  )
 
   const cargarPendientes = useCallback(async () => {
     try {
@@ -175,229 +214,356 @@ export default function PanelPage() {
     }
   }, [])
 
-  useEffect(() => {
-    void cargarPendientes()
-  }, [cargarPendientes])
+  const cargarSolicitudesAdmin = useCallback(async () => {
+    if (role !== 'admin') return
+    try {
+      const lista = await listarSolicitudes()
+      setSolicitudesResumen(contarSolicitudes(lista))
+    } catch {
+      setSolicitudesResumen(null)
+    }
+  }, [role])
 
-  const onActualizar = async () => {
+  const onActualizar = useCallback(async () => {
     setRefrescando(true)
     try {
       await refreshDatosLedger()
       await cargarPendientes()
+      await cargarSolicitudesAdmin()
+      setLastUpdated(new Date())
     } finally {
       setRefrescando(false)
     }
-  }
+  }, [refreshDatosLedger, cargarPendientes, cargarSolicitudesAdmin])
 
-  const accesos = accesosPorRol(role)
+  useEffect(() => {
+    void cargarPendientes()
+    void cargarSolicitudesAdmin()
+  }, [cargarPendientes, cargarSolicitudesAdmin])
+
+  useEffect(() => {
+    if (!datosLedgerLoading && lastUpdated === null) {
+      setLastUpdated(new Date())
+    }
+  }, [datosLedgerLoading, lastUpdated])
+
+  useEffect(() => {
+    setPanelToolbar({
+      onRefresh: () => {
+        void onActualizar()
+      },
+      refreshing: refrescando || datosLedgerLoading,
+      lastUpdated,
+    })
+    return () => setPanelToolbar(null)
+  }, [setPanelToolbar, onActualizar, refrescando, datosLedgerLoading, lastUpdated])
+
+  const syncLabel = lastUpdated
+    ? lastUpdated.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+    : '—'
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-ink sm:text-2xl">Panel de la Consola Cliente</h1>
-          <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
-            Bienvenido/a, <span className="font-medium text-ink">{nombreMostrar}</span>. Estás trabajando en el
-            tenant <span className="font-medium text-ink">{tenantMostrar}</span> con rol{' '}
-            <span className="font-medium text-ink">{rolMostrar}</span>.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="btn btn-outline-primary shrink-0"
-          onClick={() => void onActualizar()}
-          disabled={refrescando || datosLedgerLoading}
-        >
-          {refrescando || datosLedgerLoading ? 'Actualizando…' : 'Actualizar datos'}
-        </button>
-      </header>
-
-      <section className="admin-card p-5">
-        <h2 className="admin-card-title">Tu rol en Nexum</h2>
-        <p className="mt-2 text-sm leading-relaxed text-ink-secondary">{descripcionRol(role)}</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {accesos.map((a) => (
-            <Link
-              key={a.to}
-              to={a.to}
-              className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-secondary transition-colors hover:border-accent/30 hover:bg-accent-soft hover:text-accent"
-            >
-              {a.label}
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <div className="grid shrink-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <ResumenCard
-          label="Datos registrados"
-          value={datosLedgerLoading ? '…' : datosLedger.length.toLocaleString('es-PE')}
-          hint="Registros disponibles en la red del tenant."
-        />
-        <ResumenCard
-          label="Solicitudes pendientes"
-          value={pendientesError ? '—' : pendientesCount === null ? '…' : pendientesCount.toLocaleString('es-PE')}
-          hint={
-            pendientesError
-              ? 'No se pudieron cargar las solicitudes pendientes.'
-              : 'Cambios propuestos en espera de aprobación.'
-          }
-        />
-        <ResumenCard
-          label="Conexión Nexum"
-          value={conexion.valor}
-          hint={conexion.hint}
-          valueClassName={estilos.valor}
-        />
-        <ResumenCard
-          label="Eventos en esta sesión"
-          value={eventos.length.toLocaleString('es-PE')}
-          hint="Solo acciones registradas en este navegador."
-        />
-      </div>
-
+    <div className="consola-dashboard">
       {datosLedgerAccessDenied ? (
-        <div className="admin-alert-warning">
-          <p>
-            {datosLedgerError?.trim()
-              ? datosLedgerError
-              : 'Tu sesión no tiene permiso para listar datos. Revisa tu rol en Perfil y permisos.'}
-          </p>
-          <Link className="mt-2 inline-block text-xs font-medium text-accent hover:underline" to="/app/credenciales">
+        <div className="consola-alert-banner">
+          {datosLedgerError?.trim() ||
+            'Tu sesión no tiene permiso para listar datos. Revisa tu rol en Perfil y permisos.'}{' '}
+          <Link to="/app/credenciales" className="font-semibold text-[#2f6bff] hover:underline">
             Ir a Perfil y permisos
           </Link>
         </div>
       ) : null}
 
-      <div className={`rounded-2xl border px-4 py-3 shadow-sm sm:px-5 ${estilos.borde}`}>
-        <span className={`flex min-w-0 items-center gap-2 text-xs font-medium ${estilos.texto}`}>
-          <span className="relative flex h-2 w-2 shrink-0">
-            {conexion.pulso ? (
-              <span
-                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${estilos.pulso}`}
+      {conexion.tono === 'error' && datosLedgerError ? (
+        <div className="consola-alert-banner consola-alert-banner--error">{datosLedgerError}</div>
+      ) : null}
+
+      <section className="consola-metric-grid" aria-label="Métricas principales">
+        <MetricCard
+          icon={IconDatabase}
+          label="Datos registrados"
+          value={datosLedgerLoading ? '…' : datosLedger.length.toLocaleString('es-PE')}
+          hint="Registros disponibles en la red del tenant."
+          trend={conexion.tono === 'ok' ? 'Sincronizado' : undefined}
+        />
+        <MetricCard
+          icon={IconInbox}
+          label="Solicitudes pendientes"
+          value={pendientesError ? '—' : pendientesCount === null ? '…' : pendientesCount.toLocaleString('es-PE')}
+          hint={
+            pendientesError
+              ? 'No se pudieron cargar las solicitudes.'
+              : 'Cambios propuestos en espera de aprobación.'
+          }
+        />
+        <MetricCard
+          icon={IconPlugConnected}
+          label="Conexión Nexum"
+          value={conexion.valor}
+          hint={conexion.hint}
+          valueClass={conexion.tono === 'ok' ? 'text-[#16a56a]' : conexion.tono === 'error' ? 'text-red-600' : undefined}
+        />
+        <MetricCard
+          icon={IconActivity}
+          label="Eventos en esta sesión"
+          value={eventos.length.toLocaleString('es-PE')}
+          hint="Acciones registradas en este navegador."
+        />
+      </section>
+
+      <div className="consola-dash-grid-2">
+        <section className="consola-panel">
+          <div className="consola-panel-head">
+            <h2 className="consola-panel-title">Actividad de evidencia</h2>
+            <p className="consola-panel-subtitle">
+              Registros enviados o consultados durante los últimos 7 días
+              {actividadTotal > 0 ? ` · ${actividadTotal.toLocaleString('es-PE')} en el periodo` : ''}.
+            </p>
+          </div>
+          <div className="consola-panel-body">
+            {datosLedgerLoading && actividadTotal === 0 ? (
+              <p className="consola-empty">Cargando actividad…</p>
+            ) : actividadTotal === 0 ? (
+              <p className="consola-empty">Sin actividad registrada en los últimos 7 días.</p>
+            ) : (
+              <div className="consola-chart-bars" role="img" aria-label="Gráfica de actividad semanal">
+                {actividadSemanal.map((d) => {
+                  const barPx = d.value === 0 ? 0 : Math.max(6, Math.round((d.value / maxBar) * CHART_BAR_MAX_PX))
+                  return (
+                    <div key={d.label} className="consola-chart-bar-col">
+                      <span className="consola-chart-bar-value">{d.value > 0 ? d.value : ''}</span>
+                      <div className="consola-chart-bar-track">
+                        <div
+                          className="consola-chart-bar"
+                          style={{ height: `${barPx}px` }}
+                          title={`${d.value} eventos`}
+                        />
+                      </div>
+                      <span className="consola-chart-bar-label">{d.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="consola-panel">
+          <div className="consola-panel-head">
+            <h2 className="consola-panel-title">Estado del tenant</h2>
+            <p className="consola-panel-subtitle">Salud operativa del entorno conectado.</p>
+          </div>
+          <div className="consola-panel-body">
+            <ul className="consola-tenant-status-list">
+              <TenantStatusItem
+                label="Conexión activa"
+                ok={conexion.tono === 'ok'}
+                warn={conexion.tono === 'warn'}
+                error={conexion.tono === 'error'}
+                neutral={conexion.tono === 'neutral'}
               />
-            ) : null}
-            <span className={`relative inline-flex h-2 w-2 rounded-full ${estilos.punto}`} />
-          </span>
-          {conexion.mensaje}
-        </span>
+              <TenantStatusItem label="Middleware operativo" ok={conexion.tono === 'ok'} neutral={conexion.tono !== 'ok'} />
+              <TenantStatusItem label="Hyperledger Fabric disponible" ok={conexion.tono === 'ok'} neutral={conexion.tono !== 'ok'} />
+              <li className="consola-tenant-status-item">
+                <span className="flex items-center gap-2">
+                  <IconClock size={14} stroke={1.75} className="text-[#667085]" />
+                  Última sincronización
+                </span>
+                <span className="text-xs font-medium text-[#667085]">{syncLabel}</span>
+              </li>
+            </ul>
+          </div>
+        </section>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-stretch">
-        <div className="admin-card flex min-h-[320px] min-w-0 flex-col overflow-hidden xl:min-h-0">
-          <div className="admin-card-header">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h2 className="admin-card-title">Últimos datos registrados</h2>
-                <p className="mt-1 text-xs text-muted">Vista compacta de los registros más recientes del tenant.</p>
-              </div>
-              <Link
-                to="/app/datos-registrados"
-                className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-secondary hover:bg-gray-50"
-              >
-                Ver todos los datos
-              </Link>
-            </div>
+      {role === 'admin' && solicitudesResumen ? (
+        <section className="consola-panel">
+          <div className="consola-panel-head">
+            <h2 className="consola-panel-title">Solicitudes por estado</h2>
+            <p className="consola-panel-subtitle">Distribución de solicitudes del tenant para supervisión.</p>
           </div>
-          <div className="min-h-0 flex-1 overflow-auto">
-            {datosLedgerError && !datosLedgerAccessDenied ? (
-              <p className="px-4 py-6 text-center text-sm text-danger/90">{datosLedgerError}</p>
-            ) : null}
-            {!datosLedgerLoading && datosLedgerAccessDenied ? (
-              <p className="px-4 py-8 text-center text-sm text-muted">No se pudieron cargar los datos en esta vista.</p>
-            ) : null}
-            {!datosLedgerLoading && !datosLedgerError && ultimos.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-muted">No hay registros en la red del tenant todavía.</p>
-            ) : null}
-            {datosLedgerLoading ? <p className="px-4 py-8 text-center text-sm text-muted">Cargando…</p> : null}
-            {ultimos.length > 0 ? (
-              <table className="admin-table w-full text-left text-sm">
-                <thead className="sticky top-0 z-10">
+          <div className="consola-panel-body">
+            <SolicitudesEstadoChart resumen={solicitudesResumen} />
+          </div>
+        </section>
+      ) : null}
+
+      <section className="consola-panel">
+        <div className="consola-panel-head">
+          <h2 className="consola-panel-title">Actividad reciente</h2>
+          <p className="consola-panel-subtitle">
+            {role === 'solo_lectura'
+              ? 'Consultas y registros revisados recientemente.'
+              : role === 'admin'
+                ? 'Solicitudes, aprobaciones y operaciones recientes.'
+                : 'Operaciones enviadas o propuestas recientemente.'}
+          </p>
+        </div>
+        <div className="consola-panel-body p-0">
+          {filasRecientes.length === 0 ? (
+            <p className="consola-empty">No hay actividad reciente para mostrar.</p>
+          ) : (
+            <div className="consola-table-wrap">
+              <table className="consola-table">
+                <thead>
                   <tr>
-                    <th className="px-4 py-2.5 font-medium">Dato ID</th>
-                    <th className="px-4 py-2.5 font-medium">Tipo</th>
-                    <th className="px-4 py-2.5 font-medium">Estado</th>
-                    <th className="px-4 py-2.5 font-medium">Fecha</th>
-                    <th className="px-4 py-2.5 font-medium">Acciones</th>
+                    <th>Código</th>
+                    <th>Operación</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th>Acción</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-line">
-                  {ultimos.map((c) => (
-                    <UltimaFilaDato key={c.clienteId} c={c} />
+                <tbody>
+                  {filasRecientes.map((f) => (
+                    <tr key={f.id}>
+                      <td className="font-mono text-[0.72rem]">{f.codigo}</td>
+                      <td>{f.operacion}</td>
+                      <td>
+                        <EstadoBadge tone={f.estadoTone} label={f.estado} />
+                      </td>
+                      <td className="text-[#667085]">{f.fecha}</td>
+                      <td>
+                        <Link to={f.accionTo} className="consola-table-action">
+                          {f.accionLabel}
+                        </Link>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
-            ) : null}
-          </div>
+            </div>
+          )}
         </div>
+      </section>
 
-        <ActivityFeed
-          items={actividad}
-          title="Actividad reciente de esta sesión"
-          subtitle="Acciones registradas solo en este navegador. No representa el historial completo del tenant."
-          emptyText="No hay actividad registrada en esta sesión todavía."
-          historialLinkLabel="Ver historial local de sesión"
-          className="min-h-[280px] xl:min-h-0 xl:flex-1"
-          bodyClassName="min-h-0"
-          onClear={limpiarEventos}
-        />
-      </div>
+      <p className="text-center text-[0.72rem] text-[#667085]">
+        Rol activo: <span className="font-semibold text-[#17233a]">{roleLabel}</span> ·{' '}
+        {workspaceLabel(role)}
+      </p>
     </div>
   )
 }
 
-function ResumenCard({
+function MetricCard({
+  icon: Icon,
   label,
   value,
   hint,
-  valueClassName = 'text-ink',
+  trend,
+  valueClass,
 }: {
+  icon: typeof IconDatabase
   label: string
   value: string
   hint: string
-  valueClassName?: string
+  trend?: string
+  valueClass?: string
 }) {
   return (
-    <div className="admin-card p-4">
-      <p className="text-xs font-medium text-muted">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold tracking-tight ${valueClassName}`}>{value}</p>
-      <p className="mt-2 text-[11px] leading-relaxed text-muted">{hint}</p>
-    </div>
+    <article className="consola-metric-card">
+      <div className="consola-metric-head">
+        <Icon size={18} stroke={1.55} className="consola-metric-icon" aria-hidden />
+        <p className="consola-metric-label">{label}</p>
+      </div>
+      <p className={`consola-metric-value ${valueClass ?? ''}`}>{value}</p>
+      <p className="consola-metric-hint">{hint}</p>
+      {trend ? <span className="consola-metric-trend consola-metric-trend--ok">{trend}</span> : null}
+    </article>
   )
 }
 
-function UltimaFilaDato({ c }: { c: ClienteApi }) {
+function TenantStatusItem({
+  label,
+  ok,
+  warn,
+  error,
+  neutral,
+}: {
+  label: string
+  ok?: boolean
+  warn?: boolean
+  error?: boolean
+  neutral?: boolean
+}) {
+  const dotClass = error
+    ? 'consola-status-dot consola-status-dot--error'
+    : warn
+      ? 'consola-status-dot consola-status-dot--warn'
+      : ok
+        ? 'consola-status-dot'
+        : 'consola-status-dot consola-status-dot--neutral'
+
+  const text = error ? 'Error' : warn ? 'Advertencia' : ok ? 'Activo' : neutral ? 'Verificando' : '—'
+
   return (
-    <tr>
-      <td className="px-4 py-2.5">
-        <Link
-          to="/app/datos-registrados"
-          state={{ focusId: c.clienteId }}
-          className="font-mono text-xs font-medium text-accent hover:text-accent-hover"
-        >
-          {c.clienteId}
-        </Link>
-      </td>
-      <td className="max-w-[140px] truncate px-4 py-2.5 text-muted">{c.tipoDocumento || '—'}</td>
-      <td className="px-4 py-2.5">
-        <ClienteLedgerEstadoBadge c={c} raw />
-      </td>
-      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted">{formatShortDate(c.fechaAlta)}</td>
-      <td className="px-4 py-2.5">
-        <div className="flex flex-wrap gap-x-2 text-[11px]">
-          <Link className="text-muted hover:text-accent" to="/app/consultas" state={{ datoId: c.clienteId }}>
-            Detalle
-          </Link>
-          <span className="text-line">·</span>
-          <Link className="text-muted hover:text-accent" to={`/app/historial-dato/${encodeURIComponent(c.clienteId)}`}>
-            Historial
-          </Link>
-          <span className="text-line">·</span>
-          <Link className="text-muted hover:text-accent" to="/app/auditoria" state={{ recursoId: c.clienteId }}>
-            Auditar
-          </Link>
-        </div>
-      </td>
-    </tr>
+    <li className="consola-tenant-status-item">
+      <span className="flex items-center gap-2">
+        <span className={dotClass} aria-hidden />
+        {label}
+      </span>
+      <span className="text-xs font-medium text-[#667085]">{text}</span>
+    </li>
+  )
+}
+
+function EstadoBadge({ tone, label }: { tone: 'ok' | 'warn' | 'neutral' | 'error'; label: string }) {
+  const cls =
+    tone === 'ok'
+      ? 'bg-emerald-50 text-emerald-700'
+      : tone === 'warn'
+        ? 'bg-amber-50 text-amber-800'
+        : tone === 'error'
+          ? 'bg-red-50 text-red-700'
+          : 'bg-slate-100 text-slate-600'
+  return (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-[0.68rem] font-semibold ${cls}`}>{label}</span>
+  )
+}
+
+const SOLICITUD_COLORS: Record<keyof SolicitudesResumen, string> = {
+  pendientes: '#2f6bff',
+  aprobadas: '#16a56a',
+  rechazadas: '#dc2626',
+  enRevision: '#d97706',
+}
+
+function SolicitudesEstadoChart({ resumen }: { resumen: SolicitudesResumen }) {
+  const items: { key: keyof SolicitudesResumen; label: string }[] = [
+    { key: 'pendientes', label: 'Pendientes' },
+    { key: 'aprobadas', label: 'Aprobadas' },
+    { key: 'rechazadas', label: 'Rechazadas' },
+    { key: 'enRevision', label: 'En revisión' },
+  ]
+  const total = items.reduce((s, i) => s + resumen[i.key], 0) || 1
+
+  return (
+    <>
+      <div className="consola-solicitudes-bar" aria-hidden>
+        {items.map((i) =>
+          resumen[i.key] > 0 ? (
+            <div
+              key={i.key}
+              className="consola-solicitudes-seg"
+              style={{
+                width: `${(resumen[i.key] / total) * 100}%`,
+                background: SOLICITUD_COLORS[i.key],
+              }}
+            />
+          ) : null,
+        )}
+      </div>
+      <div className="consola-solicitudes-legend">
+        {items.map((i) => (
+          <div key={i.key} className="consola-solicitudes-legend-item">
+            <span className="consola-solicitudes-legend-left">
+              <span className="consola-solicitudes-swatch" style={{ background: SOLICITUD_COLORS[i.key] }} />
+              {i.label}
+            </span>
+            <strong>{resumen[i.key]}</strong>
+          </div>
+        ))}
+      </div>
+    </>
   )
 }

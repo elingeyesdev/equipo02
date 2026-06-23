@@ -1,0 +1,1736 @@
+/* Consola Cliente — dashboard enterprise (solo /app panel y shell) */
+
+.app-shell {
+  --nex-sidebar-bg: #0b1f3a;
+  --nex-sidebar-bg-hover: #132a4a;
+  --nex-sidebar-active: #2f6bff;
+  --nex-dash-bg: #f4f7fb;
+  --nex-dash-card: #ffffff;
+  --nex-dash-border: #e3e8f0;
+  --nex-dash-ink: #17233a;
+  --nex-dash-muted: #667085;
+  --nex-dash-ok: #16a56a;
+}
+
+.app-shell .consola-sidebar {
+  background: var(--nex-sidebar-bg);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  transition: width 0.28s ease;
+}
+
+.app-shell .consola-sidebar--collapsed {
+  width: 4.75rem;
+}
+
+.app-shell .consola-sidebar--expanded {
+  width: 15.5rem;
+}
+
+.app-shell .consola-sidebar-brand {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.1rem 1rem;
+  min-height: 4.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.app-shell .consola-sidebar-logo {
+  height: 28px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.app-shell .consola-sidebar-brand-text {
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.2s ease, width 0.28s ease;
+}
+
+.app-shell .consola-sidebar--collapsed .consola-sidebar-brand-text {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+
+.app-shell .consola-sidebar-subtitle {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0.15rem 0 0;
+}
+
+.app-shell .consola-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 0.55rem;
+}
+
+.app-shell .consola-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.58rem 0.75rem;
+  margin-bottom: 0.15rem;
+  border-radius: 0.55rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app-shell .consola-sidebar-link:hover {
+  background: var(--nex-sidebar-bg-hover);
+  color: #fff;
+}
+
+.app-shell .consola-sidebar-link--active {
+  background: rgba(47, 107, 255, 0.18);
+  color: #fff;
+  box-shadow: inset 3px 0 0 var(--nex-sidebar-active);
+}
+
+.app-shell .consola-sidebar-link-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.app-shell .consola-sidebar-link--active .consola-sidebar-link-icon {
+  opacity: 1;
+  color: #93b4ff;
+}
+
+.app-shell .consola-sidebar-link-label {
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+
+.app-shell .consola-sidebar--collapsed .consola-sidebar-link {
+  justify-content: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.app-shell .consola-sidebar--collapsed .consola-sidebar-link-label {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.app-shell .consola-sidebar-foot {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.65rem 0.55rem 0.85rem;
+}
+
+.app-shell .consola-sidebar-fabric {
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.65rem 0.75rem;
+}
+
+.app-shell .consola-sidebar-fabric--compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem;
+}
+
+.app-shell .consola-sidebar-fabric-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--nex-dash-ok);
+  box-shadow: 0 0 0 3px rgba(22, 165, 106, 0.25);
+}
+
+.app-shell .consola-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.45rem;
+  padding: 0.45rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app-shell .consola-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.app-shell .consola-topbar {
+  background: var(--nex-dash-card);
+  border-bottom: 1px solid var(--nex-dash-border);
+  min-height: 4rem;
+}
+
+.app-shell .consola-topbar-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nex-dash-muted);
+  margin: 0;
+}
+
+.app-shell .consola-topbar-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--nex-dash-ink);
+  margin: 0.1rem 0 0;
+  line-height: 1.25;
+}
+
+.app-shell .consola-topbar-subtitle {
+  font-size: 0.78rem;
+  color: var(--nex-dash-muted);
+  margin: 0.15rem 0 0;
+}
+
+.app-shell .consola-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--nex-dash-border);
+  background: #f8fafc;
+  color: var(--nex-dash-muted);
+}
+
+.app-shell .consola-chip--api {
+  border-color: rgba(47, 107, 255, 0.25);
+  background: rgba(47, 107, 255, 0.08);
+  color: #2f6bff;
+}
+
+.app-shell .consola-chip--role {
+  color: var(--nex-dash-ink);
+}
+
+.app-shell .consola-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--nex-dash-border);
+  background: #fff;
+  color: var(--nex-dash-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.app-shell .consola-refresh-btn:hover:not(:disabled) {
+  border-color: rgba(47, 107, 255, 0.35);
+  color: #2f6bff;
+  background: rgba(47, 107, 255, 0.04);
+}
+
+.app-shell .consola-refresh-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-shell .consola-refresh-meta {
+  font-size: 0.72rem;
+  color: var(--nex-dash-muted);
+  white-space: nowrap;
+}
+
+.consola-user-avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 999px;
+  line-height: 1;
+}
+
+.consola-user-avatar-btn:hover .consola-user-avatar {
+  filter: brightness(1.06);
+}
+
+.consola-user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: #2f6bff;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: filter 0.15s ease;
+}
+
+.app-shell .consola-main {
+  background: var(--nex-dash-bg);
+}
+
+.consola-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.consola-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .consola-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .consola-metric-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.consola-metric-card {
+  background: var(--nex-dash-card);
+  border: 1px solid var(--nex-dash-border);
+  border-radius: 1rem;
+  padding: 1rem 1.05rem;
+  box-shadow: 0 1px 2px rgba(23, 35, 58, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.consola-metric-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  min-width: 0;
+}
+
+.consola-metric-icon {
+  display: block;
+  flex-shrink: 0;
+  color: #2f6bff;
+}
+
+.consola-metric-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--nex-dash-muted);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+}
+
+.consola-metric-value {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--nex-dash-ink);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.consola-metric-hint {
+  font-size: 0.72rem;
+  color: var(--nex-dash-muted);
+  margin: 0.35rem 0 0;
+  line-height: 1.4;
+}
+
+.consola-metric-trend {
+  font-size: 0.68rem;
+  font-weight: 600;
+  margin-top: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.consola-metric-trend--ok {
+  color: var(--nex-dash-ok);
+}
+
+.consola-panel {
+  background: var(--nex-dash-card);
+  border: 1px solid var(--nex-dash-border);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(23, 35, 58, 0.04);
+  overflow: hidden;
+}
+
+.consola-panel-head {
+  padding: 1rem 1.15rem 0.85rem;
+  border-bottom: 1px solid var(--nex-dash-border);
+}
+
+.consola-panel-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--nex-dash-ink);
+  margin: 0;
+}
+
+.consola-panel-subtitle {
+  font-size: 0.75rem;
+  color: var(--nex-dash-muted);
+  margin: 0.25rem 0 0;
+  line-height: 1.45;
+}
+
+.consola-panel-body {
+  padding: 1rem 1.15rem 1.15rem;
+}
+
+.consola-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.55rem;
+  min-height: 9.5rem;
+  padding-top: 0.25rem;
+}
+
+.consola-chart-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.consola-chart-bar-value {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--nex-dash-muted);
+  min-height: 0.85rem;
+  line-height: 1;
+}
+
+.consola-chart-bar-track {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  max-width: 2.25rem;
+  height: 7rem;
+}
+
+.consola-chart-bar {
+  width: 100%;
+  border-radius: 0.35rem 0.35rem 0.15rem 0.15rem;
+  background: linear-gradient(180deg, #5b8cff 0%, #2f6bff 100%);
+  min-height: 0;
+  transition: height 0.35s ease;
+}
+
+.consola-chart-bar-label {
+  font-size: 0.62rem;
+  color: var(--nex-dash-muted);
+  text-align: center;
+}
+
+.consola-tenant-status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.consola-tenant-status-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--nex-dash-ink);
+}
+
+.consola-status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--nex-dash-ok);
+  flex-shrink: 0;
+}
+
+.consola-status-dot--warn {
+  background: #d97706;
+}
+
+.consola-status-dot--error {
+  background: #dc2626;
+}
+
+.consola-status-dot--neutral {
+  background: #94a3b8;
+}
+
+.consola-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+@media (min-width: 480px) {
+  .consola-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.consola-quick-link {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--nex-dash-border);
+  background: #fafbfd;
+  color: var(--nex-dash-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.consola-quick-link:hover {
+  border-color: rgba(47, 107, 255, 0.35);
+  background: rgba(47, 107, 255, 0.04);
+  color: #2f6bff;
+  text-decoration: none;
+}
+
+.consola-quick-link-icon {
+  color: #2f6bff;
+  flex-shrink: 0;
+}
+
+.consola-table-wrap {
+  overflow-x: auto;
+}
+
+.consola-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.consola-table thead th {
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--nex-dash-muted);
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--nex-dash-border);
+  background: #f8fafc;
+}
+
+.consola-table tbody td {
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--nex-dash-border);
+  color: var(--nex-dash-ink);
+  vertical-align: middle;
+}
+
+.consola-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.consola-table-action {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #2f6bff;
+  text-decoration: none;
+}
+
+.consola-table-action:hover {
+  text-decoration: underline;
+}
+
+.consola-empty {
+  padding: 1.75rem 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--nex-dash-muted);
+}
+
+.consola-solicitudes-bar {
+  display: flex;
+  height: 0.55rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #eef2f7;
+  margin: 0.85rem 0 1rem;
+}
+
+.consola-solicitudes-seg {
+  height: 100%;
+  min-width: 2px;
+}
+
+.consola-solicitudes-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.consola-solicitudes-legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--nex-dash-ink);
+}
+
+.consola-solicitudes-legend-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.consola-solicitudes-swatch {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.consola-dash-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .consola-dash-grid-2 {
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  }
+}
+
+.consola-alert-banner {
+  border-radius: 0.75rem;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+}
+
+.consola-alert-banner--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+/* ── Actualización manual (/app/datos) ── */
+
+.consola-datos {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.consola-datos > .consola-notice,
+.consola-datos > .consola-alert {
+  flex-shrink: 0;
+}
+
+.consola-page-lead {
+  font-size: 0.8125rem;
+  color: var(--nex-dash-muted);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 42rem;
+}
+
+.consola-notice {
+  border-radius: 0.75rem;
+  border: 1px solid var(--nex-dash-border);
+  border-left: 3px solid #2f6bff;
+  background: #fafbfd;
+  color: var(--nex-dash-ink);
+  padding: 0.65rem 0.9rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.consola-notice--muted {
+  border-left-color: #94a3b8;
+  background: #f8fafc;
+  color: var(--nex-dash-muted);
+}
+
+.consola-notice-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--nex-dash-muted);
+  line-height: 1.45;
+}
+
+.consola-notice-hint::before {
+  content: none;
+}
+
+.consola-alert {
+  border-radius: 0.65rem;
+  border: 1px solid var(--nex-dash-border);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.consola-alert--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.consola-alert--success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.consola-link {
+  color: #2f6bff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.consola-link:hover {
+  text-decoration: underline;
+}
+
+.consola-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.consola-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--nex-dash-ink);
+}
+
+.consola-field-hint {
+  font-size: 0.68rem;
+  color: var(--nex-dash-muted);
+  margin: 0.35rem 0 0;
+  line-height: 1.45;
+}
+
+.consola-field-error {
+  font-size: 0.68rem;
+  color: #dc3545;
+  margin: 0.35rem 0 0;
+}
+
+.consola-input {
+  width: 100%;
+  border: 1px solid var(--nex-dash-border);
+  border-radius: 0.55rem;
+  background: #fff;
+  color: var(--nex-dash-ink);
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.7rem;
+  line-height: 1.4;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.consola-input:focus {
+  outline: none;
+  border-color: rgba(47, 107, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.12);
+}
+
+.consola-select {
+  appearance: auto;
+  cursor: pointer;
+}
+
+.consola-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.48rem 0.85rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.consola-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.consola-btn--primary {
+  background: #2f6bff;
+  color: #fff;
+}
+
+.consola-btn--primary:hover:not(:disabled) {
+  background: #2558d6;
+}
+
+.consola-btn--secondary {
+  background: #fff;
+  border-color: var(--nex-dash-border);
+  color: var(--nex-dash-ink);
+}
+
+.consola-btn--secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.consola-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: #2f6bff;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.consola-btn--ghost:hover:not(:disabled) {
+  background: rgba(47, 107, 255, 0.06);
+}
+
+.consola-btn--sm {
+  font-size: 0.72rem;
+  padding: 0.35rem 0.55rem;
+}
+
+.consola-btn--danger {
+  background: #dc3545;
+  color: #fff;
+}
+
+.consola-btn--danger:hover:not(:disabled) {
+  background: #bb2d3b;
+}
+
+.consola-btn--danger-outline {
+  background: transparent;
+  border-color: rgba(220, 53, 69, 0.45);
+  color: #dc3545;
+}
+
+.consola-btn--danger-outline:hover:not(:disabled) {
+  background: rgba(220, 53, 69, 0.06);
+  border-color: #dc3545;
+}
+
+.consola-datos-search-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.consola-datos-col-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  height: 100%;
+}
+
+.consola-datos-search {
+  flex-shrink: 0;
+}
+
+.consola-datos-search-head {
+  padding-bottom: 0.65rem;
+}
+
+.consola-datos-search-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 0.75rem;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+.consola-datos-search-field {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.consola-datos-search-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.consola-datos-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .app-shell .consola-main:has(.consola-datos) {
+    overflow: hidden;
+  }
+
+  .app-shell .consola-main:has(.consola-datos) > div {
+    min-height: 0;
+    height: 100%;
+    flex: 1;
+  }
+
+  .consola-datos {
+    height: 100%;
+  }
+
+  .consola-datos-layout {
+    grid-template-columns: minmax(0, 58%) minmax(0, 42%);
+    gap: 1.5rem;
+  }
+}
+
+.consola-datos-table-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.consola-datos-table-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.consola-datos-table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.consola-datos-table tbody tr {
+  transition: background 0.12s ease;
+}
+
+.consola-datos-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.consola-datos-row--selected {
+  background: rgba(47, 107, 255, 0.07) !important;
+}
+
+.consola-datos-row--selected td {
+  border-bottom-color: rgba(47, 107, 255, 0.12);
+}
+
+.consola-datos-tipo {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.consola-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: var(--nex-dash-muted);
+  text-transform: capitalize;
+}
+
+.consola-badge--ok {
+  background: rgba(22, 165, 106, 0.12);
+  color: #128a57;
+}
+
+.consola-badge--warn {
+  background: rgba(220, 53, 69, 0.1);
+  color: #b42318;
+}
+
+.consola-datos-editor-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 24rem;
+  height: 100%;
+  overflow: hidden;
+}
+
+.consola-datos-editor-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  min-height: 0;
+}
+
+.consola-datos-editor-empty-icon {
+  color: #94a3b8;
+  margin-bottom: 0.85rem;
+}
+
+.consola-datos-editor-empty-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--nex-dash-ink);
+  margin: 0 0 0.4rem;
+}
+
+.consola-datos-editor-empty-text {
+  font-size: 0.78rem;
+  color: var(--nex-dash-muted);
+  margin: 0;
+  max-width: 16rem;
+  line-height: 1.5;
+}
+
+.consola-datos-editor-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+}
+
+.consola-datos-json-field {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.consola-datos-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 1rem;
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+  border: 1px solid var(--nex-dash-border);
+}
+
+.consola-datos-meta dt {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--nex-dash-muted);
+  margin: 0;
+}
+
+.consola-datos-meta dd {
+  font-size: 0.78rem;
+  color: var(--nex-dash-ink);
+  margin: 0.15rem 0 0;
+  word-break: break-word;
+}
+
+.consola-datos-json-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.consola-json-editor {
+  width: 100%;
+  flex: 1;
+  min-height: 10rem;
+  resize: none;
+  border: 1px solid var(--nex-dash-border);
+  border-radius: 0.65rem;
+  background: #f8fafc;
+  color: var(--nex-dash-ink);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  padding: 0.75rem 0.85rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.consola-json-editor:focus {
+  outline: none;
+  border-color: rgba(47, 107, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+  background: #fff;
+}
+
+.consola-json-editor--error {
+  border-color: rgba(220, 53, 69, 0.55);
+  background: #fffbfb;
+}
+
+.consola-json-editor--error:focus {
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.consola-datos-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.85rem 1.15rem;
+  border-top: 1px solid var(--nex-dash-border);
+  background: #fff;
+}
+
+.consola-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(11, 31, 58, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.consola-modal {
+  width: 100%;
+  max-width: 26rem;
+  background: #fff;
+  border-radius: 1rem;
+  border: 1px solid var(--nex-dash-border);
+  box-shadow: 0 12px 40px rgba(11, 31, 58, 0.18);
+  padding: 1.25rem 1.35rem;
+}
+
+.consola-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--nex-dash-ink);
+  margin: 0 0 0.5rem;
+}
+
+.consola-modal-text {
+  font-size: 0.78rem;
+  color: var(--nex-dash-muted);
+  line-height: 1.5;
+  margin: 0 0 1rem;
+}
+
+.consola-modal-meta {
+  margin-bottom: 1.15rem;
+}
+
+.consola-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 639px) {
+  .consola-datos-editor-actions {
+    flex-direction: column;
+  }
+
+  .consola-datos-editor-actions .consola-btn {
+    width: 100%;
+  }
+
+  .consola-datos-meta {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Datos registrados (/app/datos-registrados) ── */
+
+.consola-inventario {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.consola-inventario-lead {
+  font-size: 0.8125rem;
+  color: var(--nex-dash-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.consola-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.consola-inventario-summary {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+@media (min-width: 640px) {
+  .consola-inventario-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.consola-inventario-stat {
+  background: var(--nex-dash-card);
+  border: 1px solid var(--nex-dash-border);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  box-shadow: 0 1px 2px rgba(23, 35, 58, 0.04);
+}
+
+.consola-inventario-stat-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--nex-dash-muted);
+  margin-bottom: 0.25rem;
+}
+
+.consola-inventario-stat-value {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--nex-dash-ink);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.consola-inventario-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.consola-inventario-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.consola-inventario-updated {
+  font-size: 0.68rem;
+  color: var(--nex-dash-muted);
+  white-space: nowrap;
+  padding-top: 0.15rem;
+}
+
+.consola-inventario-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 0.75rem;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--nex-dash-border);
+}
+
+.consola-inventario-filter-field {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.consola-inventario-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.consola-inventario-table-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.consola-inventario-table-scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: min(32rem, calc(100vh - 20rem));
+  overflow: auto;
+}
+
+.consola-inventario-table tbody tr {
+  transition: background 0.12s ease;
+}
+
+.consola-inventario-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.consola-inventario-row--focus {
+  background: rgba(47, 107, 255, 0.07) !important;
+}
+
+.consola-inventario-id {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.consola-inventario-nombre {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.consola-inventario-fecha {
+  color: var(--nex-dash-muted);
+  white-space: nowrap;
+}
+
+.consola-inventario-historial-btn {
+  text-decoration: none;
+}
+
+.consola-inventario-historial-btn:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+.consola-inventario-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  border-top: 1px solid var(--nex-dash-border);
+  background: #fafbfd;
+}
+
+.consola-inventario-pagination-meta {
+  font-size: 0.75rem;
+  color: var(--nex-dash-muted);
+}
+
+.consola-inventario-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.25rem 1.15rem;
+}
+
+.consola-inventario-skeleton {
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(90deg, #eef2f7 25%, #f8fafc 50%, #eef2f7 75%);
+  background-size: 200% 100%;
+  animation: consola-inventario-shimmer 1.2s ease-in infinite;
+}
+
+.consola-inventario-skeleton--short {
+  width: 65%;
+}
+
+@keyframes consola-inventario-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.consola-inventario-table-mobile {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0.85rem;
+  gap: 0.65rem;
+  flex-direction: column;
+}
+
+.consola-inventario-table-desktop {
+  display: block;
+}
+
+.consola-inventario-card {
+  border: 1px solid var(--nex-dash-border);
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+  background: #fff;
+}
+
+.consola-inventario-card--focus {
+  border-color: rgba(47, 107, 255, 0.35);
+  background: rgba(47, 107, 255, 0.04);
+}
+
+.consola-inventario-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.consola-inventario-card-nombre {
+  font-size: 0.82rem;
+  color: var(--nex-dash-ink);
+  margin: 0 0 0.65rem;
+  line-height: 1.4;
+}
+
+.consola-inventario-card-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+
+.consola-inventario-card-meta dt {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--nex-dash-muted);
+}
+
+.consola-inventario-card-meta dd {
+  font-size: 0.75rem;
+  color: var(--nex-dash-ink);
+  margin: 0.1rem 0 0;
+}
+
+@media (max-width: 767px) {
+  .consola-inventario-table-desktop {
+    display: none;
+  }
+
+  .consola-inventario-table-mobile {
+    display: flex;
+  }
+
+  .consola-inventario-table-scroll {
+    max-height: none;
+  }
+
+  .consola-inventario-historial-btn {
+    width: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell .consola-main:has(.consola-inventario) {
+    overflow: hidden;
+  }
+
+  .app-shell .consola-main:has(.consola-inventario) > div {
+    min-height: 0;
+    height: 100%;
+    flex: 1;
+  }
+
+  .consola-inventario {
+    height: 100%;
+  }
+
+  .consola-inventario-table-scroll {
+    max-height: none;
+  }
+}
+
+.consola-txid-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.consola-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--nex-dash-border);
+  background: #fff;
+  color: var(--nex-dash-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.consola-copy-btn:hover {
+  color: #2f6bff;
+  border-color: rgba(47, 107, 255, 0.35);
+  background: rgba(47, 107, 255, 0.04);
+}
+
+/* ── Consultar registro (/app/consultas) ── */
+
+.consola-consulta {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 52rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-bottom: 1.5rem;
+}
+
+.consola-consulta-lead {
+  font-size: 0.8125rem;
+  color: var(--nex-dash-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.consola-consulta-form-panel {
+  flex-shrink: 0;
+}
+
+.consola-consulta-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 0.75rem;
+  padding: 1rem 1.15rem;
+}
+
+.consola-consulta-field {
+  flex: 1 1 14rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.consola-consulta-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.consola-consulta-result-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.consola-consulta-result-body {
+  padding: 1rem 1.15rem 1.15rem;
+}
+
+.consola-consulta-result-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.consola-consulta-meta {
+  margin: 0;
+}
+
+.consola-consulta-meta-wide {
+  grid-column: 1 / -1;
+}
+
+.consola-consulta-meta-wide dd {
+  word-break: break-word;
+}
+
+.consola-consulta-payload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 0;
+}
+
+.consola-consulta-payload-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--nex-dash-ink);
+  margin: 0;
+}
+
+.consola-consulta-payload-scroll {
+  max-height: 30rem;
+  overflow-x: auto;
+  overflow-y: auto;
+  border: 1px solid var(--nex-dash-border);
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  padding: 0.85rem 1rem;
+}
+
+.consola-consulta-payload-scroll .space-y-5 > h3:first-child {
+  display: none;
+}
+
+.consola-consulta-payload-table tbody td {
+  word-break: break-word;
+}
+
+.consola-consulta-payload-key {
+  font-weight: 600;
+  color: var(--nex-dash-muted);
+  width: 35%;
+  vertical-align: top;
+}
+
+.consola-consulta-empty-inline {
+  font-size: 0.78rem;
+  color: var(--nex-dash-muted);
+  margin: 0;
+}
+
+.consola-consulta-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+@media (max-width: 639px) {
+  .consola-consulta-form-actions {
+    width: 100%;
+  }
+
+  .consola-consulta-form-actions .consola-btn {
+    flex: 1;
+  }
+
+  .consola-consulta-payload-scroll {
+    max-height: 24rem;
+  }
+}
+
+/* ── Cola de aprobación (/app/solicitudes) ── */
+
+.consola-solicitudes {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.consola-solicitudes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.consola-solicitudes-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.consola-solicitudes-tab {
+  border-radius: 0.55rem;
+  border: 1px solid var(--nex-dash-border);
+  background: #fff;
+  color: var(--nex-dash-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.42rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.consola-solicitudes-tab:hover {
+  border-color: rgba(47, 107, 255, 0.35);
+  color: var(--nex-dash-ink);
+}
+
+.consola-solicitudes-tab--active {
+  background: #2f6bff;
+  border-color: #2f6bff;
+  color: #fff;
+}
+
+.consola-solicitudes-empty-panel {
+  padding: 0;
+}
+
+.consola-solicitudes-empty {
+  margin: 0;
+}
+
+.consola-solicitudes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.consola-solicitudes-item {
+  overflow: visible;
+}
+
+.consola-solicitudes-item-body {
+  padding: 1rem 1.15rem;
+}
