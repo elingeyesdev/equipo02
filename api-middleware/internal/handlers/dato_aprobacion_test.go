@@ -6,15 +6,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"api-middleware/internal/aprobaciones"
 	"api-middleware/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
-// Un integrador NO escribe directo en la cadena: su POST /datos genera una
-// solicitud PENDIENTE y responde 202, sin tocar Fabric.
-func TestCrearDato_integrador_generaSolicitudPendiente(t *testing.T) {
+// Un integrador escribe directo en la cadena al crear (POST /datos).
+// Sin gateway Fabric en tests, la operación falla con 503.
+func TestCrearDato_integrador_intentaEscrituraDirecta(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -30,15 +29,8 @@ func TestCrearDato_integrador_generaSolicitudPendiente(t *testing.T) {
 
 	CrearDato(c)
 
-	if w.Code != http.StatusAccepted {
-		t.Fatalf("esperado 202 (pendiente), obtuvo %d: %s", w.Code, w.Body.String())
-	}
-	pend := aprobaciones.Default.Listar(tenant, aprobaciones.Pendiente)
-	if len(pend) != 1 {
-		t.Fatalf("esperaba 1 solicitud pendiente, got %d", len(pend))
-	}
-	if pend[0].Operacion != aprobaciones.OpCrear || pend[0].DatoID != "DATO-1" || pend[0].Solicitante != "integrador-ana" {
-		t.Fatalf("solicitud mal formada: %+v", pend[0])
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("esperado 503 sin ledger, obtuvo %d: %s", w.Code, w.Body.String())
 	}
 }
 

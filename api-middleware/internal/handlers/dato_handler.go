@@ -189,13 +189,6 @@ func CrearDato(c *gin.Context) {
 	datoID := strings.TrimSpace(in.DatoID)
 	tipo := strings.TrimSpace(in.Tipo)
 
-	// Flujo de aprobación: el integrador propone; no escribe en la cadena.
-	if esIntegrador(c) {
-		sol := crearSolicitudPendiente(c, aprobaciones.OpCrear, datoID, tipo, in.Payload, "")
-		responderSolicitudPendiente(c, sol, "Alta")
-		return
-	}
-
 	tenantID := middleware.TenantFromContext(c)
 	res, err := ejecutarCrearDato(tenantID, datoID, tipo, in.Payload)
 	if err != nil {
@@ -272,9 +265,28 @@ func ActualizarDato(c *gin.Context) {
 	tipo := strings.TrimSpace(in.Tipo)
 
 	if esIntegrador(c) {
-		sol := crearSolicitudPendiente(c, aprobaciones.OpActualizar, id, tipo, in.Payload, "")
-		responderSolicitudPendiente(c, sol, "Edición")
-		return
+		tenantID := middleware.TenantFromContext(c)
+		rawActual, errRead := fabric.EvaluateTransactionTenant(tenantID, "", "", "ReadDato", id)
+		if errRead != nil {
+			st, cod, pub := clasificarErrorFabric(errRead)
+			c.JSON(st, models.RespuestaError{Ok: false, Codigo: cod, Mensaje: pub})
+			return
+		}
+		actual, errPayload := payloadNegocioDesdeReadDato(rawActual)
+		if errPayload != nil {
+			c.JSON(http.StatusInternalServerError, models.RespuestaError{Ok: false, Codigo: "ERROR_FORMATO", Mensaje: "No se pudo leer el estado actual del dato"})
+			return
+		}
+		nuevo, errNuevo := extraerPayloadNegocio(in.Payload)
+		if errNuevo != nil {
+			c.JSON(http.StatusBadRequest, models.RespuestaError{Ok: false, Codigo: "VALIDACION", Mensaje: "Payload inválido: " + errNuevo.Error()})
+			return
+		}
+		if !esAppendOnly(actual, nuevo) {
+			sol := crearSolicitudPendiente(c, aprobaciones.OpActualizar, id, tipo, in.Payload, "")
+			responderSolicitudPendiente(c, sol, "Edición")
+			return
+		}
 	}
 
 	tenantID := middleware.TenantFromContext(c)
