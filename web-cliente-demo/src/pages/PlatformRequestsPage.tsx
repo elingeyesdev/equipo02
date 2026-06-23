@@ -5,6 +5,7 @@ import {
   formatDevRequestDate,
   OPERATOR_NEXT_STEP,
 } from '../components/dev/DevRequestStatusUi'
+import { PasswordInput } from '../components/PasswordInput'
 import {
   leerTokenPlataforma,
   listarSolicitudesPlataforma,
@@ -95,7 +96,7 @@ export default function PlatformRequestsPage() {
             </label>
             <label className="form-label mt-2">
               Contraseña
-              <input type="password" className="form-control" value={pass} onChange={(e) => setPass(e.target.value)} />
+              <PasswordInput value={pass} onChange={setPass} autoComplete="current-password" />
             </label>
             {loginError ? <p className="text-danger small mt-2">{loginError}</p> : null}
             <button type="submit" className="btn btn-primary w-100 mt-3">
