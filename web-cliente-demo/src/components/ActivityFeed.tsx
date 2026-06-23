@@ -4,12 +4,12 @@ import { formatDemoDateTime } from '../lib/format'
 
 function tipoOperacionLabel(t: DemoEventType): string {
   const m: Record<DemoEventType, string> = {
-    registro_creado: 'Alta de cliente',
-    registro_editado: 'Actualización de cliente',
+    registro_creado: 'Alta de registro',
+    registro_editado: 'Actualización de registro',
     registro_eliminado: 'Baja lógica (vista)',
     token_emitido: 'Emisión de token',
     token_transferido: 'Transferencia de token',
-    consulta: 'Consulta',
+    consulta: 'Consulta de registro',
   }
   return m[t]
 }
@@ -24,6 +24,7 @@ interface ActivityFeedProps {
   subtitle?: string
   emptyText?: string
   showHistorialLink?: boolean
+  historialLinkLabel?: string
   className?: string
   bodyClassName?: string
   /** Si se pasa, muestra un botón para limpiar la actividad. */
@@ -32,10 +33,11 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({
   items,
-  title = 'Actividad reciente',
-  subtitle = 'Datos obtenidos desde la red/API o acciones en esta ventana',
-  emptyText = 'No hay actividades recientes.',
+  title = 'Actividad reciente de esta sesión',
+  subtitle = 'Acciones registradas solo en este navegador. No representa el historial completo del tenant.',
+  emptyText = 'No hay actividad registrada en esta sesión todavía.',
   showHistorialLink = true,
+  historialLinkLabel = 'Ver historial local de sesión',
   className = '',
   bodyClassName = '',
   onClear,
@@ -53,7 +55,7 @@ export function ActivityFeed({
             onClick={onClear}
             disabled={items.length === 0}
             className="admin-btn-secondary shrink-0 px-2.5 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-            title="Borrar la actividad reciente de esta sesión"
+            title="Borrar la actividad de esta sesión"
           >
             Limpiar
           </button>
@@ -103,12 +105,12 @@ export function ActivityFeed({
         )}
       </div>
       {showHistorialLink ? (
-        <div className="shrink-0 border-t border-line p-3 sm:px-4">
+        <div className="shrink-0 border-t border-line px-4 py-2.5 sm:px-4">
           <Link
             to="/app/historial"
-            className="admin-btn-secondary block w-full py-2 text-center text-xs"
+            className="text-xs font-medium text-muted hover:text-accent hover:underline"
           >
-            Ver historial completo
+            {historialLinkLabel}
           </Link>
         </div>
       ) : null}

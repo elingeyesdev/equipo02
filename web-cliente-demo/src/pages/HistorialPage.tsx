@@ -28,6 +28,13 @@ export default function HistorialPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
+      <div className="alert alert-info shrink-0" role="status">
+        <h2 className="alert-heading h5 mb-2">Historial local de sesión</h2>
+        <p className="mb-0 small">
+          Acciones registradas solo en este navegador durante la sesión actual. No representa el historial completo
+          del tenant ni la trazabilidad blockchain.
+        </p>
+      </div>
       <div className="flex shrink-0 flex-wrap gap-2">
         {filtrosHistorial().map((f) => (
           <button
@@ -47,7 +54,7 @@ export default function HistorialPage() {
       </div>
       <ActivityFeed
         items={filtrados}
-        title="Historial de actividad"
+        title="Operaciones de la sesión"
         subtitle={`${filtrados.length} operación(es) con el filtro actual`}
         emptyText={
           eventos.length === 0 && tipo === 'all'
