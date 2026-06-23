@@ -52,7 +52,7 @@ export default function TrazabilidadPage() {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
       <div className="shrink-0 admin-card p-4 shadow-card sm:p-5">
-        <h2 className="text-sm font-semibold text-ink">Trazabilidad de operaciones</h2>
+        <h2 className="text-sm font-semibold text-ink">Trazabilidad blockchain</h2>
         <p className="mt-1 text-xs text-muted">
           Cada operación muestra su recorrido: captura, validación de rol, envío a API y respuesta (con TXID cuando
           aplica). Puedes copiar txId/txIdMint para validarlo manualmente en Hyperledger Explorer.

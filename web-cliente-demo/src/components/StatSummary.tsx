@@ -55,7 +55,7 @@ export function StatSummary({
       trendUp: true,
     },
     {
-      label: 'Historial de operaciones',
+      label: 'Historial de actividad',
       value: eventosCount.toLocaleString('es-PE'),
       hint: 'Eventos y operaciones en esta sesión',
       trend: 'Últimos 200',

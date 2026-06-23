@@ -34,7 +34,7 @@ describe("HistorialPage", () => {
     } as never);
 
     render(<HistorialPage />);
-    expect(screen.getByText("Historial de operaciones")).toBeInTheDocument();
+    expect(screen.getByText("Historial de actividad")).toBeInTheDocument();
     expect(screen.getByText("2 operación(es) con el filtro actual")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Alta" }));

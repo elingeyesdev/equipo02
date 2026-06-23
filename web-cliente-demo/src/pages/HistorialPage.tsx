@@ -47,7 +47,7 @@ export default function HistorialPage() {
       </div>
       <ActivityFeed
         items={filtrados}
-        title="Historial de operaciones"
+        title="Historial de actividad"
         subtitle={`${filtrados.length} operación(es) con el filtro actual`}
         emptyText={
           eventos.length === 0 && tipo === 'all'

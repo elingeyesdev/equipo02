@@ -115,7 +115,7 @@ export default function SolicitudesPage() {
   return (
     <div className="space-y-5">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-ink">{esAdmin ? 'Bandeja de aprobaciones' : 'Mis solicitudes'}</h1>
+        <h1 className="text-2xl font-bold text-ink">{esAdmin ? 'Cola de aprobación' : 'Mis solicitudes'}</h1>
         <p className="text-sm text-ink-secondary">
           {esAdmin
             ? 'Cambios propuestos por integradores. Al aprobar se escriben en la Blockchain; al rechazar se descartan sin tocar la cadena.'

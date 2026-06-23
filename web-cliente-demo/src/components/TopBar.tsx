@@ -16,19 +16,19 @@ const SECTION_META: Record<string, { title: string; subtitle: string }> = {
     subtitle: 'Resumen, accesos rápidos y actividad reciente',
   },
   '/app/datos': {
-    title: 'Datos (CRUD)',
-    subtitle: 'POST/PUT/DELETE /datos — modelo universal',
+    title: 'Registro manual',
+    subtitle: 'Alta, edición y baja de datos en JSON (pruebas y administración)',
   },
   '/app/datos-registrados': {
-    title: 'Datos en red',
-    subtitle: 'Listado de solo lectura desde GET /datos',
+    title: 'Datos registrados',
+    subtitle: 'Registros enviados al BaaS con trazabilidad blockchain',
   },
   '/app/consultas': {
-    title: 'Detalle de dato',
-    subtitle: 'GET /api/datos/:datoId (proxy al middleware)',
+    title: 'Consultar registro',
+    subtitle: 'Búsqueda por datoId o TxID · historial y línea de tiempo',
   },
   '/app/solicitudes': {
-    title: 'Aprobaciones',
+    title: 'Cola de aprobación',
     subtitle: 'Solicitudes pendientes de integradores',
   },
   '/app/auditoria': {
@@ -36,11 +36,11 @@ const SECTION_META: Record<string, { title: string; subtitle: string }> = {
     subtitle: 'Bitácora HTTP + eventos de cadena (GET /auditoria/combinada)',
   },
   '/app/historial': {
-    title: 'Historial',
+    title: 'Historial de actividad',
     subtitle: 'Operaciones observadas en esta sesión',
   },
   '/app/trazabilidad': {
-    title: 'Trazabilidad',
+    title: 'Trazabilidad blockchain',
     subtitle: 'Línea de tiempo y comprobación de TXID',
   },
   '/app/credenciales': {
@@ -103,11 +103,11 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           {mode === 'api' ? 'API' : 'Sin API'}
         </div>
         <div className="hidden items-center gap-2 md:flex">
-          {tenant && (
+          {tenant ? (
             <span className="rounded-md border border-line bg-gray-50 px-3 py-1 text-xs font-medium text-ink-secondary">
               Organización: <span className="text-ink">{etiquetaOrganizacion(tenant)}</span>
             </span>
-          )}
+          ) : null}
           <span className="rounded-md border border-line bg-gray-50 px-3 py-1 text-xs font-medium text-ink-secondary">
             Rol: <span className="font-semibold text-accent">{roleLabel}</span>
           </span>
@@ -127,7 +127,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               </span>
               <span className="max-w-[140px] truncate text-xs font-medium text-ink">{nombre}</span>
             </button>
-            {menuAbierto && (
+            {menuAbierto ? (
               <>
                 <div className="fixed inset-0 z-20" onClick={() => setMenuAbierto(false)} aria-hidden />
                 <div className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-md border border-line bg-surface shadow-card-md">
@@ -157,7 +157,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                   </button>
                 </div>
               </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

@@ -71,7 +71,7 @@ export default function PanelPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       <StatSummary
         totalClientesEnRed={datosLedger.length}
-        entityLabel="Datos en red"
+        entityLabel="Datos registrados"
         ledgerEndpointHint="Datos del ledger vía GET /datos"
         consultasCount={consultasCount}
         eventosCount={eventos.length}
@@ -109,7 +109,7 @@ export default function PanelPage() {
           <div className="admin-card-header">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <h2 className="admin-card-title">Datos en red</h2>
+                <h2 className="admin-card-title">Datos registrados</h2>
                 <p className="mt-1 text-xs text-muted">Últimos activos · GET /datos</p>
               </div>
               <Link

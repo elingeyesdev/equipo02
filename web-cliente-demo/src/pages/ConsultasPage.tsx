@@ -161,7 +161,7 @@ export default function ConsultasPage() {
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold text-ink">Detalle de dato</h1>
+        <h1 className="text-lg font-semibold text-ink">Consultar registro</h1>
         <p className="mt-0.5 text-xs text-muted">Consulta por datoId o TxID · historial y línea de tiempo</p>
       </div>
 

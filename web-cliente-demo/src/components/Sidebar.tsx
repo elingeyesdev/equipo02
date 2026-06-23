@@ -16,13 +16,13 @@ type NavItem = {
 
 const items: NavItem[] = [
   { to: '/app', label: 'Panel', icon: IconGrid, end: true },
-  { to: '/app/datos', label: 'Datos (CRUD)', icon: IconPencil },
-  { to: '/app/datos-registrados', label: 'Datos en red', icon: IconList },
-  { to: '/app/consultas', label: 'Detalle de dato', icon: IconSearch },
-  { to: '/app/solicitudes', label: 'Aprobaciones', icon: IconInbox },
+  { to: '/app/datos', label: 'Registro manual', icon: IconPencil },
+  { to: '/app/datos-registrados', label: 'Datos registrados', icon: IconList },
+  { to: '/app/consultas', label: 'Consultar registro', icon: IconSearch },
+  { to: '/app/solicitudes', label: 'Cola de aprobación', icon: IconInbox },
   { to: '/app/auditoria', label: 'Auditar', icon: IconShield },
-  { to: '/app/historial', label: 'Historial', icon: IconClock },
-  { to: '/app/trazabilidad', label: 'Trazabilidad', icon: IconFlow },
+  { to: '/app/historial', label: 'Historial de actividad', icon: IconClock },
+  { to: '/app/trazabilidad', label: 'Trazabilidad blockchain', icon: IconFlow },
   { to: '/app/credenciales', label: 'Perfil', icon: IconKey },
 ]
 

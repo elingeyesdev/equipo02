@@ -144,10 +144,15 @@ export default function DatosPage() {
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-ink">Datos en la red</h1>
-        <p className="text-sm text-ink-secondary">
-          Modelo universal: cualquier activo se representa como datoId + tipo + payload JSON.
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold text-ink">Registro manual</h1>
+        <p className="text-sm leading-relaxed text-ink-secondary">
+          Esta opción permite registrar manualmente un dato en formato JSON. Está pensada para pruebas, soporte o
+          administración. En producción, los datos normalmente se envían desde el sistema integrado del cliente
+          mediante la API.
+        </p>
+        <p className="text-sm text-muted">
+          Modelo universal: datoId + tipo + payload JSON.
           {esIntegrador ? ' Como integrador, tus cambios quedan pendientes de aprobación del administrador.' : ''}
         </p>
       </header>

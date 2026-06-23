@@ -37,8 +37,11 @@ export default function DatosRegistradosPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold text-ink">Datos en red</h1>
-        <p className="mt-1 text-sm text-muted">Origen: GET /datos · mismos activos que el panel principal</p>
+        <h1 className="text-lg font-semibold text-ink">Datos registrados</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          Aquí se muestran los registros enviados a la plataforma BaaS y almacenados con trazabilidad blockchain.
+        </p>
+        <p className="mt-1 text-xs text-muted">Origen: GET /datos · mismos activos que el panel principal</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="admin-btn-primary" onClick={() => void load()} disabled={datosLedgerLoading}>
