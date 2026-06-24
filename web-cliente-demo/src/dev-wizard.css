@@ -1,0 +1,646 @@
+/* Portal Integrador — wizard Nueva solicitud (/dev/solicitud) */
+
+.dev-wizard-page {
+  --dev-wiz-navy: #0b1f3a;
+  --dev-wiz-blue: #2f6bff;
+  --dev-wiz-bg: #f4f7fb;
+  --dev-wiz-card: #ffffff;
+  --dev-wiz-border: #e3e8f0;
+  --dev-wiz-ink: #17233a;
+  --dev-wiz-muted: #667085;
+  --dev-wiz-ok: #16a56a;
+  background: var(--dev-wiz-bg);
+  min-height: 100%;
+}
+
+.dev-wizard-header {
+  margin-bottom: 1.25rem;
+}
+
+.dev-wizard-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--dev-wiz-muted);
+  text-decoration: none;
+  margin-bottom: 0.75rem;
+}
+
+.dev-wizard-back:hover {
+  color: var(--dev-wiz-blue);
+}
+
+.dev-wizard-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--dev-wiz-ink);
+  margin: 0 0 0.35rem;
+}
+
+.dev-wizard-lead {
+  font-size: 0.875rem;
+  color: var(--dev-wiz-muted);
+  margin: 0;
+  max-width: 40rem;
+  line-height: 1.5;
+}
+
+.dev-wizard-shell {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.dev-wizard-progress-wrap {
+  margin-bottom: 0.75rem;
+}
+
+.dev-wizard-progress-bar {
+  height: 0.35rem;
+  border-radius: 999px;
+  background: #e8eef7;
+  overflow: hidden;
+}
+
+.dev-wizard-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--dev-wiz-navy), var(--dev-wiz-blue));
+  transition: width 0.25s ease;
+}
+
+.dev-wizard-stepper {
+  display: none;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+  .dev-wizard-stepper {
+    display: flex;
+  }
+}
+
+.dev-wizard-stepper-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--dev-wiz-muted);
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+}
+
+.dev-wizard-stepper-item.is-active {
+  color: var(--dev-wiz-blue);
+  background: rgba(47, 107, 255, 0.08);
+}
+
+.dev-wizard-stepper-item.is-done {
+  color: var(--dev-wiz-ok);
+}
+
+.dev-wizard-stepper-num {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  border: 1px solid var(--dev-wiz-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  flex-shrink: 0;
+}
+
+.dev-wizard-stepper-item.is-active .dev-wizard-stepper-num {
+  border-color: var(--dev-wiz-blue);
+  background: var(--dev-wiz-blue);
+  color: #fff;
+}
+
+.dev-wizard-stepper-item.is-done .dev-wizard-stepper-num {
+  border-color: rgba(22, 165, 106, 0.35);
+  background: rgba(22, 165, 106, 0.12);
+  color: var(--dev-wiz-ok);
+}
+
+.dev-wizard-step-mobile {
+  font-size: 0.75rem;
+  color: var(--dev-wiz-muted);
+  margin: 0.35rem 0 0;
+}
+
+@media (min-width: 768px) {
+  .dev-wizard-step-mobile {
+    display: none;
+  }
+}
+
+.dev-wizard-card {
+  background: var(--dev-wiz-card);
+  border: 1px solid var(--dev-wiz-border);
+  border-radius: 1.125rem;
+  box-shadow: 0 1px 3px rgba(11, 31, 58, 0.06);
+  padding: 1.25rem 1.35rem 1.35rem;
+}
+
+@media (min-width: 640px) {
+  .dev-wizard-card {
+    padding: 1.5rem 1.65rem 1.65rem;
+  }
+}
+
+.dev-wizard-step-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--dev-wiz-ink);
+  margin: 0;
+}
+
+.dev-wizard-step-desc {
+  font-size: 0.8125rem;
+  color: var(--dev-wiz-muted);
+  margin: 0.35rem 0 0;
+  line-height: 1.5;
+}
+
+.dev-wizard-notice {
+  margin-top: 0.85rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--dev-wiz-border);
+  border-left: 3px solid var(--dev-wiz-blue);
+  background: #fafbfd;
+  color: var(--dev-wiz-ink);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.dev-wizard-section {
+  margin-top: 1.25rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid #eef2f7;
+}
+
+.dev-wizard-section:first-of-type {
+  margin-top: 1rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.dev-wizard-section-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0b1f3a;
+  margin: 0 0 0.65rem;
+  letter-spacing: 0.01em;
+}
+
+.dev-wizard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+@media (min-width: 768px) {
+  .dev-wizard-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dev-wizard-page .form-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--dev-wiz-ink);
+  margin-bottom: 0.35rem;
+}
+
+.dev-wizard-page .form-control,
+.dev-wizard-page .form-select {
+  border-radius: 0.65rem;
+  border-color: var(--dev-wiz-border);
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.7rem;
+}
+
+.dev-wizard-page .form-control:focus,
+.dev-wizard-page .form-select:focus {
+  border-color: rgba(47, 107, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.12);
+}
+
+.dev-wizard-field-hint {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--dev-wiz-muted);
+  margin-top: 0.35rem;
+  line-height: 1.45;
+}
+
+.dev-wizard-session-hint {
+  font-size: 0.72rem;
+  color: var(--dev-wiz-muted);
+  margin: 0.75rem 0 0;
+}
+
+.dev-wizard-role-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 640px) {
+  .dev-wizard-role-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.dev-wizard-role-card {
+  border: 1px solid var(--dev-wiz-border);
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  background: #fafbfd;
+}
+
+.dev-wizard-role-card strong {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--dev-wiz-ink);
+  margin-bottom: 0.25rem;
+}
+
+.dev-wizard-role-card p {
+  font-size: 0.68rem;
+  color: var(--dev-wiz-muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.dev-wizard-users-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.65rem;
+}
+
+.dev-wizard-users-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--dev-wiz-ink);
+  margin: 0;
+}
+
+.dev-wizard-user-row {
+  border: 1px solid var(--dev-wiz-border);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 0.55rem;
+  background: #fff;
+}
+
+.dev-wizard-user-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+}
+
+@media (min-width: 640px) {
+  .dev-wizard-user-grid {
+    grid-template-columns: 1fr 1fr 1fr auto;
+    align-items: end;
+  }
+}
+
+.dev-wizard-user-remove {
+  border: none;
+  background: transparent;
+  color: #dc3545;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+}
+
+.dev-wizard-add-user {
+  border: 1px dashed var(--dev-wiz-border);
+  border-radius: 0.65rem;
+  background: #fff;
+  color: var(--dev-wiz-blue);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.dev-wizard-add-user:hover {
+  background: rgba(47, 107, 255, 0.04);
+  border-color: rgba(47, 107, 255, 0.35);
+}
+
+.dev-wizard-json-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.dev-wizard-json-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.dev-wizard-json-btn {
+  border: 1px solid var(--dev-wiz-border);
+  border-radius: 0.45rem;
+  background: #fff;
+  color: var(--dev-wiz-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dev-wizard-json-btn:hover,
+.dev-wizard-json-btn.is-active {
+  color: var(--dev-wiz-blue);
+  border-color: rgba(47, 107, 255, 0.35);
+  background: rgba(47, 107, 255, 0.04);
+}
+
+.dev-wizard-json-reference {
+  border: 1px solid #e3e8f0;
+  border-left: 3px solid #2f6bff;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0.55rem;
+}
+
+.dev-wizard-json-reference-note {
+  font-size: 0.72rem;
+  color: #667085;
+  margin: 0 0 0.45rem;
+  line-height: 1.45;
+}
+
+.dev-wizard-page pre.dev-wizard-json-reference-code {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: #17233a !important;
+  background: #f4f7fb !important;
+  border: 1px solid #e3e8f0;
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dev-wizard-json-editor {
+  width: 100%;
+  min-height: 10rem;
+  max-height: 16rem;
+  resize: vertical;
+  border: 1px solid var(--dev-wiz-border);
+  border-radius: 0.875rem;
+  background: #f8fafc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  padding: 0.75rem 0.85rem;
+  color: var(--dev-wiz-ink);
+}
+
+.dev-wizard-json-editor::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+.dev-wizard-json-editor:focus {
+  outline: none;
+  border-color: rgba(47, 107, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+  background: #fff;
+}
+
+.dev-wizard-json-editor.is-error {
+  border-color: rgba(220, 53, 69, 0.55);
+  background: #fffbfb;
+}
+
+.dev-wizard-json-editor.is-valid {
+  border-color: rgba(22, 165, 106, 0.35);
+}
+
+.dev-wizard-json-error {
+  font-size: 0.68rem;
+  color: #dc3545;
+  margin-top: 0.35rem;
+}
+
+.dev-wizard-json-ok {
+  font-size: 0.68rem;
+  color: var(--dev-wiz-ok);
+  margin-top: 0.35rem;
+}
+
+.dev-wizard-mapping {
+  border: 1px solid var(--dev-wiz-border);
+  border-radius: 0.75rem;
+  background: #fafbfd;
+  padding: 0.85rem 1rem;
+}
+
+.dev-wizard-mapping-dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.dev-wizard-mapping-dl dt {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dev-wiz-muted);
+}
+
+.dev-wizard-mapping-dl dd {
+  font-size: 0.78rem;
+  color: var(--dev-wiz-ink);
+  margin: 0.1rem 0 0;
+  word-break: break-word;
+}
+
+.dev-wizard-mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.dev-wizard-mapping-table th,
+.dev-wizard-mapping-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid #eef2f7;
+  text-align: left;
+}
+
+.dev-wizard-mapping-table th {
+  font-weight: 600;
+  color: var(--dev-wiz-muted);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.dev-wizard-review-block {
+  border: 1px solid var(--dev-wiz-border);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.65rem;
+  background: #fff;
+}
+
+.dev-wizard-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.dev-wizard-review-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dev-wiz-muted);
+  margin: 0;
+}
+
+.dev-wizard-review-edit {
+  border: none;
+  background: transparent;
+  color: var(--dev-wiz-blue);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dev-wizard-review-body {
+  font-size: 0.8125rem;
+  color: var(--dev-wiz-ink);
+  line-height: 1.5;
+}
+
+.dev-wizard-review-body p {
+  margin: 0 0 0.25rem;
+}
+
+.dev-wizard-review-body p:last-child {
+  margin-bottom: 0;
+}
+
+.dev-wizard-alert {
+  border-radius: 0.65rem;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.78rem;
+  margin-top: 0.85rem;
+}
+
+.dev-wizard-alert--error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.dev-wizard-alert--warn {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.dev-wizard-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.35rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid #eef2f7;
+}
+
+.dev-wizard-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.dev-wizard-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dev-wizard-btn--secondary {
+  border: 1px solid var(--dev-wiz-border);
+  background: #fff;
+  color: var(--dev-wiz-ink);
+}
+
+.dev-wizard-btn--secondary:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.dev-wizard-btn--primary {
+  border: none;
+  background: var(--dev-wiz-blue);
+  color: #fff;
+}
+
+.dev-wizard-btn--primary:hover:not(:disabled) {
+  background: #2558d6;
+}
+
+.dev-wizard-submit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.dev-wizard-download-link {
+  border: none;
+  background: transparent;
+  color: var(--dev-wiz-blue);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.dev-wizard-submit-hint {
+  font-size: 0.72rem;
+  color: var(--dev-wiz-muted);
+  margin: 0.75rem 0 0;
+}
