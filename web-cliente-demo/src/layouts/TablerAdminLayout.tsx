@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { guardarTokenPlataforma, leerTokenPlataforma } from '../services/platformApi'
+import '../operador-console.css'
 
 export function TablerAdminLayout() {
   const navigate = useNavigate()
@@ -12,27 +13,26 @@ export function TablerAdminLayout() {
   }
 
   return (
-    <div className="page">
-      <header className="navbar navbar-expand-md navbar-light d-print-none border-bottom bg-dark" data-bs-theme="dark">
+    <div className="page operador-console">
+      <header className="navbar operador-navbar d-print-none" data-bs-theme="dark">
         <div className="container-xl">
-          <span className="navbar-brand text-white">Consola Operador BaaS</span>
-          <ul className="navbar-nav ms-auto flex-row align-items-center gap-2">
-            <li className="nav-item">
+          <span className="operador-navbar-brand">
+            <span className="operador-navbar-logo">NEXUM</span>
+            Consola Operador BaaS
+          </span>
+          <ul className="operador-navbar-nav">
+            <li>
               <NavLink
                 to="/admin/solicitudes"
                 end
-                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                className={({ isActive }) => `operador-navbar-link nav-link ${isActive ? 'active' : ''}`}
               >
                 Solicitudes
               </NavLink>
             </li>
             {hasSession ? (
-              <li className="nav-item">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-light"
-                  onClick={cerrarSesionOperador}
-                >
+              <li>
+                <button type="button" className="operador-btn-outline-light" onClick={cerrarSesionOperador}>
                   Cerrar sesión operador
                 </button>
               </li>
@@ -40,10 +40,8 @@ export function TablerAdminLayout() {
           </ul>
         </div>
       </header>
-      <div className="page-wrapper">
-        <div className="page-body">
-          <Outlet />
-        </div>
+      <div className="operador-page-body">
+        <Outlet />
       </div>
     </div>
   )

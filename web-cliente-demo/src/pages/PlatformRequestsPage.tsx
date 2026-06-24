@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { IconRefresh } from '@tabler/icons-react'
 import {
   DevRequestStatusBadge,
   formatDevRequestDate,
@@ -23,8 +24,30 @@ const FILTROS: { id: FiltroEstado; label: string }[] = [
   { id: 'rejected', label: 'Rechazadas' },
 ]
 
+const METRICAS: {
+  key: keyof ReturnType<typeof buildConteos>
+  label: string
+  tone: string
+}[] = [
+  { key: 'total', label: 'Total', tone: 'total' },
+  { key: 'pending', label: 'En revisión', tone: 'pending' },
+  { key: 'provisioning', label: 'En provisioning', tone: 'provisioning' },
+  { key: 'active', label: 'Activas', tone: 'active' },
+  { key: 'rejected', label: 'Rechazadas', tone: 'rejected' },
+]
+
 function normalizarLista(items: DevTenantRequest[] | null | undefined): DevTenantRequest[] {
   return Array.isArray(items) ? items : []
+}
+
+function buildConteos(lista: DevTenantRequest[]) {
+  return {
+    total: lista.length,
+    pending: lista.filter((s) => s.status === 'pending').length,
+    provisioning: lista.filter((s) => s.status === 'provisioning').length,
+    active: lista.filter((s) => s.status === 'active').length,
+    rejected: lista.filter((s) => s.status === 'rejected').length,
+  }
 }
 
 export default function PlatformRequestsPage() {
@@ -66,17 +89,7 @@ export default function PlatformRequestsPage() {
   }
 
   const lista = useMemo(() => normalizarLista(list), [list])
-
-  const conteos = useMemo(
-    () => ({
-      total: lista.length,
-      pending: lista.filter((s) => s.status === 'pending').length,
-      provisioning: lista.filter((s) => s.status === 'provisioning').length,
-      active: lista.filter((s) => s.status === 'active').length,
-      rejected: lista.filter((s) => s.status === 'rejected').length,
-    }),
-    [lista],
-  )
+  const conteos = useMemo(() => buildConteos(lista), [lista])
 
   const filtrada = useMemo(() => {
     if (filtro === 'all') return lista
@@ -85,96 +98,80 @@ export default function PlatformRequestsPage() {
 
   if (!authed) {
     return (
-      <div className="container-xl py-5 d-flex justify-content-center">
-        <form onSubmit={onLogin} className="card w-100" style={{ maxWidth: '24rem' }}>
-          <div className="card-body">
-            <h1 className="h3">Consola Operador BaaS</h1>
-            <p className="text-secondary small">Acceso para revisar solicitudes del Portal Integrador</p>
-            <label className="form-label mt-3">
-              Usuario
-              <input className="form-control" value={user} onChange={(e) => setUser(e.target.value)} />
-            </label>
-            <label className="form-label mt-2">
-              Contraseña
-              <PasswordInput value={pass} onChange={setPass} autoComplete="current-password" />
-            </label>
-            {loginError ? <p className="text-danger small mt-2">{loginError}</p> : null}
-            <button type="submit" className="btn btn-primary w-100 mt-3">
-              Entrar
-            </button>
-          </div>
+      <div className="operador-login-shell">
+        <form onSubmit={onLogin} className="operador-login-card">
+          <div className="operador-login-logo">NEXUM</div>
+          <h1 className="operador-login-title">Consola Operador BaaS</h1>
+          <p className="operador-login-lead">
+            Acceso interno para revisar solicitudes del Portal Integrador.
+          </p>
+          <label className="form-label">
+            Usuario
+            <input
+              className="form-control operador-input mt-1"
+              value={user}
+              onChange={(e) => setUser(e.target.value)}
+            />
+          </label>
+          <label className="form-label mt-2">
+            Contraseña
+            <PasswordInput
+              value={pass}
+              onChange={setPass}
+              autoComplete="current-password"
+              className="form-control operador-input mt-1"
+              wrapperClassName="operador-password-wrap mt-1"
+              toggleClassName="operador-password-toggle"
+            />
+          </label>
+          {loginError ? <p className="operador-login-error">{loginError}</p> : null}
+          <button type="submit" className="operador-btn-primary mt-3">
+            Entrar
+          </button>
         </form>
       </div>
     )
   }
 
   return (
-    <div className="container-xl py-4">
-      <div className="page-header mb-4">
-        <div className="row align-items-center">
-          <div className="col">
-            <h1 className="page-title">Solicitudes de integración</h1>
-            <p className="text-secondary mb-0">
-              Revisa, aprueba y activa tenants solicitados desde el Portal Integrador Nexum.
-            </p>
-          </div>
-          <div className="col-auto">
-            <button type="button" className="btn btn-outline-secondary" onClick={() => void load()} disabled={loading}>
-              {loading ? 'Actualizando…' : 'Refrescar'}
-            </button>
-          </div>
+    <div className="operador-page">
+      <div className="operador-page-header">
+        <div>
+          <h1 className="operador-page-title">Solicitudes de integración</h1>
+          <p className="operador-page-lead">
+            Revisa, aprueba y activa tenants solicitados desde el Portal Integrador Nexum.
+          </p>
         </div>
+        <button
+          type="button"
+          className="operador-btn-icon"
+          onClick={() => void load()}
+          disabled={loading}
+          title="Refrescar solicitudes"
+        >
+          <IconRefresh size={16} stroke={1.75} />
+          {loading ? 'Actualizando…' : 'Refrescar'}
+        </button>
       </div>
 
-      <div className="row row-cards g-3 mb-4">
-        <div className="col-6 col-md">
-          <div className="card card-sm">
-            <div className="card-body">
-              <div className="text-secondary small">Total</div>
-              <div className="h2 mb-0">{conteos.total}</div>
+      <div className="operador-metrics">
+        {METRICAS.map((m) => (
+          <div key={m.key} className={`operador-metric operador-metric--${m.tone}`}>
+            <div className="operador-metric-label">
+              <span className="operador-metric-dot" aria-hidden />
+              {m.label}
             </div>
+            <div className="operador-metric-value">{conteos[m.key]}</div>
           </div>
-        </div>
-        <div className="col-6 col-md">
-          <div className="card card-sm">
-            <div className="card-body">
-              <div className="text-secondary small">En revisión</div>
-              <div className="h2 mb-0 text-warning">{conteos.pending}</div>
-            </div>
-          </div>
-        </div>
-        <div className="col-6 col-md">
-          <div className="card card-sm">
-            <div className="card-body">
-              <div className="text-secondary small">En provisioning</div>
-              <div className="h2 mb-0 text-info">{conteos.provisioning}</div>
-            </div>
-          </div>
-        </div>
-        <div className="col-6 col-md">
-          <div className="card card-sm">
-            <div className="card-body">
-              <div className="text-secondary small">Activas</div>
-              <div className="h2 mb-0 text-success">{conteos.active}</div>
-            </div>
-          </div>
-        </div>
-        <div className="col-6 col-md">
-          <div className="card card-sm">
-            <div className="card-body">
-              <div className="text-secondary small">Rechazadas</div>
-              <div className="h2 mb-0 text-danger">{conteos.rejected}</div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      <div className="btn-list mb-3">
+      <div className="operador-filters">
         {FILTROS.map((f) => (
           <button
             key={f.id}
             type="button"
-            className={`btn btn-sm ${filtro === f.id ? 'btn-primary' : 'btn-outline-secondary'}`}
+            className={`operador-filter-chip${filtro === f.id ? ' is-active' : ''}`}
             onClick={() => setFiltro(f.id)}
           >
             {f.label}
@@ -183,32 +180,29 @@ export default function PlatformRequestsPage() {
       </div>
 
       {loading && lista.length === 0 ? (
-        <div className="card">
-          <div className="card-body text-center text-secondary py-5">
+        <div className="operador-panel">
+          <div className="operador-panel-body operador-loading">
             <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden />
             Cargando solicitudes…
           </div>
         </div>
       ) : lista.length === 0 ? (
-        <div className="card">
-          <div className="card-body text-center py-5 px-4">
-            <h2 className="h4 mb-3">No hay solicitudes de integración</h2>
-            <p className="text-secondary mb-0">
-              Cuando un integrador envíe una solicitud desde el Portal Integrador, aparecerá aquí para su
-              revisión.
+        <div className="operador-panel">
+          <div className="operador-panel-body operador-panel-body--empty">
+            <h2>No hay solicitudes de integración</h2>
+            <p className="mb-0">
+              Cuando un integrador envíe una solicitud desde el Portal Integrador, aparecerá aquí para su revisión.
             </p>
           </div>
         </div>
       ) : filtrada.length === 0 ? (
-        <div className="card">
-          <div className="card-body text-center text-secondary py-4">
-            No hay solicitudes con el filtro seleccionado.
-          </div>
+        <div className="operador-panel">
+          <div className="operador-panel-body">No hay solicitudes con el filtro seleccionado.</div>
         </div>
       ) : (
-        <div className="card">
-          <div className="table-responsive">
-            <table className="table table-vcenter card-table">
+        <div className="operador-panel">
+          <div className="operador-table-wrap">
+            <table className="operador-table">
               <thead>
                 <tr>
                   <th>Organización</th>
@@ -217,7 +211,7 @@ export default function PlatformRequestsPage() {
                   <th>Estado</th>
                   <th>Actualización</th>
                   <th>Próximo paso</th>
-                  <th className="w-1" />
+                  <th>Acción</th>
                 </tr>
               </thead>
               <tbody>
@@ -227,18 +221,20 @@ export default function PlatformRequestsPage() {
                     OPERATOR_NEXT_STEP[s.status as DevRequestStatus] ?? OPERATOR_NEXT_STEP.pending
                   return (
                     <tr key={s.id}>
-                      <td className="fw-medium">{s.orgName}</td>
-                      <td className="font-monospace small">{s.tenantId}</td>
-                      <td className="small">{s.contactEmail}</td>
+                      <td style={{ fontWeight: 600 }}>{s.orgName}</td>
+                      <td className="operador-cell-mono">{s.tenantId}</td>
+                      <td className="operador-cell-truncate operador-cell-muted" title={s.contactEmail}>
+                        {s.contactEmail}
+                      </td>
                       <td>
                         <DevRequestStatusBadge status={s.status} />
                       </td>
-                      <td className="text-secondary small">{fecha ?? '—'}</td>
-                      <td className="text-secondary small">{next}</td>
-                      <td className="text-end">
+                      <td className="operador-cell-muted">{fecha ?? '—'}</td>
+                      <td className="operador-cell-muted">{next}</td>
+                      <td>
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary"
+                          className="operador-btn-sm"
                           onClick={() => navigate(`/admin/solicitudes/${s.id}`)}
                         >
                           Ver detalle

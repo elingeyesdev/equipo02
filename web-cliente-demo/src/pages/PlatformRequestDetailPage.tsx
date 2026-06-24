@@ -60,6 +60,23 @@ function guardarResultado(id: string, res: ActivateResult) {
   }
 }
 
+function RoleBadge({ rol }: { rol: string }) {
+  const label = ROL_LABELS[rol] ?? rol
+  const tone =
+    rol === 'admin' ? 'admin' : rol === 'integrador' ? 'integrador' : 'lectura'
+  return <span className={`operador-role-badge operador-role-badge--${tone}`}>{label}</span>
+}
+
+function UserStateBadge({ status }: { status: DevRequestStatus }) {
+  if (status === 'active') {
+    return <span className="operador-state-badge operador-state-badge--ok">Activo</span>
+  }
+  if (status === 'rejected') {
+    return <span className="operador-state-badge operador-state-badge--muted">No creado</span>
+  }
+  return <span className="operador-state-badge operador-state-badge--pending">Pendiente de activación</span>
+}
+
 function CopyField({
   label,
   hint,
@@ -78,15 +95,24 @@ function CopyField({
   }
 
   return (
-    <div className="mb-4">
-      <div className="fw-semibold mb-1">{label}</div>
-      {hint ? <p className="text-secondary small mb-2">{hint}</p> : null}
-      <div className="d-flex flex-wrap gap-2 align-items-start">
-        <code className="flex-grow-1 p-2 bg-light rounded small text-break">{value}</code>
-        <button type="button" className="btn btn-sm btn-outline-secondary shrink-0" onClick={handleCopy}>
+    <div className="operador-copy-field">
+      <div className="operador-copy-field-label">{label}</div>
+      {hint ? <p className="operador-copy-field-hint">{hint}</p> : null}
+      <div className="operador-copy-row">
+        <code className="operador-copy-value">{value}</code>
+        <button type="button" className="operador-btn-sm" onClick={handleCopy}>
           {copied ? 'Copiado' : 'Copiar'}
         </button>
       </div>
+    </div>
+  )
+}
+
+function FieldItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <div className="operador-field-label">{label}</div>
+      <div className={`operador-field-value${mono ? ' operador-field-value--mono' : ''}`}>{value}</div>
     </div>
   )
 }
@@ -101,6 +127,7 @@ export default function PlatformRequestDetailPage() {
   const [busy, setBusy] = useState(false)
   const [checklist, setChecklist] = useState({ canal: false, middleware: false, bff: false })
   const [avanzadoAbierto, setAvanzadoAbierto] = useState(false)
+  const [payloadCopied, setPayloadCopied] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -131,15 +158,21 @@ export default function PlatformRequestDetailPage() {
     }
   }
 
+  const copyPayload = (text: string) => {
+    copyToClipboard(text)
+    setPayloadCopied(true)
+    window.setTimeout(() => setPayloadCopied(false), 2000)
+  }
+
   if (!solicitud && !error) {
-    return <div className="container-xl py-5 text-center text-secondary">Cargando…</div>
+    return <div className="operador-page operador-loading">Cargando…</div>
   }
 
   if (!solicitud) {
     return (
-      <div className="container-xl py-5">
-        <div className="alert alert-danger">{error}</div>
-        <Link to="/admin/solicitudes" className="btn btn-outline-primary">
+      <div className="operador-page">
+        <div className="operador-notice operador-notice--danger">{error}</div>
+        <Link to="/admin/solicitudes" className="operador-btn-outline">
           ← Volver a solicitudes
         </Link>
       </div>
@@ -153,101 +186,83 @@ export default function PlatformRequestDetailPage() {
   const keyOrder = ['admin', 'integrador', 'lectura'] as const
 
   return (
-    <div className="container-xl py-4">
-      <Link to="/admin/solicitudes" className="btn btn-ghost-secondary btn-sm mb-3">
+    <div className="operador-page">
+      <Link to="/admin/solicitudes" className="operador-back-link">
         ← Solicitudes de integración
       </Link>
 
-      <div className="d-flex flex-wrap align-items-center gap-2 mb-4">
-        <h1 className="h2 mb-0">{solicitud.orgName}</h1>
-        <DevRequestStatusBadge status={solicitud.status} />
-      </div>
-
-      {/* A) Resumen */}
-      <div className="card mb-4">
-        <div className="card-header">
-          <h3 className="card-title">Resumen de solicitud</h3>
+      <div className="operador-detail-header">
+        <div className="operador-detail-title-row">
+          <h1 className="operador-detail-title">{solicitud.orgName}</h1>
+          <DevRequestStatusBadge status={solicitud.status} />
         </div>
-        <div className="card-body">
-          <div className="row g-3">
-            <div className="col-md-6">
-              <div className="text-secondary small">Organización</div>
-              <div className="fw-semibold">{solicitud.orgName}</div>
-            </div>
-            <div className="col-md-6">
-              <div className="text-secondary small">Tenant ID</div>
-              <div className="font-monospace">{solicitud.tenantId}</div>
-            </div>
-            <div className="col-md-6">
-              <div className="text-secondary small">Estado</div>
-              <div className="mt-1">
-                <DevRequestStatusBadge status={solicitud.status} />
-              </div>
-            </div>
-            <div className="col-md-6">
-              <div className="text-secondary small">Contacto integrador</div>
-              <div>{solicitud.contactEmail}</div>
-            </div>
-            {fecha ? (
-              <div className="col-md-6">
-                <div className="text-secondary small">Última actualización</div>
-                <div>{fecha}</div>
-              </div>
-            ) : null}
-            <div className="col-md-6">
-              <div className="text-secondary small">ID solicitud</div>
-              <div className="font-monospace small text-break">{solicitud.id}</div>
-            </div>
-            {solicitud.domain ? (
-              <div className="col-md-6">
-                <div className="text-secondary small">Dominio</div>
-                <div>{solicitud.domain}</div>
-              </div>
-            ) : null}
-          </div>
+        <div className="operador-detail-meta">
+          <span>
+            tenant_id: <code>{solicitud.tenantId}</code>
+          </span>
+          <span>{solicitud.contactEmail}</span>
         </div>
       </div>
 
-      {/* B) Integración */}
-      <div className="card mb-4">
-        <div className="card-header">
-          <h3 className="card-title">Datos de integración</h3>
+      <section className="operador-section">
+        <div className="operador-section-header">
+          <h2 className="operador-section-title">Resumen de solicitud</h2>
         </div>
-        <div className="card-body">
-          <div className="row g-3 mb-3">
-            <div className="col-md-6">
-              <div className="text-secondary small">Entidad</div>
-              <div>{integ?.entityName || '—'}</div>
-            </div>
-            <div className="col-md-6">
-              <div className="text-secondary small">Campo identificador</div>
-              <div className="font-monospace">{integ?.businessIdField || '—'}</div>
-            </div>
-            <div className="col-md-6">
-              <div className="text-secondary small">Tipo de dato</div>
-              <div>{integ?.entityType || '—'}</div>
-            </div>
-            <div className="col-md-6">
-              <div className="text-secondary small">Stack elegido</div>
-              <div className="text-capitalize">{integ?.stack || '—'}</div>
-            </div>
-          </div>
-          {integ?.payloadExample ? (
+        <div className="operador-section-body">
+          <div className="operador-field-grid">
+            <FieldItem label="Organización" value={solicitud.orgName} />
+            <FieldItem label="Tenant ID" value={solicitud.tenantId} mono />
             <div>
-              <div className="text-secondary small mb-2">Payload de ejemplo</div>
-              <pre className="p-3 bg-light rounded small mb-0">{integ.payloadExample}</pre>
+              <div className="operador-field-label">Estado</div>
+              <DevRequestStatusBadge status={solicitud.status} />
             </div>
-          ) : null}
+            <FieldItem label="Contacto integrador" value={solicitud.contactEmail} />
+            {fecha ? <FieldItem label="Última actualización" value={fecha} /> : null}
+            <FieldItem label="ID solicitud" value={solicitud.id} mono />
+            {solicitud.domain ? <FieldItem label="Dominio" value={solicitud.domain} /> : null}
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* C) Usuarios consola */}
-      <div className="card mb-4">
-        <div className="card-header">
-          <h3 className="card-title">Usuarios solicitados para consola</h3>
+      <section className="operador-section">
+        <div className="operador-section-header">
+          <h2 className="operador-section-title">Datos de integración</h2>
         </div>
-        <div className="table-responsive">
-          <table className="table table-vcenter card-table">
+        <div className="operador-section-body">
+          <div className="operador-field-grid">
+            <FieldItem label="Entidad" value={integ?.entityName || '—'} />
+            <FieldItem label="Campo identificador" value={integ?.businessIdField || '—'} mono />
+            <FieldItem label="Tipo de dato" value={integ?.entityType || '—'} />
+            <FieldItem label="Stack elegido" value={integ?.stack || '—'} />
+          </div>
+          <div className="operador-payload-block">
+            <div className="operador-payload-head">
+              <span className="operador-payload-label">Payload</span>
+              {integ?.payloadExample ? (
+                <button
+                  type="button"
+                  className="operador-btn-sm"
+                  onClick={() => copyPayload(integ.payloadExample ?? '')}
+                >
+                  {payloadCopied ? 'Copiado' : 'Copiar payload'}
+                </button>
+              ) : null}
+            </div>
+            {integ?.payloadExample ? (
+              <pre className="operador-code-block">{integ.payloadExample}</pre>
+            ) : (
+              <p className="operador-empty-text">No se adjuntó payload de ejemplo.</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="operador-section">
+        <div className="operador-section-header">
+          <h2 className="operador-section-title">Usuarios solicitados para consola</h2>
+        </div>
+        <div className="operador-table-wrap">
+          <table className="operador-table">
             <thead>
               <tr>
                 <th>Usuario</th>
@@ -259,23 +274,19 @@ export default function PlatformRequestDetailPage() {
             <tbody>
               {solicitud.users.map((u) => (
                 <tr key={u.username}>
-                  <td>
-                    <code>{u.username}</code>
-                  </td>
+                  <td className="operador-cell-mono">{u.username}</td>
                   <td>{u.nombreCompleto}</td>
-                  <td>{ROL_LABELS[u.rol] ?? u.rol}</td>
-                  <td className="text-secondary small">
-                    {status === 'active'
-                      ? 'Activo'
-                      : status === 'rejected'
-                        ? 'No creado'
-                        : 'Pendiente de activación'}
+                  <td>
+                    <RoleBadge rol={u.rol} />
+                  </td>
+                  <td>
+                    <UserStateBadge status={status} />
                   </td>
                 </tr>
               ))}
               {solicitud.users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center text-secondary py-3">
+                  <td colSpan={4} className="operador-cell-muted" style={{ textAlign: 'center', padding: '1rem' }}>
                     Sin usuarios definidos
                   </td>
                 </tr>
@@ -283,39 +294,37 @@ export default function PlatformRequestDetailPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      {/* D) Decisión del operador */}
-      <div className="card mb-4">
-        <div className="card-header">
-          <h3 className="card-title">Decisión del operador</h3>
+      <section className="operador-section">
+        <div className="operador-section-header">
+          <h2 className="operador-section-title">Decisión del operador</h2>
         </div>
-        <div className="card-body">
-          {error ? <div className="alert alert-danger">{error}</div> : null}
+        <div className="operador-section-body">
+          {error ? <div className="operador-notice operador-notice--danger">{error}</div> : null}
 
           {status === 'pending' ? (
             <>
-              <p className="text-secondary small mb-3">
-                Revisa la solicitud y aprueba para pasar a provisioning, o recházala si no cumple los
-                requisitos.
+              <p className="operador-help-text">
+                Revisa la solicitud y aprueba para pasar a provisioning, o recházala si no cumple los requisitos.
               </p>
-              <div className="d-flex flex-wrap gap-2 mb-4">
+              <div className="operador-actions mb-3">
                 <button
                   type="button"
                   disabled={busy}
-                  className="btn btn-primary"
+                  className="operador-btn-action operador-btn-action--primary"
                   onClick={() => void runAction(async () => { await marcarProvisioning(solicitud.id) })}
                 >
                   Aprobar (pasar a provisioning)
                 </button>
               </div>
-              <div className="pt-3 border-top">
+              <div className="operador-divider">
                 <label className="form-label">Motivo de rechazo</label>
-                <input className="form-control" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+                <input className="form-control operador-input" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
                 <button
                   type="button"
                   disabled={busy}
-                  className="btn btn-outline-danger mt-2"
+                  className="operador-btn-action operador-btn-action--danger mt-2"
                   onClick={() => void runAction(async () => {
                     await rechazarSolicitud(solicitud.id, motivo)
                     navigate('/admin/solicitudes')
@@ -329,23 +338,25 @@ export default function PlatformRequestDetailPage() {
 
           {status === 'provisioning' ? (
             <>
-              <p className="text-secondary small mb-3">
+              <p className="operador-help-text">
                 Completa la configuración técnica y activa el tenant para generar credenciales.
               </p>
-              <button
-                type="button"
-                disabled={busy || !checklist.canal}
-                className="btn btn-warning"
-                onClick={() => void runAction(async () => {
-                  const res = await activarSolicitud(solicitud.id)
-                  setResultado(res)
-                  guardarResultado(solicitud.id, res)
-                })}
-              >
-                Activar tenant
-              </button>
+              <div className="operador-actions">
+                <button
+                  type="button"
+                  disabled={busy || !checklist.canal}
+                  className="operador-btn-action operador-btn-action--warn"
+                  onClick={() => void runAction(async () => {
+                    const res = await activarSolicitud(solicitud.id)
+                    setResultado(res)
+                    guardarResultado(solicitud.id, res)
+                  })}
+                >
+                  Activar tenant
+                </button>
+              </div>
               {!checklist.canal ? (
-                <p className="text-secondary small mt-2 mb-0">
+                <p className="operador-help-text mt-2 mb-0">
                   Marca el checklist de canal Fabric en «Avanzado técnico» antes de activar.
                 </p>
               ) : null}
@@ -353,39 +364,32 @@ export default function PlatformRequestDetailPage() {
           ) : null}
 
           {status === 'active' ? (
-            <div className="alert alert-success mb-0">
-              <strong>Tenant activo.</strong> El integrador puede consultar su estado y credenciales
-              permitidas desde el Portal Integrador.
+            <div className="operador-notice operador-notice--success mb-0">
+              <strong>Tenant activo.</strong> El integrador puede consultar su estado y credenciales permitidas desde
+              el Portal Integrador.
             </div>
           ) : null}
 
           {status === 'rejected' ? (
-            <div className="alert alert-danger mb-0">
-              <h4 className="alert-heading h5">Solicitud rechazada</h4>
-              <p className="mb-0">{solicitud.rejectReason || 'Sin motivo registrado.'}</p>
+            <div className="operador-notice operador-notice--danger mb-0">
+              <strong>Solicitud rechazada.</strong> {solicitud.rejectReason || 'Sin motivo registrado.'}
             </div>
           ) : null}
         </div>
-      </div>
+      </section>
 
-      {/* Credenciales generadas */}
       {status === 'active' && credenciales ? (
-        <div className="card mb-4 border-success">
-          <div className="card-header bg-success-lt">
-            <h3 className="card-title text-success">Credenciales generadas</h3>
+        <section className="operador-section operador-section--success">
+          <div className="operador-section-header">
+            <h2 className="operador-section-title">Credenciales generadas</h2>
           </div>
-          <div className="card-body">
-            <CopyField
-              label="URL middleware"
-              value={credenciales.middlewareUrl}
-            />
+          <div className="operador-section-body">
+            <CopyField label="URL middleware" value={credenciales.middlewareUrl} />
             {keyOrder.map((rol) => {
               const key = credenciales.apiKeys[rol]
               if (!key) return null
               const meta = KEY_HINTS[rol]
-              return (
-                <CopyField key={rol} label={meta.label} hint={meta.hint} value={key} />
-              )
+              return <CopyField key={rol} label={meta.label} hint={meta.hint} value={key} />
             })}
             {Object.entries(credenciales.apiKeys)
               .filter(([rol]) => !keyOrder.includes(rol as (typeof keyOrder)[number]))
@@ -394,28 +398,26 @@ export default function PlatformRequestDetailPage() {
               ))}
 
             {Object.keys(credenciales.userPasswords).length > 0 ? (
-              <div className="mt-4 pt-4 border-top">
-                <h4 className="h5 mb-3">Usuarios de consola</h4>
-                <div className="table-responsive">
-                  <table className="table table-sm table-vcenter">
+              <div className="operador-divider">
+                <h3 className="operador-section-title mb-3">Usuarios de consola</h3>
+                <div className="operador-table-wrap">
+                  <table className="operador-table">
                     <thead>
                       <tr>
                         <th>Usuario</th>
                         <th>Contraseña temporal</th>
-                        <th className="w-1" />
+                        <th />
                       </tr>
                     </thead>
                     <tbody>
                       {Object.entries(credenciales.userPasswords).map(([user, pwd]) => (
                         <tr key={user}>
-                          <td>
-                            <code>{user}</code>
-                          </td>
-                          <td className="font-monospace small">{pwd}</td>
+                          <td className="operador-cell-mono">{user}</td>
+                          <td className="operador-cell-mono">{pwd}</td>
                           <td>
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-secondary"
+                              className="operador-btn-sm"
                               onClick={() => copyToClipboard(pwd)}
                             >
                               Copiar
@@ -429,56 +431,54 @@ export default function PlatformRequestDetailPage() {
               </div>
             ) : null}
 
-            <p className="text-secondary small mt-3 mb-2">
+            <p className="operador-help-text mt-2 mb-2">
               El integrador solo verá las keys Integrador y Lectura en el Portal Integrador.
             </p>
             <Link
               to={`/admin/solicitudes/${solicitud.id}/preview-integrador`}
-              className="btn btn-outline-primary btn-sm"
+              className="operador-btn-outline"
             >
               Previsualizar vista del integrador
             </Link>
           </div>
-        </div>
+        </section>
       ) : status === 'active' && !credenciales ? (
-        <div className="card mb-4">
-          <div className="card-body">
-            <p className="text-secondary small mb-0">
-              Las credenciales se mostraron al activar el tenant en esta consola. Si necesitas
-              consultarlas de nuevo, revisa el registro de la sesión de activación o vuelve a cargar
-              tras activar en el mismo navegador.
+        <section className="operador-section">
+          <div className="operador-section-body">
+            <p className="operador-help-text mb-0">
+              Las credenciales se mostraron al activar el tenant en esta consola. Si necesitas consultarlas de nuevo,
+              revisa el registro de la sesión de activación o vuelve a cargar tras activar en el mismo navegador.
             </p>
             <Link
               to={`/admin/solicitudes/${solicitud.id}/preview-integrador`}
-              className="btn btn-outline-primary btn-sm mt-3"
+              className="operador-btn-outline mt-3 d-inline-flex"
             >
               Previsualizar vista del integrador
             </Link>
           </div>
-        </div>
+        </section>
       ) : null}
 
-      {/* Avanzado técnico */}
       {(status === 'pending' || status === 'provisioning') && (
-        <div className="card mb-4">
-          <div className="card-header">
+        <section className="operador-section">
+          <div className="operador-section-header">
             <button
               type="button"
-              className="btn btn-link text-reset w-100 text-start p-0 text-decoration-none"
+              className="operador-collapse-toggle"
               onClick={() => setAvanzadoAbierto((v) => !v)}
               aria-expanded={avanzadoAbierto}
             >
-              <h3 className="card-title mb-0">
+              <h2 className="operador-section-title">
                 Avanzado técnico {avanzadoAbierto ? '▾' : '▸'}
-              </h3>
+              </h2>
+              <p className="operador-section-subtitle">
+                Información técnica para soporte, depuración o defensa del proyecto.
+              </p>
             </button>
-            <div className="card-subtitle text-secondary">
-              Información técnica para soporte, depuración o defensa del proyecto.
-            </div>
           </div>
           {avanzadoAbierto ? (
-            <div className="card-body">
-              <p className="text-secondary small">Ejecuta en la red Hyperledger antes de activar:</p>
+            <div className="operador-section-body">
+              <p className="operador-help-text">Ejecuta en la red Hyperledger antes de activar:</p>
               <SnippetBlock title="Comando Fabric" value={fabricCommand} onCopy={() => copyToClipboard(fabricCommand)} />
               <SnippetBlock title="Reiniciar middleware" value={RELOAD_CMD} onCopy={() => copyToClipboard(RELOAD_CMD)} />
               <div className="mt-3">
@@ -512,7 +512,7 @@ export default function PlatformRequestDetailPage() {
               </div>
             </div>
           ) : null}
-        </div>
+        </section>
       )}
     </div>
   )
