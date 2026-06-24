@@ -144,8 +144,47 @@ export function SnippetBlock({
         </button>
       </div>
       <div className="card-body p-0">
-        <pre className="snippet-pre p-3 bg-light">{value}</pre>
+        <pre className="snippet-pre p-3 bg-light text-dark">{value}</pre>
       </div>
+    </div>
+  )
+}
+
+export function roleBriefHint(rol: 'admin' | 'integrador' | 'lectura'): string {
+  if (rol === 'admin') {
+    return 'Aprueba la cola de cambios y escribe directo en ledger (HTTP 201).'
+  }
+  if (rol === 'integrador') {
+    return 'Propone cambios vía API; recibe HTTP 202 hasta que un admin apruebe.'
+  }
+  return 'Solo consultas e historial (GET). Sin mutaciones.'
+}
+
+export function RoleHelpTable() {
+  return (
+    <div className="table-responsive mt-3">
+      <table className="table table-sm table-bordered mb-0 small">
+        <thead className="table-light">
+          <tr>
+            <th scope="col">Rol</th>
+            <th scope="col">Para qué sirve en la Consola Cliente Nexum</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="fw-semibold">admin</td>
+            <td>Aprueba la cola de cambios, escribe directo en ledger (201) y recibe notificaciones administrativas.</td>
+          </tr>
+          <tr>
+            <td className="fw-semibold">integrador</td>
+            <td>Propone altas, ediciones, bajas y restauraciones vía API; recibe 202 pendiente hasta aprobación admin.</td>
+          </tr>
+          <tr>
+            <td className="fw-semibold">lectura</td>
+            <td>Solo consultas e historial (GET). Las mutaciones devuelven 403.</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   )
 }

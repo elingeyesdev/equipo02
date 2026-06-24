@@ -25,6 +25,8 @@ pre.snippet-pre {
   overflow: auto;
   font-size: 0.75rem;
   margin: 0;
+  color: var(--nex-text, #1e293b);
+  background: #f1f5f9;
 }
 
 .landing-hero {
