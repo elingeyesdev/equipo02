@@ -8,7 +8,7 @@ import {
   formatDevRequestDate,
   formatSolicitudLoadError,
 } from '../components/dev/DevRequestStatusUi'
-import { copyToClipboard, inputClass } from '../components/onboarding/OnboardingUi'
+import { copyToClipboard } from '../components/onboarding/OnboardingUi'
 import { useDevAuth } from '../context/DevAuthContext'
 import type { StackTarget } from '../lib/onboardingSnippets'
 import {
@@ -17,6 +17,7 @@ import {
   type DevRequestStatus,
   type DevTenantRequest,
 } from '../services/devPortalApi'
+import '../dev-status.css'
 
 const ROL_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -40,6 +41,21 @@ function formatCredError(message: string): string {
   return message
 }
 
+function FieldItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <div className="dev-status-field-label">{label}</div>
+      <div className={`dev-status-field-value${mono ? ' dev-status-field-value--mono' : ''}`}>{value}</div>
+    </div>
+  )
+}
+
+function RoleBadge({ rol }: { rol: string }) {
+  const label = ROL_LABELS[rol] ?? rol
+  const tone = rol === 'admin' ? 'admin' : rol === 'integrador' ? 'integrador' : 'lectura'
+  return <span className={`dev-status-role-badge dev-status-role-badge--${tone}`}>{label}</span>
+}
+
 function CredField({
   label,
   hint,
@@ -59,12 +75,12 @@ function CredField({
   }
 
   return (
-    <div className="mb-4">
-      <div className="fw-semibold mb-1">{label}</div>
-      <p className="text-secondary small mb-2">{hint}</p>
-      <div className="d-flex flex-wrap gap-2 align-items-start">
-        <code className="flex-grow-1 p-2 bg-light rounded small text-break">{value}</code>
-        <button type="button" className="btn btn-sm btn-outline-secondary shrink-0" onClick={handleCopy}>
+    <div className="dev-status-copy-field">
+      <div className="dev-status-copy-label">{label}</div>
+      <p className="dev-status-copy-hint">{hint}</p>
+      <div className="dev-status-copy-row">
+        <code className="dev-status-copy-value">{value}</code>
+        <button type="button" className="dev-status-btn-sm" onClick={handleCopy}>
           {copied ? 'Copiado' : 'Copiar'}
         </button>
       </div>
@@ -82,7 +98,7 @@ function CopyPasswordButton({ value }: { value: string }) {
   }
 
   return (
-    <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handleCopy}>
+    <button type="button" className="dev-status-btn-sm" onClick={handleCopy}>
       {copied ? 'Copiado' : 'Copiar'}
     </button>
   )
@@ -182,21 +198,29 @@ export default function DevPortalStatusPage() {
   }, [solicitud?.status, devEstado, id, isOperatorPreview])
 
   if (loading && !solicitud) {
-    return <div className="container-xl py-5 text-center text-secondary">Cargando estado…</div>
+    return (
+      <div className="dev-status-page">
+        <div className="dev-status-shell dev-status-loading">Cargando estado…</div>
+      </div>
+    )
   }
 
   if (!solicitud) {
     return (
-      <div className="container-xl py-5">
-        <div className="card mx-auto" style={{ maxWidth: '32rem' }}>
-          <div className="card-body text-center py-5">
-            <div className="alert alert-danger mb-4">{loadError ?? 'Solicitud no encontrada.'}</div>
-            <Link to="/dev/mis-solicitudes" className="btn btn-outline-primary me-2">
-              Mis solicitudes
-            </Link>
-            <Link to="/dev" className="btn btn-outline-secondary">
-              Volver al portal
-            </Link>
+      <div className="dev-status-page">
+        <div className="dev-status-shell">
+          <div className="dev-status-error-card">
+            <div className="dev-status-notice dev-status-notice--danger mb-0">
+              {loadError ?? 'Solicitud no encontrada.'}
+            </div>
+            <div className="dev-status-error-actions">
+              <Link to="/dev/mis-solicitudes" className="dev-status-btn-outline">
+                Mis solicitudes
+              </Link>
+              <Link to="/dev" className="dev-status-btn-outline">
+                Volver al portal
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -209,229 +233,240 @@ export default function DevPortalStatusPage() {
   const credencialesCargadas = !isOperatorPreview && !!(integradorKey || lecturaKey)
 
   return (
-    <div className="container-xl py-4">
-      {isOperatorPreview ? (
-        <div className="alert alert-warning mb-4" role="status">
-          <strong>Vista previa de operador:</strong> estás viendo cómo se presentará esta solicitud al
-          integrador. Esta vista no cambia permisos ni inicia sesión como dev.
-          {id ? (
-            <Link to={`/admin/solicitudes/${id}`} className="btn btn-sm btn-outline-secondary ms-0 ms-md-3 mt-2 mt-md-0 d-block d-md-inline-block">
-              ← Volver a Consola Operador
-            </Link>
-          ) : null}
-        </div>
-      ) : null}
+    <div className="dev-status-page">
+      <div className="dev-status-shell">
+        {!isOperatorPreview ? (
+          <Link to="/dev/mis-solicitudes" className="dev-status-back">
+            ← Mis solicitudes
+          </Link>
+        ) : null}
 
-      <div className="card mb-4">
-        <div className="card-header">
-          <h2 className="card-title">Estado de solicitud</h2>
-        </div>
-        <div className="card-body">
-          <div className="row g-3">
-            <div className="col-md-6">
-              <div className="text-secondary small">Organización</div>
-              <div className="fw-semibold">{solicitud.orgName}</div>
-            </div>
-            <div className="col-md-6">
-              <div className="text-secondary small">Tenant ID</div>
-              <div className="font-monospace">{solicitud.tenantId}</div>
-            </div>
-            <div className="col-md-6">
-              <div className="text-secondary small">Estado actual</div>
-              <div className="mt-1">
-                <DevRequestStatusBadge status={solicitud.status} />
-              </div>
-            </div>
-            <div className="col-md-6">
-              <div className="text-secondary small">ID de solicitud</div>
-              <div className="font-monospace small text-break">{solicitud.id}</div>
-            </div>
-            {fecha ? (
-              <div className="col-md-6">
-                <div className="text-secondary small">Última actualización</div>
-                <div>{fecha}</div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="card mb-4">
-        <div className="card-header">
-          <h3 className="card-title">Flujo de integración</h3>
-        </div>
-        <div className="card-body">
-          <DevRequestFlowTimeline status={solicitud.status} />
-        </div>
-      </div>
-
-      <div className="alert alert-primary mb-4" role="status">
-        <h4 className="alert-heading h5 mb-2">Qué debes hacer ahora</h4>
-        <p className="mb-0">{statusMeta.actionNow}</p>
-      </div>
-
-      {solicitud.status === 'rejected' && solicitud.rejectReason ? (
-        <div className="alert alert-danger mb-4" role="alert">
-          <h4 className="alert-heading h5 mb-2">Motivo de rechazo</h4>
-          <p className="mb-0">{solicitud.rejectReason}</p>
-        </div>
-      ) : null}
-
-      {(solicitud.status === 'pending' || solicitud.status === 'provisioning') && (
-        <div className="alert alert-info mb-4">
-          Mientras esperas, puedes usar el código de integración con placeholders hasta la activación.
-          {solicitud.integration?.entityType ? (
-            <span className="d-block mt-1">
-              Integración: <strong>{solicitud.integration.entityType}</strong> ({solicitud.integration.stack})
-            </span>
-          ) : null}
-        </div>
-      )}
-
-      {solicitud.status === 'active' && isOperatorPreview ? (
-        <div className="card mb-4">
-          <div className="card-header">
-            <h3 className="card-title">Credenciales visibles solo para el integrador</h3>
-          </div>
-          <div className="card-body">
-            <p className="text-secondary mb-4">
-              Esta es una vista previa del operador. Las credenciales reales se muestran únicamente al
-              integrador autenticado desde el Portal Integrador. El operador puede revisar las credenciales
-              desde la Consola Operador.
-            </p>
+        {isOperatorPreview ? (
+          <div className="dev-status-notice dev-status-notice--warn" role="status">
+            <strong>Vista previa de operador:</strong> estás viendo cómo se presentará esta solicitud al integrador.
+            Esta vista no cambia permisos ni inicia sesión como dev.
             {id ? (
-              <Link to={`/admin/solicitudes/${id}`} className="btn btn-outline-primary">
-                Volver a detalle operador
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {solicitud.status === 'active' && !isOperatorPreview ? (
-        <div className="card mb-4">
-          <div className="card-header">
-            <h3 className="card-title">Credenciales</h3>
-            <div className="card-subtitle text-secondary">
-              Usa las keys según el tipo de integración o acceso que necesites
-            </div>
-          </div>
-          <div className="card-body">
-            {devEstado === 'autenticado' ? (
-              <p className="text-secondary small mb-3">Sesión: {usuario?.email}</p>
-            ) : (
-              <div className="mb-4">
-                <p className="text-secondary mb-2">
-                  <Link to="/dev/login" state={{ from: `/dev/estado/${id}` }}>
-                    Inicia sesión
-                  </Link>{' '}
-                  con la cuenta que creó la solicitud para cargar las credenciales automáticamente.
-                </p>
-                <div className="d-flex flex-wrap gap-2">
-                  <input
-                    className={`${inputClass} form-control`}
-                    style={{ maxWidth: '16rem' }}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email de contacto"
-                  />
-                  <button type="button" className="btn btn-primary" onClick={() => void fetchCredenciales(email.trim())}>
-                    Obtener credenciales
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {credError ? <div className="alert alert-danger">{credError}</div> : null}
-
-            {credencialesCargadas ? (
-              <>
-                <div className="mb-4 pb-4 border-bottom">
-                  <h4 className="h5 mb-3">Para tu backend</h4>
-                  <CredField
-                    label="URL del middleware"
-                    hint="Endpoint base para conectar tu backend con Nexum."
-                    value={middlewareUrl}
-                  />
-                  <CredField
-                    label="API Key Integrador"
-                    hint="Usa esta key en el backend del sistema cliente para enviar operaciones de creación, actualización o eliminación. Las operaciones sensibles pueden quedar sujetas a aprobación."
-                    value={integradorKey}
-                  />
-                  <CredField
-                    label="API Key Lectura"
-                    hint="Usa esta key para consultar datos, historial o trazabilidad sin permisos de modificación."
-                    value={lecturaKey}
-                  />
-                </div>
-
-                <div className="alert alert-warning mb-4" role="alert">
-                  La API Key Admin no se entrega en el Portal Integrador por seguridad. Las acciones
-                  administrativas se realizan desde la Consola Cliente usando usuarios con rol admin.
-                </div>
-              </>
-            ) : null}
-
-            {Object.keys(userPasswords).length > 0 ? (
-              <div>
-                <h4 className="h5 mb-2">Para tu equipo</h4>
-                <p className="text-secondary small mb-3">
-                  Estos usuarios permiten acceder a la Consola Cliente. El rol admin puede revisar y
-                  aprobar operaciones según la configuración del tenant.
-                </p>
-                <div className="table-responsive">
-                  <table className="table table-sm table-vcenter">
-                    <thead>
-                      <tr>
-                        <th>Usuario</th>
-                        <th>Rol</th>
-                        <th>Contraseña temporal</th>
-                        <th className="w-1" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(userPasswords).map(([user, pwd]) => {
-                        const rol = rolPorUsuario.get(user)
-                        const rolLabel = rol ? (ROL_LABELS[rol] ?? rol) : 'Rol no disponible'
-                        return (
-                          <tr key={user}>
-                            <td>
-                              <code>{user}</code>
-                            </td>
-                            <td>{rolLabel}</td>
-                            <td className="font-monospace small">{pwd}</td>
-                            <td>
-                              <CopyPasswordButton value={pwd} />
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <Link to="/login" className="btn btn-outline-primary btn-sm mt-2">
-                  Ir a la consola tenant
+              <div className="dev-status-callout-action">
+                <Link to={`/admin/solicitudes/${id}`} className="dev-status-btn-outline">
+                  ← Volver a Consola Operador
                 </Link>
               </div>
             ) : null}
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">Paquete de integración</h3>
-          <div className="card-subtitle text-secondary">Código generado con tu diseño ({stack})</div>
+        <div className="dev-status-header">
+          <div className="dev-status-title-row">
+            <h1 className="dev-status-title">{solicitud.orgName}</h1>
+            <DevRequestStatusBadge status={solicitud.status} />
+          </div>
+          <div className="dev-status-meta">
+            <span>
+              tenant_id: <code>{solicitud.tenantId}</code>
+            </span>
+            {fecha ? <span>Actualizado: {fecha}</span> : null}
+          </div>
         </div>
-        <div className="card-body">
-          <IntegrationCodePanel
-            ctx={ctx}
-            stack={stack}
-            keysPending={keysPending}
-            showTestButton={!isOperatorPreview && solicitud.status === 'active' && !!integradorKey}
-            downloadName={`integracion-${solicitud.tenantId}`}
-          />
+
+        <section className="dev-status-section">
+          <div className="dev-status-section-header">
+            <h2 className="dev-status-section-title">Resumen de solicitud</h2>
+          </div>
+          <div className="dev-status-section-body">
+            <div className="dev-status-field-grid">
+              <FieldItem label="Organización" value={solicitud.orgName} />
+              <FieldItem label="Tenant ID" value={solicitud.tenantId} mono />
+              <div>
+                <div className="dev-status-field-label">Estado actual</div>
+                <DevRequestStatusBadge status={solicitud.status} />
+              </div>
+              <FieldItem label="ID de solicitud" value={solicitud.id} mono />
+            </div>
+          </div>
+        </section>
+
+        <section className="dev-status-section">
+          <div className="dev-status-section-header">
+            <h2 className="dev-status-section-title">Flujo de integración</h2>
+          </div>
+          <div className="dev-status-section-body">
+            <DevRequestFlowTimeline status={solicitud.status} />
+          </div>
+        </section>
+
+        <div className="dev-status-notice dev-status-notice--primary" role="status">
+          <h3 className="dev-status-notice-title">Qué debes hacer ahora</h3>
+          <p className="dev-status-notice-text">{statusMeta.actionNow}</p>
         </div>
+
+        {solicitud.status === 'rejected' && solicitud.rejectReason ? (
+          <div className="dev-status-notice dev-status-notice--danger" role="alert">
+            <h3 className="dev-status-notice-title">Motivo de rechazo</h3>
+            <p className="dev-status-notice-text mb-0">{solicitud.rejectReason}</p>
+          </div>
+        ) : null}
+
+        {(solicitud.status === 'pending' || solicitud.status === 'provisioning') && (
+          <div className="dev-status-notice dev-status-notice--info">
+            Mientras esperas, puedes usar el código de integración con placeholders hasta la activación.
+            {solicitud.integration?.entityType ? (
+              <span className="d-block mt-1">
+                Integración: <strong>{solicitud.integration.entityType}</strong> ({solicitud.integration.stack})
+              </span>
+            ) : null}
+          </div>
+        )}
+
+        {solicitud.status === 'active' && isOperatorPreview ? (
+          <section className="dev-status-section">
+            <div className="dev-status-section-header">
+              <h2 className="dev-status-section-title">Credenciales visibles solo para el integrador</h2>
+            </div>
+            <div className="dev-status-section-body">
+              <p className="dev-status-copy-hint mb-3">
+                Esta es una vista previa del operador. Las credenciales reales se muestran únicamente al integrador
+                autenticado desde el Portal Integrador. El operador puede revisar las credenciales desde la Consola
+                Operador.
+              </p>
+              {id ? (
+                <Link to={`/admin/solicitudes/${id}`} className="dev-status-btn-outline">
+                  Volver a detalle operador
+                </Link>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        {solicitud.status === 'active' && !isOperatorPreview ? (
+          <section className="dev-status-section">
+            <div className="dev-status-section-header">
+              <h2 className="dev-status-section-title">Credenciales</h2>
+              <p className="dev-status-section-subtitle">
+                Usa las keys según el tipo de integración o acceso que necesites
+              </p>
+            </div>
+            <div className="dev-status-section-body">
+              {devEstado === 'autenticado' ? (
+                <p className="dev-status-session">Sesión: {usuario?.email}</p>
+              ) : (
+                <div className="mb-3">
+                  <p className="dev-status-copy-hint mb-2">
+                    <Link to="/dev/login" state={{ from: `/dev/estado/${id}` }}>
+                      Inicia sesión
+                    </Link>{' '}
+                    con la cuenta que creó la solicitud para cargar las credenciales automáticamente.
+                  </p>
+                  <div className="dev-status-cred-actions">
+                    <input
+                      className="dev-status-input form-control"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email de contacto"
+                    />
+                    <button
+                      type="button"
+                      className="dev-status-btn-primary"
+                      onClick={() => void fetchCredenciales(email.trim())}
+                    >
+                      Obtener credenciales
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {credError ? (
+                <div className="dev-status-notice dev-status-notice--danger">{credError}</div>
+              ) : null}
+
+              {credencialesCargadas ? (
+                <>
+                  <div className="dev-status-divider" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
+                    <h3 className="dev-status-subtitle">Para tu backend</h3>
+                    <CredField
+                      label="URL del middleware"
+                      hint="Endpoint base para conectar tu backend con Nexum."
+                      value={middlewareUrl}
+                    />
+                    <CredField
+                      label="API Key Integrador"
+                      hint="Usa esta key en el backend del sistema cliente para enviar operaciones de creación, actualización o eliminación. Las operaciones sensibles pueden quedar sujetas a aprobación."
+                      value={integradorKey}
+                    />
+                    <CredField
+                      label="API Key Lectura"
+                      hint="Usa esta key para consultar datos, historial o trazabilidad sin permisos de modificación."
+                      value={lecturaKey}
+                    />
+                  </div>
+
+                  <div className="dev-status-notice dev-status-notice--warn">
+                    La API Key Admin no se entrega en el Portal Integrador por seguridad. Las acciones administrativas
+                    se realizan desde la Consola Cliente usando usuarios con rol admin.
+                  </div>
+                </>
+              ) : null}
+
+              {Object.keys(userPasswords).length > 0 ? (
+                <div className="dev-status-divider">
+                  <h3 className="dev-status-subtitle">Para tu equipo</h3>
+                  <p className="dev-status-copy-hint mb-3">
+                    Estos usuarios permiten acceder a la Consola Cliente. El rol admin puede revisar y aprobar
+                    operaciones según la configuración del tenant.
+                  </p>
+                  <div className="dev-status-table-wrap">
+                    <table className="dev-status-table">
+                      <thead>
+                        <tr>
+                          <th>Usuario</th>
+                          <th>Rol</th>
+                          <th>Contraseña temporal</th>
+                          <th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(userPasswords).map(([user, pwd]) => {
+                          const rol = rolPorUsuario.get(user)
+                          const rolLabel = rol ? (ROL_LABELS[rol] ?? rol) : 'Rol no disponible'
+                          return (
+                            <tr key={user}>
+                              <td className="dev-status-cell-mono">{user}</td>
+                              <td>
+                                {rol ? <RoleBadge rol={rol} /> : rolLabel}
+                              </td>
+                              <td className="dev-status-cell-mono">{pwd}</td>
+                              <td>
+                                <CopyPasswordButton value={pwd} />
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Link to="/login" className="dev-status-btn-outline mt-3 d-inline-flex">
+                    Ir a la consola tenant
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="dev-status-section">
+          <div className="dev-status-section-header">
+            <h2 className="dev-status-section-title">Paquete de integración</h2>
+            <p className="dev-status-section-subtitle">Código generado con tu diseño ({stack})</p>
+          </div>
+          <div className="dev-status-section-body dev-status-code-panel">
+            <IntegrationCodePanel
+              ctx={ctx}
+              stack={stack}
+              keysPending={keysPending}
+              showTestButton={!isOperatorPreview && solicitud.status === 'active' && !!integradorKey}
+              downloadName={`integracion-${solicitud.tenantId}`}
+            />
+          </div>
+        </section>
       </div>
     </div>
   )

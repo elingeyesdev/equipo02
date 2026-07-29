@@ -35,15 +35,15 @@ tenants:
                   destinatarios:
                     - admin-agri@empresa.com
                   tipo: email
-                - url: http://127.0.0.1:8000/api/blockchain/notificacion
-                  token: agro-webhook-local
-                  tipo: webhook
-                  eventos:
+                - eventos:
                     - dato.creado
                     - dato.editado
                     - dato.eliminado
                     - dato.restaurado
                     - solicitud.resuelta
+                  tipo: webhook
+                  token: agro-webhook-local
+                  url: http://127.0.0.1:8000/api/blockchain/notificacion
     bocados-confiteria:
         nombre: bocados-confitería
         descripcion: Tenant bocados-confiteria provisionado desde dev portal.
@@ -193,4 +193,34 @@ tenants:
                 - asunto: '[Smoke Test Org] {tipo} → {recurso}'
                   destinatarios:
                     - smoke@example.com
+                  tipo: email
+    tienda:
+        nombre: Tienda
+        descripcion: Tenant tienda provisionado desde dev portal.
+        msp_id: Org1MSP
+        cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
+        key_path_dir: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
+        tls_cert_path: ../red-hyperledger/test-network/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem
+        peer_endpoint: localhost:7051
+        peer_host_alias: peer0.org1.example.com
+        canal: tienda
+        chaincode: dato_cc
+        api_keys:
+            tienda-admin-2d0e9c44892f: admin
+            tienda-integrador-f5b72bfe05be: integrador
+            tienda-lectura-e6169597ed92: solo_lectura
+        notificaciones:
+            activado: true
+            eventos:
+                - dato.creado
+                - dato.editado
+                - dato.eliminado
+                - dato.restaurado
+                - solicitud.creada
+            roles_actor:
+                - integrador
+            destinos:
+                - asunto: '[Tienda] {tipo} → {recurso}'
+                  destinatarios:
+                    - eva@demo.com
                   tipo: email

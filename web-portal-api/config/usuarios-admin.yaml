@@ -1,17 +1,5 @@
-# Archivo REAL de cuentas de la Consola BaaS (web-cliente-demo).
-# Ver config/usuarios-admin.example.yaml para la documentación completa.
-#
-# Modelo UNIVERSAL: dos tenants de dominios distintos para la demo.
-#
-# Contraseñas de demo (NO usar en producción):
-#   AGRICULTURA (dominio agro):
-#     olga  / olga-agri-2026     (admin)
-#     tomas / tomas-agri-2026    (integrador)
-#     rosa  / rosa-agri-2026     (lectura)
-#   SALUD (dominio clínico):
-#     sara  / sara-salud-2026    (admin)
-#     hugo  / hugo-salud-2026    (integrador)
-#     elsa  / elsa-salud-2026    (lectura)
+# Cuentas de la Consola Cliente (web-cliente-demo).
+# Solo tenants demo: agricultura y salud. Ver usuarios-admin.example.yaml.
 
 default_tenant: agricultura
 
@@ -30,40 +18,33 @@ tenants:
       lectura: salud-lect-2026
 
 usuarios:
-  # --- Tenant agricultura ---
   - usuario: olga
-    nombre_completo: "Olga Roque"
+    contrasena_hash: $2a$10$YMAwVjbhD8oVerg3YD6OTuxVfF1lEaDfdS9JjXLgWbkOWKpvU/0de
+    nombre_completo: Olga Roque
     rol: admin
     tenant: agricultura
-    contrasena_hash: "$2a$10$YMAwVjbhD8oVerg3YD6OTuxVfF1lEaDfdS9JjXLgWbkOWKpvU/0de"
-
   - usuario: tomas
-    nombre_completo: "Tomás Quispe"
+    contrasena_hash: $2a$10$ooxHKcsWk0tGXKxDQf1cP.l94qrS0MQiJN3ZQtB9Bjixmdlef2xpy
+    nombre_completo: Tomás Quispe
     rol: integrador
     tenant: agricultura
-    contrasena_hash: "$2a$10$ooxHKcsWk0tGXKxDQf1cP.l94qrS0MQiJN3ZQtB9Bjixmdlef2xpy"
-
   - usuario: rosa
-    nombre_completo: "Rosa Auditora"
+    contrasena_hash: $2a$10$xwXhCfgOGLnFCHLQt9V3oe1yQXwaFCz8Stm5hWvJ6krlV9QQzFnCS
+    nombre_completo: Rosa Auditora
     rol: lectura
     tenant: agricultura
-    contrasena_hash: "$2a$10$xwXhCfgOGLnFCHLQt9V3oe1yQXwaFCz8Stm5hWvJ6krlV9QQzFnCS"
-
-  # --- Tenant salud ---
   - usuario: sara
-    nombre_completo: "Sara Admin Salud"
+    contrasena_hash: $2a$10$oyV1evue88IMnbGuwfNWou8H/BYdFrWsUpu/IO351ctZpDc5JtMvC
+    nombre_completo: Sara Admin Salud
     rol: admin
     tenant: salud
-    contrasena_hash: "$2a$10$oyV1evue88IMnbGuwfNWou8H/BYdFrWsUpu/IO351ctZpDc5JtMvC"
-
   - usuario: hugo
-    nombre_completo: "Hugo Integrador Salud"
+    contrasena_hash: $2a$10$CnN5MDe/tiedQSRXIyPsduf5cYvqHbz5gIl9tjYJyQUnUmvXJ7SAa
+    nombre_completo: Hugo Integrador Salud
     rol: integrador
     tenant: salud
-    contrasena_hash: "$2a$10$CnN5MDe/tiedQSRXIyPsduf5cYvqHbz5gIl9tjYJyQUnUmvXJ7SAa"
-
   - usuario: elsa
-    nombre_completo: "Elsa Auditora Salud"
+    contrasena_hash: $2a$10$P.bFWn6/VAbTkNdRPG/xwebv1JnmkKF3SR8UPAj4pyOwwGFRNkGBG
+    nombre_completo: Elsa Auditora Salud
     rol: lectura
     tenant: salud
-    contrasena_hash: "$2a$10$P.bFWn6/VAbTkNdRPG/xwebv1JnmkKF3SR8UPAj4pyOwwGFRNkGBG"

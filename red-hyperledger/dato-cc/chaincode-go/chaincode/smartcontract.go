@@ -45,6 +45,7 @@ type Dato struct {
 	Revision           int             `json:"revision"`
 }
 
+
 // HistoryEntry es una entrada del historial inmutable de un Dato.
 type HistoryEntry struct {
 	TxID      string          `json:"txId"`

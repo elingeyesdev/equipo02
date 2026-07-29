@@ -1,0 +1,495 @@
+/* Portal Integrador — estado de solicitud (/dev/estado/:id) */
+
+.dev-status-page {
+  --ds-navy: #0b1f3a;
+  --ds-blue: #2f6bff;
+  --ds-bg: #f4f7fb;
+  --ds-card: #ffffff;
+  --ds-border: #e3e8f0;
+  --ds-ink: #17233a;
+  --ds-muted: #667085;
+  --ds-ok: #16a56a;
+  --ds-danger: #dc3545;
+  --ds-warn: #f59e0b;
+  --ds-info: #06b6d4;
+  background: var(--ds-bg);
+  min-height: calc(100vh - 4.25rem);
+  padding: 1.35rem 1rem 2.5rem;
+}
+
+.dev-status-shell {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.dev-status-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ds-muted);
+  text-decoration: none;
+  margin-bottom: 0.85rem;
+}
+
+.dev-status-back:hover {
+  color: var(--ds-blue);
+}
+
+.dev-status-header {
+  margin-bottom: 1.15rem;
+}
+
+.dev-status-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.4rem;
+}
+
+.dev-status-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--ds-ink);
+  margin: 0;
+}
+
+.dev-status-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  font-size: 0.78rem;
+  color: var(--ds-muted);
+}
+
+.dev-status-meta code {
+  font-size: 0.75rem;
+  color: var(--ds-ink);
+}
+
+.dev-status-section {
+  background: var(--ds-card);
+  border: 1px solid var(--ds-border);
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(11, 31, 58, 0.04);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.dev-status-section-header {
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid #eef2f7;
+  background: #fafbfd;
+}
+
+.dev-status-section-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ds-navy);
+  margin: 0;
+}
+
+.dev-status-section-subtitle {
+  font-size: 0.72rem;
+  color: var(--ds-muted);
+  margin: 0.25rem 0 0;
+  line-height: 1.45;
+}
+
+.dev-status-section-body {
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.dev-status-field-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+@media (min-width: 768px) {
+  .dev-status-field-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dev-status-field-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ds-muted);
+  margin-bottom: 0.2rem;
+}
+
+.dev-status-field-value {
+  font-size: 0.8125rem;
+  color: var(--ds-ink);
+  word-break: break-word;
+}
+
+.dev-status-field-value--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.dev-status-page .badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.28rem 0.55rem;
+}
+
+.dev-status-page .badge.bg-warning {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #b45309 !important;
+}
+
+.dev-status-page .badge.bg-info {
+  background: rgba(6, 182, 212, 0.12) !important;
+  color: #0e7490 !important;
+}
+
+.dev-status-page .badge.bg-success {
+  background: rgba(22, 165, 106, 0.12) !important;
+  color: #15803d !important;
+}
+
+.dev-status-page .badge.bg-danger {
+  background: rgba(220, 53, 69, 0.1) !important;
+  color: #b91c1c !important;
+}
+
+.dev-status-page .badge.bg-secondary {
+  background: rgba(102, 112, 133, 0.12) !important;
+  color: var(--ds-muted) !important;
+}
+
+.dev-status-notice {
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin-bottom: 1rem;
+}
+
+.dev-status-notice--warn {
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-left: 3px solid var(--ds-warn);
+  background: rgba(245, 158, 11, 0.06);
+  color: #92400e;
+}
+
+.dev-status-notice--info {
+  border: 1px solid var(--ds-border);
+  border-left: 3px solid var(--ds-info);
+  background: rgba(6, 182, 212, 0.06);
+  color: var(--ds-ink);
+}
+
+.dev-status-notice--primary {
+  border: 1px solid rgba(47, 107, 255, 0.2);
+  border-left: 3px solid var(--ds-blue);
+  background: rgba(47, 107, 255, 0.05);
+  color: var(--ds-ink);
+}
+
+.dev-status-notice--danger {
+  border: 1px solid rgba(220, 53, 69, 0.25);
+  border-left: 3px solid var(--ds-danger);
+  background: rgba(220, 53, 69, 0.06);
+  color: #991b1b;
+}
+
+.dev-status-notice-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ds-navy);
+  margin: 0 0 0.35rem;
+}
+
+.dev-status-notice-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.dev-status-callout-action {
+  margin-top: 0.65rem;
+}
+
+.dev-status-page .dev-flow-timeline .rounded.border {
+  border-color: var(--ds-border) !important;
+  border-radius: 0.75rem !important;
+  background: #fafbfd !important;
+  padding: 0.75rem 0.5rem !important;
+}
+
+.dev-status-copy-field {
+  margin-bottom: 1rem;
+}
+
+.dev-status-copy-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ds-ink);
+  margin-bottom: 0.25rem;
+}
+
+.dev-status-copy-hint {
+  font-size: 0.72rem;
+  color: var(--ds-muted);
+  margin: 0 0 0.4rem;
+  line-height: 1.45;
+}
+
+.dev-status-copy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.dev-status-copy-value {
+  flex: 1 1 12rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  background: #f4f7fb;
+  border: 1px solid var(--ds-border);
+  border-radius: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  word-break: break-all;
+}
+
+.dev-status-btn-sm {
+  border: 1px solid rgba(47, 107, 255, 0.35);
+  background: #fff;
+  color: var(--ds-blue);
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dev-status-btn-sm:hover {
+  background: rgba(47, 107, 255, 0.06);
+}
+
+.dev-status-btn-primary {
+  border: none;
+  background: var(--ds-blue);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 0.55rem;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.dev-status-btn-primary:hover {
+  background: #2558d6;
+}
+
+.dev-status-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(47, 107, 255, 0.35);
+  background: #fff;
+  color: var(--ds-blue);
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 0.55rem;
+  padding: 0.4rem 0.75rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dev-status-btn-outline:hover {
+  background: rgba(47, 107, 255, 0.06);
+  color: var(--ds-blue);
+}
+
+.dev-status-input {
+  border-radius: 0.65rem;
+  border: 1px solid var(--ds-border);
+  font-size: 0.8125rem;
+  padding: 0.45rem 0.7rem;
+  max-width: 16rem;
+}
+
+.dev-status-input:focus {
+  border-color: rgba(47, 107, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.12);
+  outline: none;
+}
+
+.dev-status-cred-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.dev-status-session {
+  font-size: 0.75rem;
+  color: var(--ds-muted);
+  margin: 0 0 0.85rem;
+}
+
+.dev-status-divider {
+  border-top: 1px solid #eef2f7;
+  margin: 1rem 0;
+  padding-top: 1rem;
+}
+
+.dev-status-subtitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ds-navy);
+  margin: 0 0 0.65rem;
+}
+
+.dev-status-table-wrap {
+  overflow-x: auto;
+}
+
+.dev-status-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.dev-status-table thead th {
+  background: #f8fafc;
+  color: var(--ds-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--ds-border);
+  text-align: left;
+}
+
+.dev-status-table tbody td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #eef2f7;
+  color: var(--ds-ink);
+  vertical-align: middle;
+}
+
+.dev-status-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dev-status-cell-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+}
+
+.dev-status-role-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.22rem 0.5rem;
+}
+
+.dev-status-role-badge--admin {
+  background: rgba(11, 31, 58, 0.08);
+  color: var(--ds-navy);
+}
+
+.dev-status-role-badge--integrador {
+  background: rgba(47, 107, 255, 0.1);
+  color: var(--ds-blue);
+}
+
+.dev-status-role-badge--lectura {
+  background: rgba(102, 112, 133, 0.12);
+  color: var(--ds-muted);
+}
+
+.dev-status-error-card {
+  max-width: 28rem;
+  margin: 2rem auto;
+  background: var(--ds-card);
+  border: 1px solid var(--ds-border);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(11, 31, 58, 0.06);
+}
+
+.dev-status-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.dev-status-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--ds-muted);
+  font-size: 0.8125rem;
+}
+
+.dev-status-code-panel .alert {
+  border-radius: 0.65rem;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-left: 3px solid var(--ds-warn);
+  background: rgba(245, 158, 11, 0.06);
+  color: #92400e;
+  font-size: 0.78rem;
+  padding: 0.6rem 0.85rem;
+}
+
+.dev-status-code-panel .d-flex.flex-wrap.gap-2.mb-3 .btn-sm {
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+}
+
+.dev-status-code-panel .d-flex.flex-wrap.gap-2.mb-3 .btn-primary {
+  background: var(--ds-blue);
+  border-color: var(--ds-blue);
+}
+
+.dev-status-code-panel .d-flex.flex-wrap.gap-2.mb-3 .btn-outline-secondary {
+  border-color: var(--ds-border);
+  color: var(--ds-muted);
+}
+
+.dev-status-code-panel .d-flex.flex-wrap.gap-2.mb-3 .btn-outline-secondary:hover {
+  border-color: rgba(47, 107, 255, 0.35);
+  color: var(--ds-blue);
+  background: rgba(47, 107, 255, 0.04);
+}
+
+.dev-status-code-panel .card {
+  border: 1px solid var(--ds-border);
+  border-radius: 0.875rem;
+  box-shadow: none;
+}
+
+.dev-status-code-panel .card-body {
+  padding: 1rem;
+}
+
+.dev-status-code-panel .card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ds-navy);
+}
+
+.dev-status-code-panel pre,
+.dev-status-code-panel code {
+  font-size: 0.75rem;
+}
